@@ -65,47 +65,54 @@
 (setq visible-bell t)
 
 
-					; Font
-(set-face-attribute 'default nil :font "Iosevka" :height 280)
+					  ; Font
+  (set-face-attribute 'default nil :font "Iosevka" :height 280)
 
-(use-package all-the-icons
-  :if (display-graphic-p))
+  (use-package all-the-icons
+    :if (display-graphic-p))
 
-(use-package rainbow-delimiters
-  :hook (prog-mode . rainbow-delimiters-mode))
+  (use-package rainbow-delimiters
+    :hook (prog-mode . rainbow-delimiters-mode))
 
-(use-package doom-themes)
-(load-theme 'doom-gruvbox)
+  (use-package doom-themes)
+  (load-theme 'doom-gruvbox)
 
-(use-package doom-modeline
-  :init (doom-modeline-mode 1)
-  :config
-  (setq doom-modeline-icon (display-graphic-p)))
+  (use-package doom-modeline
+    :init (doom-modeline-mode 1)
+    :config
+    (setq doom-modeline-icon (display-graphic-p)))
 
-(use-package which-key ; should be moved
-  :init (which-key-mode)
-  :config
-  (setq which-key-idle-delay 0.3))
+  (use-package which-key ; should be moved
+    :init (which-key-mode)
+    :config
+    (setq which-key-idle-delay 0.3))
 
-(use-package general) ; should be moved maybe
+  (use-package general) ; should be moved maybe
 
-					; opacity
-(set-frame-parameter (selected-frame) 'alpha '(80 50))
-					;(add-to-list 'default-frame-alist '(alpha-background . 20))
-					; keybindings section
-(global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
-(global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
-(global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
-(global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
+  (defun mr-x/general-setup ()
+  (display-line-numbers-mode 1)
+  (set-frame-parameter (selected-frame) 'alpha '(80 50)))
+
+(add-hook 'text-mode-hook #'mr-x/general-setup)
+(add-hook 'prog-mode-hook #'mr-x/general-setup)
+
+					  ; opacity
+  (set-frame-parameter (selected-frame) 'alpha '(80 50))
+					  ;(add-to-list 'default-frame-alist '(alpha-background . 20))
+					  ; keybindings section
+  (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
+  (global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
+  (global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
+  (global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
 
 
 
-(setq inhibit-startup-message t) ; Disable the startup message
-(scroll-bar-mode -1) ; Disable the visible scrollbar
-(tool-bar-mode -1)   ; Disable the toolbar
-(tooltip-mode -1)    ; Disable tooltips
-(menu-bar-mode -1)   ; Disable the menu bar
-(set-fringe-mode 10) ; Give some breathing room
+  (setq inhibit-startup-message t) ; Disable the startup message
+  (scroll-bar-mode -1) ; Disable the visible scrollbar
+  (tool-bar-mode -1)   ; Disable the toolbar
+  (tooltip-mode -1)    ; Disable tooltips
+  (menu-bar-mode -1)   ; Disable the menu bar
+  (set-fringe-mode 10) ; Give some breathing room
 
 (use-package beacon
   :init
@@ -149,9 +156,13 @@
 (use-package PDF)
 (defun mr-x/PDFviewSetup()
   "preparation function for PDFView"
-    (visual-line-mode -1))
 
-(add-hook 'pdf-view-mode-hook 'mr-x/PDFviewSetup)
+(global-display-line-numbers-mode nil)
+(display-line-numbers-mode -1) 
+(set-frame-parameter (selected-frame) 'alpha '(100 50)))
+
+
+(add-hook 'pdf-view-mode-hook #'mr-x/PDFviewSetup)
 
 (use-package lsp-ui
   :hook (lsp-mode . lsp-ui-mode))
@@ -526,6 +537,18 @@
 	(org-roam-capture-templates (list (append (car org-roam-capture-templates)
 						  '(:immediate-finish t)))))
     (apply #'org-roam-node-insert args)))
+
+(use-package projectile
+:diminish projectile-mode
+:config (projectile-mode)
+:custom ((projectile-completion-system 'ivy))
+:bind-keymap
+("C-c p" . projectile-command-map)
+:init
+;; NOTE: Set this to the folder where you keep your Git repos!
+(when (file-directory-p "~/code/projects")
+  (setq projectile-project-search-path '("~/code/projects")))
+(setq projectile-switch-project-action #'projectile-dired))
 
 (use-package devdocs)
 
