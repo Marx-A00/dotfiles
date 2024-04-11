@@ -153,7 +153,6 @@
   (use-package company-box
     :hook (company-mode . company-box-mode))
 
-(use-package PDF)
 (defun mr-x/PDFviewSetup()
   "preparation function for PDFView"
 

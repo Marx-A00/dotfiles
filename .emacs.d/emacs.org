@@ -2,6 +2,7 @@
 * Emacs Application Setup
 ** Startup Direction
 #+begin_src emacs-lisp
+
     ;;(setenv "PATH" (concat (getenv "PATH") ":/opt/homebrew/bin"))
     ;;(setq exec-path (append exec-path '("/opt/homebrew/bin")))
 
@@ -202,7 +203,6 @@
 #+end_src
 *** PDFView
 #+begin_src emacs-lisp
-  (use-package PDF)
   (defun mr-x/PDFviewSetup()
     "preparation function for PDFView"
 
@@ -369,7 +369,7 @@
 	   ("C-d" . ivy-reverse-i-search-kill))
     :config
     (ivy-mode 1)
-    (setq ivy-use-virtual-buffers t)
+    (setq ivy-use-virtual-buffers nil)
     (setq ivy-count-format "(%d/%d) "))
 
   (use-package ivy-rich
