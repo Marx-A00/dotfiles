@@ -593,12 +593,12 @@
 
 #+begin_src emacs-lisp
 
-	; Org-babel
 
       (org-babel-do-load-languages
        'org-babel-load-languages
        '((emacs-lisp . t)
 	 (js . t)
+	 (typescript . t)
 	 (latex . t)
 	 (python . t)))
 
@@ -607,6 +607,7 @@
 
       ; structure templates
   (require 'org-tempo)
+  (add-to-list 'org-structure-template-alist '("ts" . "src typescript"))
   (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
   (add-to-list 'org-structure-template-alist '("py" . "src python"))
   (add-to-list 'org-structure-template-alist '("C" . "comment"))
