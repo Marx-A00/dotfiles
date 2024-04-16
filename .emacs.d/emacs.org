@@ -3,19 +3,24 @@
 ** Startup Direction
 #+begin_src emacs-lisp
 
-    ;;(setenv "PATH" (concat (getenv "PATH") ":/opt/homebrew/bin"))
-    ;;(setq exec-path (append exec-path '("/opt/homebrew/bin")))
+      ;;(setenv "PATH" (concat (getenv "PATH") ":/opt/homebrew/bin"))
+      ;;(setq exec-path (append exec-path '("/opt/homebrew/bin")))
 
-    ;; Check if `exec-path-from-shell` is not already installed
-  ;(unless (package-installed-p 'exec-path-from-shell)
-    ;; Refresh package databases
-   ; (package-refresh-contents)
-    ;; Install `exec-path-from-shell`
-    ;(package-install 'exec-path-from-shell))
+      ;; Check if `exec-path-from-shell` is not already installed
+    ;(unless (package-installed-p 'exec-path-from-shell)
+      ;; Refresh package databases
+     ; (package-refresh-contents)
+      ;; Install `exec-path-from-shell`
+      ;(package-install 'exec-path-from-shell))
 
-  ;; Initialize `exec-path-from-shell` after installation
-  ;(when (memq window-system '(mac ns x))
-   ; (exec-path-from-shell-initialize))
+    ;; Initialize `exec-path-from-shell` after installation
+    ;(when (memq window-system '(mac ns x))
+     ; (exec-path-from-shell-initialize))
+  (use-package exec-path-from-shell
+    :ensure t
+    :config
+    (when (memq window-system '(mac ns x))
+      (exec-path-from-shell-initialize)))
 
 #+end_src
 ** Package configuration
@@ -89,57 +94,57 @@
 ** Basic UI
 
 #+begin_src emacs-lisp
-      (setq visible-bell t)
+  (setq visible-bell t)
 
 
-					      ; Font
-      (set-face-attribute 'default nil :font "Iosevka" :height 280)
+					  ; Font
+  (set-face-attribute 'default nil :font "Iosevka" :height 280)
 
-      (use-package all-the-icons
-	:if (display-graphic-p))
+  (use-package all-the-icons
+    :if (display-graphic-p))
 
-      (use-package rainbow-delimiters
-	:hook (prog-mode . rainbow-delimiters-mode))
+  (use-package rainbow-delimiters
+    :hook (prog-mode . rainbow-delimiters-mode))
 
-      (use-package doom-themes)
-      (load-theme 'doom-gruvbox)
+  (use-package doom-themes)
+  (load-theme 'doom-gruvbox)
 
-      (use-package doom-modeline
-	:init (doom-modeline-mode 1)
-	:config
-	(setq doom-modeline-icon (display-graphic-p)))
+  (use-package doom-modeline
+    :init (doom-modeline-mode 1)
+    :config
+    (setq doom-modeline-icon (display-graphic-p)))
 
-      (use-package which-key ; should be moved
-	:init (which-key-mode)
-	:config
-	(setq which-key-idle-delay 0.3))
+  (use-package which-key ; should be moved
+    :init (which-key-mode)
+    :config
+    (setq which-key-idle-delay 0.3))
 
-      (use-package general) ; should be moved maybe
+  (use-package general) ; should be moved maybe
 
-      (defun mr-x/general-setup ()
-      (display-line-numbers-mode 1)
-      (set-frame-parameter (selected-frame) 'alpha '(80 50)))
+  (defun mr-x/general-setup ()
+    (display-line-numbers-mode 1)
+    (set-frame-parameter (selected-frame) 'alpha '(80 50)))
 
-    (add-hook 'text-mode-hook #'mr-x/general-setup)
-    (add-hook 'prog-mode-hook #'mr-x/general-setup)
+  (add-hook 'text-mode-hook #'mr-x/general-setup)
+  (add-hook 'prog-mode-hook #'mr-x/general-setup)
 
-					      ; opacity
-      (set-frame-parameter (selected-frame) 'alpha '(80 50))
-					      ;(add-to-list 'default-frame-alist '(alpha-background . 20))
-					      ; keybindings section
-      (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
-      (global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
-      (global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
-      (global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
+					  ; opacity
+  (set-frame-parameter (selected-frame) 'alpha '(80 50))
+  (add-to-list 'default-frame-alist '(alpha-background . 20))
+					  ; keybindings section
+  (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
+  (global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
+  (global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
+  (global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
 
 
 
-      (setq inhibit-startup-message t) ; Disable the startup message
-      (scroll-bar-mode -1) ; Disable the visible scrollbar
-      (tool-bar-mode -1)   ; Disable the toolbar
-      (tooltip-mode -1)    ; Disable tooltips
-      (menu-bar-mode -1)   ; Disable the menu bar
-      (set-fringe-mode 10) ; Give some breathing room
+  (setq inhibit-startup-message t) ; Disable the startup message
+  (scroll-bar-mode -1) ; Disable the visible scrollbar
+  (tool-bar-mode -1)   ; Disable the toolbar
+  (tooltip-mode -1)    ; Disable tooltips
+  (menu-bar-mode -1)   ; Disable the menu bar
+  (set-fringe-mode 10) ; Give some breathing room
 
 #+end_src
 ** UX
@@ -424,69 +429,79 @@
 
 
 #+begin_src emacs-lisp
-  (use-package org
-      :hook (org-mode . mr-x/org-mode-setup)
-      :config
-      (setq org-hide-emphasis-markers t)
-      (setq org-agenda-start-with-log-mode t)
-      (setq org-log-done 'time)
-      (setq org-log-into-drawer t)
-      (setq org-highlight-latex-and-related '(latex))
+    (use-package org
+	:hook (org-mode . mr-x/org-mode-setup)
+	:config
+	(setq org-hide-emphasis-markers t)
+	(setq org-agenda-start-with-log-mode t)
+	(setq org-log-done 'time)
+	(setq org-log-into-drawer t)
+	(setq org-highlight-latex-and-related '(latex))
 
-      ; org- habit setup
+	; org- habit setup
 
-      (require 'org-habit)
-      (add-to-list 'org-modules 'org-habit)
-      (setq org-habit-graph-column 60)
+	(require 'org-habit)
+	(add-to-list 'org-modules 'org-habit)
+	(setq org-habit-graph-column 60)
 
-      (setq org-todo-keywords
-	    '((sequence
-	       "TODO(t)"
-	       "NEXT(n)"
-	       "|"
-	       "DONE(d!)")
-	      (sequence
-	       "BACKLOG(b)"
-	       "PLAN(p)"
-	       "READY(r)"
-	       "IN-PROGRESS(i)"
-	       "REVIEW(v)"
-	       "WAIT(w@/!)"
-	       "HOLD(h)"
-	       "|"
-	       "COMPLETED(c)"
-	       "CANC(k@)")))
+	(setq org-todo-keywords
+	      '((sequence
+		 "TODO(t)"
+		 "NEXT(n)"
+		 "|"
+		 "DONE(d!)")
+		(sequence
+		 "BACKLOG(b)"
+		 "PLAN(p)"
+		 "READY(r)"
+		 "IN-PROGRESS(i)"
+		 "REVIEW(v)"
+		 "WAIT(w@/!)"
+		 "HOLD(h)"
+		 "|"
+		 "COMPLETED(c)"
+		 "CANC(k@)")))
 
-      (setq org-todo-keyword-faces
-	    '(("TODO" . "#FF1800")
-	      ("NEXT" . "#FF1800")
-	      ("PLAN" . "#F67F2F")
-	      ("DONE" . "#62656A")
-	      ("HOLD" . "#62656A")
-	      ("WAIT" . "#B7CBA8")
-	      ("IN-PROGRESS" . "#b7cba8") 
-	      ("BACKLOG" . "#62656A")))
+	(setq org-todo-keyword-faces
+	      '(("TODO" . "#FF1800")
+		("NEXT" . "#FF1800")
+		("PLAN" . "#F67F2F")
+		("DONE" . "#62656A")
+		("HOLD" . "#62656A")
+		("WAIT" . "#B7CBA8")
+		("IN-PROGRESS" . "#b7cba8") 
+		("BACKLOG" . "#62656A")))
 
-      (custom-set-faces
-       '(org-level-1 ((t (:foreground "#ff743f")))))
+	(custom-set-faces
+	 '(org-level-1 ((t (:foreground "#ff743f")))))
 
-      (custom-set-faces
-       '(org-level-2 ((t (:foreground "#67bc44")))))
+	(custom-set-faces
+	 '(org-level-2 ((t (:foreground "#67bc44")))))
 
-      (custom-set-faces
-       '(org-level-3 ((t (:foreground "#67c0de")))))
+	(custom-set-faces
+	 '(org-level-3 ((t (:foreground "#67c0de")))))
 
-      (setq org-refile-targets
-	    '(("Archive.org" :maxlevel . 1)))
+	(setq org-refile-targets
+	      '(("Archive.org" :maxlevel . 1)))
 
-      (advice-add 'org-refile :after 'org-save-all-org-buffers))
+	(advice-add 'org-refile :after 'org-save-all-org-buffers))
 
-  (require 'org-bullets)
-  (setq org-bullets-face-name (quote org-bullet-face))
-  (setq org-bullets-bullet-list '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
-  (setq org-ellipsis " ‧")
+  ;; (defun org-summary-todo (n-done n-not-done)
+  ;;   "Switch entry to DONE when all subentries are done, to TODO otherwise."
+  ;;   (let (org-log-done org-todo-log-states)   ; turn off logging
+  ;;     (org-todo (if (= n-not-done 0) "DONE" "TODO"))))
 
-  (add-hook 'org-mode-hook (lambda () (org-bullets-mode 1)))
+  ;; (add-hook 'org-after-todo-statistics-hook #'org-summary-todo)
+
+
+     (require 'org-bullets)
+    (setq org-bullets-face-name (quote org-bullet-face))
+    (setq org-bullets-bullet-list
+	  '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
+
+    (setq org-ellipsis " ‧")
+
+    (add-hook 'org-mode-hook (lambda () (org-bullets-mode 1)))
 
 
 #+end_src
