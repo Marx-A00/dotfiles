@@ -297,58 +297,58 @@
 
 * Dired
 #+begin_src emacs-lisp
-	(use-package dired
-	:ensure nil
-	:commands (dired dired-jump)
-	:bind (("C-x C-j" . dired-jump))
-	:custom
-	(setq insert-directory-program "gls" dired-use-ls-dired t)
-	(setq dired-listing-switches "-al --group-directories-first")
-	:config
-	(evil-collection-define-key 'normal 'dired-mode-map
-	  "h" 'dired-up-directory
-	  "l" 'dired-find-file))
+  (use-package dired
+    :ensure nil
+    :commands (dired dired-jump)
+    :bind (("C-x C-j" . dired-jump))
+    :custom
+    (setq insert-directory-program "gls" dired-use-ls-dired t)
+    (setq dired-listing-switches "-al --group-directories-first")
+    (setq dired-hide-details-mode 1)
+    :config
+    (evil-collection-define-key 'normal 'dired-mode-map
+      "h" 'dired-up-directory
+      "l" 'dired-find-file))
 
-
-      (defun my-dired-init ()
-      "Bunch of stuff to run for dired, either immediately or when it's
+  (defun my-dired-init ()
+    "Bunch of stuff to run for dired, either immediately or when it's
        loaded."
-      ;; <add other stuff here>
-      (define-key dired-mode-map [remap dired-find-file]
-	'dired-single-buffer)
-      (define-key dired-mode-map [remap dired-mouse-find-file-other-window]
-	'dired-single-buffer-mouse)
-      (define-key dired-mode-map [remap dired-up-directory]
-	'dired-single-up-directory))
+    ;; <add other stuff here>
+    (define-key dired-mode-map [remap dired-find-file]
+		'dired-single-buffer)
+    (define-key dired-mode-map [remap dired-mouse-find-file-other-window]
+		'dired-single-buffer-mouse)
+    (define-key dired-mode-map [remap dired-up-directory]
+		'dired-single-up-directory))
 
-   ; dired-single-magic-buffer
-    (global-set-key [(f5)] 'dired-single-magic-buffer)
+					  ; dired-single-magic-buffer
+  (global-set-key [(f5)] 'dired-single-magic-buffer)
   (global-set-key [(control f5)] (function
-	  (lambda nil (interactive)
-	  (dired-single-magic-buffer default-directory))))
+				  (lambda nil (interactive)
+				    (dired-single-magic-buffer default-directory))))
   (global-set-key [(shift f5)] (function
-	  (lambda nil (interactive)
-	  (message "Current directory is: %s" default-directory))))
+				(lambda nil (interactive)
+				  (message "Current directory is: %s" default-directory))))
   (global-set-key [(meta f5)] 'dired-single-toggle-buffer-name)
 
-    ;; if dired's already loaded, then the keymap will be bound
-    (if (boundp 'dired-mode-map)
-	;; we're good to go; just add our bindings
-	(my-dired-init)
-      ;; it's not loaded yet, so add our bindings to the load-hook
-      (add-hook 'dired-load-hook 'my-dired-init))
+  ;; if dired's already loaded, then the keymap will be bound
+  (if (boundp 'dired-mode-map)
+      ;; we're good to go; just add our bindings
+      (my-dired-init)
+    ;; it's not loaded yet, so add our bindings to the load-hook
+    (add-hook 'dired-load-hook 'my-dired-init))
 
 
 
 
-      (use-package all-the-icons-dired
-	:hook (dired-mode . all-the-icons-dired-mode))
+  (use-package all-the-icons-dired
+    :hook (dired-mode . all-the-icons-dired-mode))
 
-      (use-package dired-hide-dotfiles
-	:hook (dired-mode . dired-hide-dotfiles-mode)
-	:config
-	(evil-collection-define-key 'normal 'dired-mode-map
-	  "H" 'dired-hide-dotfiles-mode))
+  (use-package dired-hide-dotfiles
+    :hook (dired-mode . dired-hide-dotfiles-mode)
+    :config
+    (evil-collection-define-key 'normal 'dired-mode-map
+      "H" 'dired-hide-dotfiles-mode))
 
 #+end_src
 
@@ -409,18 +409,20 @@
 ** Org Mode Setup
 #+begin_src emacs-lisp
 
-    (defun mr-x/org-mode-setup()
+      (defun mr-x/org-mode-setup()
 
-    (visual-line-mode 1)
-    (auto-fill-mode 0)
-    (setq org-agenda-include-diary t)
-    (setq evil-auto-indent nil))
+      (visual-line-mode 1)
+      (auto-fill-mode 0)
+      (setq org-agenda-include-diary t)
+      (setq evil-auto-indent nil))
 
-  (setq org-agenda-files '("~/roaming/agenda.org"))
+    (setq org-agenda-files
+	  '("~/roaming/agenda.org"
+	  "~/roaming/habits.org"))
 
-  ; Animation support
+    ; Animation support
 
-  (add-hook 'org-mode-hook #'org-inline-anim-mode)
+    (add-hook 'org-mode-hook #'org-inline-anim-mode)
 
 
 #+end_src
