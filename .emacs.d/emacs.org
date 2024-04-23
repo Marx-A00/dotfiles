@@ -734,6 +734,10 @@
 (use-package devdocs)
 #+end_src
 ** Languages
+*** All Languages (experimental)
+#+begin_src emacs-lisp
+(electric-pair-mode 1)
+#+end_src>
 *** Latex
 #+begin_src emacs-lisp
   (setq org-format-latex-options (plist-put org-format-latex-options :scale 3.0))
@@ -741,11 +745,46 @@
 #+end_src
 *** TypeScript/Javascript
 #+begin_src emacs-lisp
-      (use-package typescript-mode
-	:mode "\\.ts\\'"
-	:hook (typescript-mode . lsp-deferred)
-	:config
-	(setq typescript-indent-level 2))
+  (use-package typescript-mode
+    :mode "\\.ts\\'"
+    :hook (typescript-mode . lsp-deferred)
+    :config
+    (setq typescript-indent-level 2))
+
+#+end_src
+
+*** HTML & CSS
+#+begin_src emacs-lisp
+
+  ;; emmet mode
+(require 'emmet-mode)
+(use-package emmet-mode
+  :ensure t
+  :config
+  (add-hook 'web-mode-hook 'emmet-mode) ;; Auto-start on any markup modes
+  (add-hook 'css-mode-hook  'emmet-mode) ;; enable Emmet's css abbreviation.
+
+;; web mode
+(require 'web-mode)
+(add-to-list 'auto-mode-alist '("\\.phtml\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.php\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.[agj]sp\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.as[cp]x\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.erb\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.mustache\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.djhtml\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.html?\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.scss\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.css\\'" . web-mode))
+
+(defun my-web-mode-hook ()
+  "Hooks for Web mode."
+  (setq web-mode-markup-indent-offset 2)
+  (setq web-mode-css-indent-offset 2)
+  (setq web-mode-code-indent-offset 2)
+)
+(add-hook 'web-mode-hook  'my-web-mode-hook)
+
 #+end_src
 *** Python
 #+begin_src emacs-lisp
