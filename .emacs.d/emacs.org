@@ -3,6 +3,8 @@
 ** Startup Direction
 #+begin_src emacs-lisp
 
+	       ;;; -*- lexical-binding: t -*- 
+
       ;;(setenv "PATH" (concat (getenv "PATH") ":/opt/homebrew/bin"))
       ;;(setq exec-path (append exec-path '("/opt/homebrew/bin")))
 
@@ -26,7 +28,6 @@
 ** Package configuration
 
 #+begin_src emacs-lisp
-	       ;;; -*- lexical-binding: t -*- 
 
 
     ;; Initialize package sources
@@ -270,20 +271,35 @@
 * Evil
 
 #+begin_src emacs-lisp
-    (use-package evil
-      :init (setq evil-want-integration t)
-     (setq evil-want-keybinding nil)
-      (setq evil-want-C-u-scroll t)
-      (setq evil-want-C-i-jump nil)
-      (setq evil-respect-visual-line-mode t)
-      :config
-      (evil-mode 1))
+  (use-package evil
+    :init (setq evil-want-integration t)
+    (setq evil-want-keybinding nil)
+    (setq evil-want-C-u-scroll t)
+    (setq evil-want-C-i-jump nil)
+    (setq evil-respect-visual-line-mode t)
+    :config
+    (evil-mode 1))
+
+  (defun my-evil-ex-put ()
+  "Execute the ':put' Ex command without needing to manually press RET."
+  (interactive)
+  (evil-ex "put")
+  (execute-kbd-macro (kbd "RET")))
+
+
+  (evil-define-key 'normal evil-ex-shortcut-map (kbd "s-<down> RET") (kbd ":put <RET>"))
+; give up, figure it out later
+
+
+
+
+
 
     (use-package evil-collection
       :after evil
       :config
       (evil-collection-init))
-  
+
   (use-package evil-org
     :ensure t
     :after org
@@ -737,7 +753,7 @@
 *** All Languages (experimental)
 #+begin_src emacs-lisp
 (electric-pair-mode 1)
-#+end_src>
+#+end_src
 *** Latex
 #+begin_src emacs-lisp
   (setq org-format-latex-options (plist-put org-format-latex-options :scale 3.0))
@@ -745,11 +761,31 @@
 #+end_src
 *** TypeScript/Javascript
 #+begin_src emacs-lisp
-  (use-package typescript-mode
-    :mode "\\.ts\\'"
-    :hook (typescript-mode . lsp-deferred)
-    :config
-    (setq typescript-indent-level 2))
+	  (use-package typescript-mode
+	      :mode "\\.ts\\'"
+	      :hook (typescript-mode . lsp-deferred)
+	      :config
+	      (setq typescript-indent-level 2))
+
+      (require 'web-mode)
+      (add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
+
+      (use-package prettier-js
+	:ensure t)
+
+      (use-package add-node-modules-path
+	:ensure t
+	:config
+	(setq add-node-modules-path-debug t)
+	(setq add-node-modules-path-command '("echo \"$(npm root)/.bin\"")))
+
+      (eval-after-load 'web-mode
+	'(progn
+	   (add-hook 'web-mode-hook #'add-node-modules-path)
+	   (add-hook 'web-mode-hook #'prettier-js-mode)))
+
+
 
 #+end_src
 
@@ -761,8 +797,8 @@
 (use-package emmet-mode
   :ensure t
   :config
-  (add-hook 'web-mode-hook 'emmet-mode) ;; Auto-start on any markup modes
-  (add-hook 'css-mode-hook  'emmet-mode) ;; enable Emmet's css abbreviation.
+  (add-hook 'web-mode-hook 'emmet-mode) 
+  (add-hook 'css-mode-hook  'emmet-mode))
 
 ;; web mode
 (require 'web-mode)
@@ -912,6 +948,22 @@
 	erc-kill-buffer-on-part t
 	      erc-auto-query 'bury)
 
+#+end_src
 
-  
+** Music Stuffs
+#+begin_src emacs-lisp
+  ;emms for local files
+  (use-package emms
+  :ensure t
+  :config
+  (require 'emms-setup)
+  (emms-standard)
+  (emms-default-players))
+
+  (use-package ytdl
+  :ensure t)
+
+  (use-package spotify
+  :ensure t)
+
 #+end_src
