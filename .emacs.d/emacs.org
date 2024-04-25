@@ -761,29 +761,43 @@
 #+end_src
 *** TypeScript/Javascript
 #+begin_src emacs-lisp
-	  (use-package typescript-mode
-	      :mode "\\.ts\\'"
-	      :hook (typescript-mode . lsp-deferred)
-	      :config
-	      (setq typescript-indent-level 2))
+      (use-package typescript-mode
+	  :mode "\\.ts\\'"
+	  :hook (typescript-mode . lsp-deferred)
+	  :config
+	  (setq typescript-indent-level 2))
 
-      (require 'web-mode)
-      (add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
+  (require 'web-mode)
+  (add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
+  (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
 
-      (use-package prettier-js
-	:ensure t)
+  (use-package prettier-js
+    :ensure t)
 
-      (use-package add-node-modules-path
-	:ensure t
-	:config
-	(setq add-node-modules-path-debug t)
-	(setq add-node-modules-path-command '("echo \"$(npm root)/.bin\"")))
+  (use-package add-node-modules-path
+    :ensure t
+    :config
+    (setq add-node-modules-path-debug t)
+    (setq add-node-modules-path-command '("echo \"$(npm root)/.bin\"")))
 
-      (eval-after-load 'web-mode
-	'(progn
-	   (add-hook 'web-mode-hook #'add-node-modules-path)
-	   (add-hook 'web-mode-hook #'prettier-js-mode)))
+  (eval-after-load 'web-mode
+    '(progn
+       (add-hook 'web-mode-hook #'add-node-modules-path)
+       (add-hook 'web-mode-hook #'prettier-js-mode)))
+
+  (defun mr-x/js-scratch ()
+  "Create and switch to a JavaScript scratch buffer with a basic template."
+  (interactive)
+  (let ((buf (generate-new-buffer "*JS Scratch*")))
+    (switch-to-buffer buf)
+    (org-mode)  ; Ensure you have js-mode installed or use javascript-mode as appropriate
+    (insert "#+begin_src js :results output")
+    (insert "\n")
+    (insert "\n")
+    (insert "\n")
+    (insert "#+end_src")
+    (goto-char (point-max))))
+
 
 
 
