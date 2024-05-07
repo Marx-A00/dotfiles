@@ -400,7 +400,7 @@
   (use-package counsel
     :config
     (counsel-mode 1))
-  
+
   (global-set-key (kbd "M-x") 'counsel-M-x)
   (global-set-key (kbd "C-x C-f") 'counsel-find-file)
 
@@ -841,8 +841,11 @@
   (use-package lsp-pyright
   :ensure t
   :hook (python-mode . (lambda ()
-                          (require 'lsp-pyright)
-                          (lsp))))  ; or lsp-deferred
+			  (require 'lsp-pyright)
+			  (lsp))))  ; or lsp-deferred
+  (use-package python-mode
+    :ensure t
+    :hook (python-mode . lsp-deferred))
 
 #+end_src
 ** Language Servers
@@ -950,7 +953,17 @@
 
 
 #+end_src
+** Google Calendar
+#+begin_src emacs-lisp
 
+  (load "~/.emacs_secrets.el")
+  (require 'org-gcal)
+  (use-package org-gcal
+    :config
+    (setq org-gcal-client-id (getenv "GCAL_CLIENT_ID")
+	  org-gcal-client-secret (getenv "GCAL_SECRET") 
+	  org-gcal-fetch-file-alist '(("mnandrade1999@gmail.com" . "~/agenda.org"))))
+#+end_src
 * Misc
 ** Let's chat baby
 
