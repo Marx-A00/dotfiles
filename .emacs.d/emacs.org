@@ -1031,9 +1031,9 @@
 
   (use-package mu4e
     :ensure nil
+    :load-path "/opt/homebrew/Cellar/mu/1.12.3/share/emacs/site-lisp/mu/mu4e"
     :defer 20
     :config
-    (add-to-list 'load-path "/opt/homebrew/Cellar/mu/1.12.1/share/emacs/site-lisp/mu/mu4e")
     (setq mu4e-mu-binary "/opt/homebrew/bin/mu")
 
 
@@ -1055,9 +1055,6 @@
 	    ("/[Gmail].Drafts"    . ?d)
 	    ("/[Gmail].All Mail"  . ?a))))
 
-  (add-hook 'after-init-hook (lambda ()
-			       (message "Emacs is ready! This is your test after-init hook!")
-			       ))
 
 
 
