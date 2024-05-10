@@ -1,21 +1,25 @@
+;;; -*- lexical-binding: t; -*-
+
 ;;(setenv "PATH" (concat (getenv "PATH") ":/opt/homebrew/bin"))
-  ;;(setq exec-path (append exec-path '("/opt/homebrew/bin")))
+    ;;(setq exec-path (append exec-path '("/opt/homebrew/bin")))
 
-  ;; Check if `exec-path-from-shell` is not already installed
-;(unless (package-installed-p 'exec-path-from-shell)
-  ;; Refresh package databases
- ; (package-refresh-contents)
-  ;; Install `exec-path-from-shell`
-  ;(package-install 'exec-path-from-shell))
+    ;; Check if `exec-path-from-shell` is not already installed
+  ;(unless (package-installed-p 'exec-path-from-shell)
+    ;; Refresh package databases
+   ; (package-refresh-contents)
+    ;; Install `exec-path-from-shell`
+    ;(package-install 'exec-path-from-shell))
 
-;; Initialize `exec-path-from-shell` after installation
-;(when (memq window-system '(mac ns x))
- ; (exec-path-from-shell-initialize))
+  ;; Initialize `exec-path-from-shell` after installation
+  ;(when (memq window-system '(mac ns x))
+   ; (exec-path-from-shell-initialize))
+(use-package exec-path-from-shell
+  :ensure t
+  :config
+  (when (memq window-system '(mac ns x))
+    (exec-path-from-shell-initialize)))
 
-;;; -*- lexical-binding: t -*- 
-
-
-  ;; Initialize package sources
+;; Initialize package sources
   (require 'package)
 
   (setq package-archives '(("melpa" . "https://melpa.org/packages/")
@@ -65,54 +69,54 @@
 (setq visible-bell t)
 
 
-					  ; Font
-  (set-face-attribute 'default nil :font "Iosevka" :height 280)
+					; Font
+(set-face-attribute 'default nil :font "Iosevka" :height 280)
 
-  (use-package all-the-icons
-    :if (display-graphic-p))
+(use-package all-the-icons
+  :if (display-graphic-p))
 
-  (use-package rainbow-delimiters
-    :hook (prog-mode . rainbow-delimiters-mode))
+(use-package rainbow-delimiters
+  :hook (prog-mode . rainbow-delimiters-mode))
 
-  (use-package doom-themes)
-  (load-theme 'doom-gruvbox)
+(use-package doom-themes)
+(load-theme 'doom-gruvbox)
 
-  (use-package doom-modeline
-    :init (doom-modeline-mode 1)
-    :config
-    (setq doom-modeline-icon (display-graphic-p)))
+(use-package doom-modeline
+  :init (doom-modeline-mode 1)
+  :config
+  (setq doom-modeline-icon (display-graphic-p)))
 
-  (use-package which-key ; should be moved
-    :init (which-key-mode)
-    :config
-    (setq which-key-idle-delay 0.3))
+(use-package which-key ; should be moved
+  :init (which-key-mode)
+  :config
+  (setq which-key-idle-delay 0.3))
 
-  (use-package general) ; should be moved maybe
+(use-package general) ; should be moved maybe
 
-  (defun mr-x/general-setup ()
+(defun mr-x/general-setup ()
   (display-line-numbers-mode 1)
   (set-frame-parameter (selected-frame) 'alpha '(80 50)))
 
 (add-hook 'text-mode-hook #'mr-x/general-setup)
 (add-hook 'prog-mode-hook #'mr-x/general-setup)
 
-					  ; opacity
-  (set-frame-parameter (selected-frame) 'alpha '(80 50))
-					  ;(add-to-list 'default-frame-alist '(alpha-background . 20))
-					  ; keybindings section
-  (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
-  (global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
-  (global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
-  (global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
+					; opacity
+(set-frame-parameter (selected-frame) 'alpha '(80 50))
+(add-to-list 'default-frame-alist '(alpha-background . 20))
+					; keybindings section
+(global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
+(global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
+(global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
+(global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
 
 
 
-  (setq inhibit-startup-message t) ; Disable the startup message
-  (scroll-bar-mode -1) ; Disable the visible scrollbar
-  (tool-bar-mode -1)   ; Disable the toolbar
-  (tooltip-mode -1)    ; Disable tooltips
-  (menu-bar-mode -1)   ; Disable the menu bar
-  (set-fringe-mode 10) ; Give some breathing room
+(setq inhibit-startup-message t) ; Disable the startup message
+(scroll-bar-mode -1) ; Disable the visible scrollbar
+(tool-bar-mode -1)   ; Disable the toolbar
+(tooltip-mode -1)    ; Disable tooltips
+(menu-bar-mode -1)   ; Disable the menu bar
+(set-fringe-mode 10) ; Give some breathing room
 
 (use-package beacon
   :init
@@ -191,78 +195,93 @@
 
 (use-package evil
     :init (setq evil-want-integration t)
-   (setq evil-want-keybinding nil)
+    (setq evil-want-keybinding nil)
     (setq evil-want-C-u-scroll t)
     (setq evil-want-C-i-jump nil)
     (setq evil-respect-visual-line-mode t)
     :config
     (evil-mode 1))
 
-  (use-package evil-collection
-    :after evil
-    :config
-    (evil-collection-init))
+  (defun my-evil-ex-put ()
+  "Execute the ':put' Ex command without needing to manually press RET."
+  (interactive)
+  (evil-ex "put")
+  (execute-kbd-macro (kbd "RET")))
 
-(use-package evil-org
-  :ensure t
-  :after org
-  :hook (org-mode . (lambda () evil-org-mode))
-  :config
-  (require 'evil-org-agenda)
-  (evil-org-agenda-set-keys))
+
+  (evil-define-key 'normal evil-ex-shortcut-map (kbd "s-<down> RET") (kbd ":put <RET>"))
+; give up, figure it out later
+
+
+
+
+
+
+    (use-package evil-collection
+      :after evil
+      :config
+      (evil-collection-init))
+
+  (use-package evil-org
+    :ensure t
+    :after org
+    :hook (org-mode . (lambda () evil-org-mode))
+    :config
+    (require 'evil-org-agenda)
+    (evil-org-agenda-set-keys))
 
 (use-package dired
-      :ensure nil
-      :commands (dired dired-jump)
-      :bind (("C-x C-j" . dired-jump))
-      :custom
-      (setq insert-directory-program "gls" dired-use-ls-dired t)
-      (setq dired-listing-switches "-al --group-directories-first")
-      :config
-      (evil-collection-define-key 'normal 'dired-mode-map
-	"h" 'dired-up-directory
-	"l" 'dired-find-file))
+  :ensure nil
+  :commands (dired dired-jump)
+  :bind (("C-x C-j" . dired-jump))
+  :custom
+  (setq insert-directory-program "gls" dired-use-ls-dired t)
+  (setq dired-listing-switches "-al --group-directories-first")
+  (setq dired-hide-details-mode 1)
+  :config
+  (evil-collection-define-key 'normal 'dired-mode-map
+    "h" 'dired-up-directory
+    "l" 'dired-find-file))
 
-
-    (defun my-dired-init ()
-    "Bunch of stuff to run for dired, either immediately or when it's
+(defun my-dired-init ()
+  "Bunch of stuff to run for dired, either immediately or when it's
      loaded."
-    ;; <add other stuff here>
-    (define-key dired-mode-map [remap dired-find-file]
-      'dired-single-buffer)
-    (define-key dired-mode-map [remap dired-mouse-find-file-other-window]
-      'dired-single-buffer-mouse)
-    (define-key dired-mode-map [remap dired-up-directory]
-      'dired-single-up-directory))
+  ;; <add other stuff here>
+  (define-key dired-mode-map [remap dired-find-file]
+	      'dired-single-buffer)
+  (define-key dired-mode-map [remap dired-mouse-find-file-other-window]
+	      'dired-single-buffer-mouse)
+  (define-key dired-mode-map [remap dired-up-directory]
+	      'dired-single-up-directory))
 
- ; dired-single-magic-buffer
-  (global-set-key [(f5)] 'dired-single-magic-buffer)
+					; dired-single-magic-buffer
+(global-set-key [(f5)] 'dired-single-magic-buffer)
 (global-set-key [(control f5)] (function
-	(lambda nil (interactive)
-	(dired-single-magic-buffer default-directory))))
+				(lambda nil (interactive)
+				  (dired-single-magic-buffer default-directory))))
 (global-set-key [(shift f5)] (function
-	(lambda nil (interactive)
-	(message "Current directory is: %s" default-directory))))
+			      (lambda nil (interactive)
+				(message "Current directory is: %s" default-directory))))
 (global-set-key [(meta f5)] 'dired-single-toggle-buffer-name)
 
-  ;; if dired's already loaded, then the keymap will be bound
-  (if (boundp 'dired-mode-map)
-      ;; we're good to go; just add our bindings
-      (my-dired-init)
-    ;; it's not loaded yet, so add our bindings to the load-hook
-    (add-hook 'dired-load-hook 'my-dired-init))
+;; if dired's already loaded, then the keymap will be bound
+(if (boundp 'dired-mode-map)
+    ;; we're good to go; just add our bindings
+    (my-dired-init)
+  ;; it's not loaded yet, so add our bindings to the load-hook
+  (add-hook 'dired-load-hook 'my-dired-init))
 
 
 
 
-    (use-package all-the-icons-dired
-      :hook (dired-mode . all-the-icons-dired-mode))
+(use-package all-the-icons-dired
+  :hook (dired-mode . all-the-icons-dired-mode))
 
-    (use-package dired-hide-dotfiles
-      :hook (dired-mode . dired-hide-dotfiles-mode)
-      :config
-      (evil-collection-define-key 'normal 'dired-mode-map
-	"H" 'dired-hide-dotfiles-mode))
+(use-package dired-hide-dotfiles
+  :hook (dired-mode . dired-hide-dotfiles-mode)
+  :config
+  (evil-collection-define-key 'normal 'dired-mode-map
+    "H" 'dired-hide-dotfiles-mode))
 
 ; Ivy & Counsel
 (use-package ivy
@@ -282,7 +301,7 @@
 	 ("C-d" . ivy-reverse-i-search-kill))
   :config
   (ivy-mode 1)
-  (setq ivy-use-virtual-buffers t)
+  (setq ivy-use-virtual-buffers nil)
   (setq ivy-count-format "(%d/%d) "))
 
 (use-package ivy-rich
@@ -313,75 +332,87 @@
   (setq org-agenda-include-diary t)
   (setq evil-auto-indent nil))
 
-(setq org-agenda-files '("~/roaming/agenda.org"))
+(setq org-agenda-files
+      '("~/roaming/agenda.org"
+      "~/roaming/habits.org"))
 
 ; Animation support
 
 (add-hook 'org-mode-hook #'org-inline-anim-mode)
 
 (use-package org
-    :hook (org-mode . mr-x/org-mode-setup)
-    :config
-    (setq org-hide-emphasis-markers t)
-    (setq org-agenda-start-with-log-mode t)
-    (setq org-log-done 'time)
-    (setq org-log-into-drawer t)
-    (setq org-highlight-latex-and-related '(latex))
+      :hook (org-mode . mr-x/org-mode-setup)
+      :config
+      (setq org-hide-emphasis-markers t)
+      (setq org-agenda-start-with-log-mode t)
+      (setq org-log-done 'time)
+      (setq org-log-into-drawer t)
+      (setq org-highlight-latex-and-related '(latex))
 
-    ; org- habit setup
+      ; org- habit setup
 
-    (require 'org-habit)
-    (add-to-list 'org-modules 'org-habit)
-    (setq org-habit-graph-column 60)
+      (require 'org-habit)
+      (add-to-list 'org-modules 'org-habit)
+      (setq org-habit-graph-column 60)
 
-    (setq org-todo-keywords
-	  '((sequence
-	     "TODO(t)"
-	     "NEXT(n)"
-	     "|"
-	     "DONE(d!)")
-	    (sequence
-	     "BACKLOG(b)"
-	     "PLAN(p)"
-	     "READY(r)"
-	     "IN-PROGRESS(i)"
-	     "REVIEW(v)"
-	     "WAIT(w@/!)"
-	     "HOLD(h)"
-	     "|"
-	     "COMPLETED(c)"
-	     "CANC(k@)")))
+      (setq org-todo-keywords
+	    '((sequence
+	       "TODO(t)"
+	       "NEXT(n)"
+	       "|"
+	       "DONE(d!)")
+	      (sequence
+	       "BACKLOG(b)"
+	       "PLAN(p)"
+	       "READY(r)"
+	       "IN-PROGRESS(i)"
+	       "REVIEW(v)"
+	       "WAIT(w@/!)"
+	       "HOLD(h)"
+	       "|"
+	       "COMPLETED(c)"
+	       "CANC(k@)")))
 
-    (setq org-todo-keyword-faces
-	  '(("TODO" . "#FF1800")
-	    ("NEXT" . "#FF1800")
-	    ("PLAN" . "#F67F2F")
-	    ("DONE" . "#62656A")
-	    ("HOLD" . "#62656A")
-	    ("WAIT" . "#B7CBA8")
-	    ("IN-PROGRESS" . "#b7cba8") 
-	    ("BACKLOG" . "#62656A")))
+      (setq org-todo-keyword-faces
+	    '(("TODO" . "#FF1800")
+	      ("NEXT" . "#FF1800")
+	      ("PLAN" . "#F67F2F")
+	      ("DONE" . "#62656A")
+	      ("HOLD" . "#62656A")
+	      ("WAIT" . "#B7CBA8")
+	      ("IN-PROGRESS" . "#b7cba8") 
+	      ("BACKLOG" . "#62656A")))
 
-    (custom-set-faces
-     '(org-level-1 ((t (:foreground "#ff743f")))))
+      (custom-set-faces
+       '(org-level-1 ((t (:foreground "#ff743f")))))
 
-    (custom-set-faces
-     '(org-level-2 ((t (:foreground "#67bc44")))))
+      (custom-set-faces
+       '(org-level-2 ((t (:foreground "#67bc44")))))
 
-    (custom-set-faces
-     '(org-level-3 ((t (:foreground "#67c0de")))))
+      (custom-set-faces
+       '(org-level-3 ((t (:foreground "#67c0de")))))
 
-    (setq org-refile-targets
-	  '(("Archive.org" :maxlevel . 1)))
+      (setq org-refile-targets
+	    '(("Archive.org" :maxlevel . 1)))
 
-    (advice-add 'org-refile :after 'org-save-all-org-buffers))
+      (advice-add 'org-refile :after 'org-save-all-org-buffers))
 
-(require 'org-bullets)
-(setq org-bullets-face-name (quote org-bullet-face))
-(setq org-bullets-bullet-list '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
-(setq org-ellipsis " ‧")
+;; (defun org-summary-todo (n-done n-not-done)
+;;   "Switch entry to DONE when all subentries are done, to TODO otherwise."
+;;   (let (org-log-done org-todo-log-states)   ; turn off logging
+;;     (org-todo (if (= n-not-done 0) "DONE" "TODO"))))
 
-(add-hook 'org-mode-hook (lambda () (org-bullets-mode 1)))
+;; (add-hook 'org-after-todo-statistics-hook #'org-summary-todo)
+
+
+   (require 'org-bullets)
+  (setq org-bullets-face-name (quote org-bullet-face))
+  (setq org-bullets-bullet-list
+	'("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
+
+  (setq org-ellipsis " ‧")
+
+  (add-hook 'org-mode-hook (lambda () (org-bullets-mode 1)))
 
 (setq-default prettify-symbols-alist '(("#+BEGIN_SRC" . "†")
 				       ("#+END_SRC" . "†")
@@ -451,12 +482,11 @@
 						    (org-agenda-format-date-aligned date))))
 (setq org-cycle-separator-lines 2)
 
-; Org-babel
-
-    (org-babel-do-load-languages
+(org-babel-do-load-languages
      'org-babel-load-languages
      '((emacs-lisp . t)
        (js . t)
+       (typescript . t)
        (latex . t)
        (python . t)))
 
@@ -465,6 +495,7 @@
 
     ; structure templates
 (require 'org-tempo)
+(add-to-list 'org-structure-template-alist '("ts" . "src typescript"))
 (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
 (add-to-list 'org-structure-template-alist '("py" . "src python"))
 (add-to-list 'org-structure-template-alist '("C" . "comment"))
@@ -482,60 +513,132 @@
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
 
 (use-package org-roam
-  :ensure t
-  :demand t
-  :custom
-  (org-roam-directory "~/roaming/notes/")
-  (org-roam-completion-everywhere t)
-  (org-roam-capture-templates
-   '(("d" "default" plain
-      "%?"
-      :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n+date: %U\n")
-      :unnarrowed t)
-     ("w" "workout" plain
-      "%?"
-      :if-new (file+head "workouts/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-      :unnarrowed t)
-     ("l" "programming language" plain
-      "* Characteristics\n\n- Family: %?\n- Inspired by: \n\n* Reference:\n\n"
-      :if-new (file+head "code-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-      :unnarrowed t)
-     ("b" "book notes" plain
-      (file "~/roaming/Templates/BookNoteTemplate.org")
-      :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-      :unnarrowed t)
-     ("p" "project" plain "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
-      :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+filetags:project")
-      :unnarrowed t)))
-  (org-roam-dailies-capture-templates
-   '(("d" "default" entry "* %<%I:%M %p>: %?"
-      :if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
-  :bind (("C-c n l" . org-roam-buffer-toggle)
-	 ("C-c n f" . org-roam-node-find)
-	 ("C-c n i" . org-roam-node-insert)
-	 ("C-c n I" . org-roam-node-insert-immediate)
-					; ("C-c n p" . my/org-roam-find-project)
-					;("C-c n t" . my/org-roam-capture-task)
-					; ("C-c n b" . my/org-roam-capture-inbox)
-	 :map org-mode-map
-	 ("C-M-i"   . completion-at-point)
-	 :map org-roam-dailies-map
-	 ("Y" . org-roam-dailies-capture-yesterday)
-	 ("T" . org-roam-dailies-capture-tomorrow))
-  :bind-keymap
-  ("C-c n d" . org-roam-dailies-map)
-  :config
-  (require 'org-roam-dailies)
-  (org-roam-db-autosync-mode))
-(setq org-roam-dailies-directory "journal/")
+	    :ensure t
+	    :demand t
+	    :custom
+	    (org-roam-directory "~/roaming/notes/")
+	    (org-roam-completion-everywhere t)
+	    ;; (org-roam-capture-templates
+	    ;;  '(("d" "default" plain
+	    ;; 	"%?"
+	    ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n+date: %U\n")
+	    ;; 	:unnarrowed t)
+	    ;;    ("w" "workout" plain
+	    ;; 	"%?"
+	    ;; 	:if-new (file+head "workouts/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+	    ;; 	:unnarrowed t)
+	    ;;    ("l" "programming language" plain
+	    ;; 	"* Characteristics\n\n- Family: %?\n- Inspired by: \n\n* Reference:\n\n"
+	    ;; 	:if-new (file+head "code-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+	    ;; 	:unnarrowed t)
+	    ;;    ("b" "book notes" plain
+	    ;; 	(file "~/roaming/Templates/BookNoteTemplate.org")
+	    ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+	    ;; 	:unnarrowed t)
+	    ;;    ("p" "project" plain "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
+	    ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
+	    ;; 	:unnarrowed t)))
+	    ;; (org-roam-dailies-capture-templates
+	    ;;  '(("d" "default" entry "* %<%I:%M %p>: %?"
+	    ;; 	:if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
+	     :bind (("C-c n f" . org-roam-node-find)
+		   ("C-c n i" . org-roam-node-insert)
+		   ("C-c n I" . org-roam-node-insert-immediate)
+						  ; ("C-c n p" . my/org-roam-find-project)
+						  ;("C-c n t" . my/org-roam-capture-task)
+						  ; ("C-c n b" . my/org-roam-capture-inbox)
+		   :map org-mode-map
+		   ("C-M-i"   . completion-at-point)
+		   :map org-roam-dailies-map
+		   ("Y" . org-roam-dailies-capture-yesterday)
+		   ("T" . org-roam-dailies-capture-tomorrow))
+	    :bind-keymap
+	    ("C-c n d" . org-roam-dailies-map)
+	    :config
+	    (require 'org-roam-dailies)
+	    (org-roam-db-autosync-mode))
+	  (setq org-roam-dailies-directory "journal/")
 
-;; Bind this to C-c n I
-(defun org-roam-node-insert-immediate (arg &rest args)
-  (interactive "P")
-  (let ((args (cons arg args))
-	(org-roam-capture-templates (list (append (car org-roam-capture-templates)
-						  '(:immediate-finish t)))))
-    (apply #'org-roam-node-insert args)))
+	  ;; Bind this to C-c n I
+	  (defun org-roam-node-insert-immediate (arg &rest args)
+	    (interactive "P")
+	    (let ((args (cons arg args))
+		  (org-roam-capture-templates (list (append (car org-roam-capture-templates)
+							    '(:immediate-finish t)))))
+	      (apply #'org-roam-node-insert args)))
+
+	  (defun my/org-roam-filter-by-tag (tag-name)
+	  (lambda (node)
+	    (member tag-name (org-roam-node-tags node))))
+
+	  (defun my/org-roam-list-notes-by-tag (tag-name)
+	  (mapcar #'org-roam-node-file
+		  (seq-filter
+		   (my/org-roam-filter-by-tag tag-name)
+		   (org-roam-node-list))))
+
+	(defun my/org-roam-refresh-agenda-list ()
+	    (interactive)
+	    (setq org-agenda-files (my/org-roam-list-notes-by-tag "Project")))
+
+(my/org-roam-refresh-agenda-list)
+
+	(defun my/org-roam-project-finalize-hook ()
+	    "Adds the captured project file to `org-agenda-files' if the
+	capture was not aborted."
+	  ;; Remove the hook since it was added temporarily
+	  (remove-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+
+	  ;; Add project file to the agenda list if the capture was confirmed
+	  (unless org-note-abort
+	    (with-current-buffer (org-capture-get :buffer)
+	      (add-to-list 'org-agenda-files (buffer-file-name)))))
+
+
+(defun my/org-roam-find-project ()
+(interactive)
+;; Add the project file to the agenda after capture is finished
+(add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+
+;; Select a project file to open, creating it if necessary
+(org-roam-node-find
+ nil
+ nil
+ (my/org-roam-filter-by-tag "Project")
+ nil
+ :templates
+ '(("p" "project" plain
+    "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
+    :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
+    :unnarrowed t))))
+
+    (global-set-key (kbd "C-c n p") #'my/org-roam-find-project)
+
+
+  (defun my/org-roam-capture-inbox ()
+    (interactive)
+    (org-roam-capture- :node (org-roam-node-create)
+		       :templates '(("i" "inbox" plain "* %?"
+				     :if-new (file+head "Inbox.org" "#+title: Inbox\n")))))
+
+  (global-set-key (kbd "C-c n b") #'my/org-roam-capture-inbox)
+
+
+(defun my/org-roam-capture-task ()
+    (interactive)
+  ;; Add the project file to the agenda after capture is finished
+  (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+
+  ;; Capture the new task, creating the project file if necessary
+  (org-roam-capture- :node (org-roam-node-read
+			    nil
+			    (my/org-roam-filter-by-tag "Project"))
+		     :templates '(("p" "project" plain "** TODO %?"
+				   :if-new (file+head+olp "%<%Y%m%d%H%M%S>-${slug}.org"
+							  "#+title: ${title}\n#+category: ${title}\n#+filetags: Project"
+							  ("Tasks"))))))
+
+(global-set-key (kbd "C-c n t") #'my/org-roam-capture-task)
 
 (use-package projectile
 :diminish projectile-mode
@@ -551,19 +654,84 @@
 
 (use-package devdocs)
 
+(electric-pair-mode 1)
+
 (setq org-format-latex-options (plist-put org-format-latex-options :scale 3.0))
 
 (use-package typescript-mode
-  :mode "\\.ts\\'"
-  :hook (typescript-mode . lsp-deferred)
+	:mode "\\.ts\\'"
+	:hook (typescript-mode . lsp-deferred)
+	:config
+	(setq typescript-indent-level 2))
+
+(require 'web-mode)
+(add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
+
+(use-package prettier-js
+  :ensure t)
+
+(use-package add-node-modules-path
+  :ensure t
   :config
-  (setq typescript-indent-level 2))
+  (setq add-node-modules-path-debug t)
+  (setq add-node-modules-path-command '("echo \"$(npm root)/.bin\"")))
+
+(eval-after-load 'web-mode
+  '(progn
+     (add-hook 'web-mode-hook #'add-node-modules-path)
+     (add-hook 'web-mode-hook #'prettier-js-mode)))
+
+(defun mr-x/js-scratch ()
+"Create and switch to a JavaScript scratch buffer with a basic template."
+(interactive)
+(let ((buf (generate-new-buffer "*JS Scratch*")))
+  (switch-to-buffer buf)
+  (org-mode)  ; Ensure you have js-mode installed or use javascript-mode as appropriate
+  (insert "#+begin_src js :results output")
+  (insert "\n")
+  (insert "\n")
+  (insert "\n")
+  (insert "#+end_src")
+  (goto-char (point-max))))
+
+;; emmet mode
+(require 'emmet-mode)
+(use-package emmet-mode
+  :ensure t
+  :config
+  (add-hook 'web-mode-hook 'emmet-mode) 
+  (add-hook 'css-mode-hook  'emmet-mode))
+
+;; web mode
+(require 'web-mode)
+(add-to-list 'auto-mode-alist '("\\.phtml\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.php\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.[agj]sp\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.as[cp]x\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.erb\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.mustache\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.djhtml\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.html?\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.scss\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.css\\'" . web-mode))
+
+(defun my-web-mode-hook ()
+  "Hooks for Web mode."
+  (setq web-mode-markup-indent-offset 2)
+  (setq web-mode-css-indent-offset 2)
+  (setq web-mode-code-indent-offset 2)
+)
+(add-hook 'web-mode-hook  'my-web-mode-hook)
 
 (use-package lsp-pyright
 :ensure t
 :hook (python-mode . (lambda ()
-                        (require 'lsp-pyright)
-                        (lsp))))  ; or lsp-deferred
+			(require 'lsp-pyright)
+			(lsp))))  ; or lsp-deferred
+(use-package python-mode
+  :ensure t
+  :hook (python-mode . lsp-deferred))
 
 (use-package lsp-mode
   :commands (lsp lsp-deferred)
@@ -639,9 +807,31 @@
 			     (message "Emacs is ready! This is your test after-init hook!")
 			     ))
 
+(load "~/.emacs_secrets.el")
+(require 'org-gcal)
+(use-package org-gcal
+  :config
+  (setq org-gcal-client-id (getenv "GCAL_CLIENT_ID")
+	org-gcal-client-secret (getenv "GCAL_SECRET") 
+	org-gcal-fetch-file-alist '(("mnandrade1999@gmail.com" . "~/agenda.org"))))
+
 (setq erc-server "irc.libera.chat"
       erc-nick "MrX"    ; 
       erc-track-shorten-start 8
       erc-autojoin-channels-alist '(("irc.libera.chat" "#systemcrafters" "#emacs"))
       erc-kill-buffer-on-part t
 	    erc-auto-query 'bury)
+
+;emms for local files
+(use-package emms
+:ensure t
+:config
+(require 'emms-setup)
+(emms-standard)
+(emms-default-players))
+
+(use-package ytdl
+:ensure t)
+
+(use-package spotify
+:ensure t)
