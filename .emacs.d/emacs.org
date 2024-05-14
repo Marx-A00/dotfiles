@@ -273,29 +273,35 @@
 #+end_src
 * General
 #+begin_src emacs-lisp
-  (use-package general
-  :ensure t
-  :config
-  ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
-  (general-evil-setup t)
+      (use-package general
+      :ensure t
+      :config
+      ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
+      (general-evil-setup t)
 
-  ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
-  ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
-  ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
-  ;; will only have an effect for general.el key definers. The advice can later be removed with
-  ;; (general-auto-unbind-keys t).
-  (general-auto-unbind-keys)
+      ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
+      ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
+      ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
+      ;; will only have an effect for general.el key definers. The advice can later be removed with
+      ;; (general-auto-unbind-keys t).
+      (general-auto-unbind-keys)
 
 
-  (general-create-definer mr-x/leader-def
-    :states '(normal visual motion emacs insert)
-    :keymaps 'override
-    :prefix "SPC"
-    :global-prefix "C-SPC"))
+      (general-create-definer mr-x/leader-def
+	:states '(normal visual motion emacs insert)
+	:keymaps 'override
+	:prefix "SPC"
+	:global-prefix "C-SPC"))
 
-  (mr-x/leader-def
-    "d" 'diary-show-all-entries
-    "a" 'org-agenda)
+      (mr-x/leader-def
+	"d" 'diary-show-all-entries
+	"a" 'mr-x/org-agenda-day
+	"m" 'mu4e
+	"p" 'projectile-command-map)
+
+      (defun mr-x/org-agenda-day ()
+	(interactive)
+	(org-agenda nil "a"))
 
 
 #+end_src
@@ -458,20 +464,21 @@
 ** Org Mode Setup
 #+begin_src emacs-lisp
 
-      (defun mr-x/org-mode-setup()
+    (defun mr-x/org-mode-setup()
 
-      (visual-line-mode 1)
-      (auto-fill-mode 0)
-      (setq org-agenda-include-diary t)
-      (setq evil-auto-indent nil))
+    (visual-line-mode 1)
+    (auto-fill-mode 0)
+    (setq org-agenda-include-diary t)
+    (setq org-agenda-span 'day)
+    (setq evil-auto-indent nil))
 
-    (setq org-agenda-files
-	  '("~/roaming/agenda.org"
-	  "~/roaming/habits.org"))
+  (setq org-agenda-files
+	'("~/roaming/agenda.org"
+	"~/roaming/habits.org"))
 
-    ; Animation support
+  ; Animation support
 
-    (add-hook 'org-mode-hook #'org-inline-anim-mode)
+  (add-hook 'org-mode-hook #'org-inline-anim-mode)
 
 
 #+end_src
@@ -1035,6 +1042,11 @@
     :defer 20
     :config
     (setq mu4e-mu-binary "/opt/homebrew/bin/mu")
+    (setq mu4e-headers-fields
+    '( (:date          .  25)    ;; alternatively, use :human-date
+       (:flags         .   6)
+       (:from          .  22)
+       (:subject       .  nil))) ;; alternatively, use :thread-subject
 
 
     (setq mu4e-change-filenames-when-moving t)
