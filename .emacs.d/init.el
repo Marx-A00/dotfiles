@@ -69,54 +69,56 @@
 (setq visible-bell t)
 
 
-					; Font
-(set-face-attribute 'default nil :font "Iosevka" :height 280)
+					  ; Font
+  (set-face-attribute 'default nil :font "Iosevka" :height 280)
 
-(use-package all-the-icons
-  :if (display-graphic-p))
+  (use-package all-the-icons
+    :if (display-graphic-p))
 
-(use-package rainbow-delimiters
-  :hook (prog-mode . rainbow-delimiters-mode))
+  (use-package rainbow-delimiters
+    :hook (prog-mode . rainbow-delimiters-mode))
 
-(use-package doom-themes)
-(load-theme 'doom-gruvbox)
+  (use-package doom-themes)
+  (load-theme 'doom-gruvbox)
 
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
   :config
   (setq doom-modeline-icon (display-graphic-p)))
 
-(use-package which-key ; should be moved
-  :init (which-key-mode)
-  :config
-  (setq which-key-idle-delay 0.3))
 
-(use-package general) ; should be moved maybe
+(setq doom-modeline-modal-modern-icon nil)
 
-(defun mr-x/general-setup ()
-  (display-line-numbers-mode 1)
-  (set-frame-parameter (selected-frame) 'alpha '(80 50)))
-
-(add-hook 'text-mode-hook #'mr-x/general-setup)
-(add-hook 'prog-mode-hook #'mr-x/general-setup)
-
-					; opacity
-(set-frame-parameter (selected-frame) 'alpha '(80 50))
-(add-to-list 'default-frame-alist '(alpha-background . 20))
-					; keybindings section
-(global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
-(global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
-(global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
-(global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
+  (use-package which-key ; should be moved
+    :init (which-key-mode)
+    :config
+    (setq which-key-idle-delay 0.3))
 
 
+  (defun mr-x/general-setup ()
+    (display-line-numbers-mode 1)
+    (set-frame-parameter (selected-frame) 'alpha '(80 50)))
 
-(setq inhibit-startup-message t) ; Disable the startup message
-(scroll-bar-mode -1) ; Disable the visible scrollbar
-(tool-bar-mode -1)   ; Disable the toolbar
-(tooltip-mode -1)    ; Disable tooltips
-(menu-bar-mode -1)   ; Disable the menu bar
-(set-fringe-mode 10) ; Give some breathing room
+  (add-hook 'text-mode-hook #'mr-x/general-setup)
+  (add-hook 'prog-mode-hook #'mr-x/general-setup)
+
+					  ; opacity
+  (set-frame-parameter (selected-frame) 'alpha '(80 50))
+  (add-to-list 'default-frame-alist '(alpha-background . 20))
+					  ; keybindings section
+  (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
+  (global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
+  (global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
+  (global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
+
+
+
+  (setq inhibit-startup-message t) ; Disable the startup message
+  (scroll-bar-mode -1) ; Disable the visible scrollbar
+  (tool-bar-mode -1)   ; Disable the toolbar
+  (tooltip-mode -1)    ; Disable tooltips
+  (menu-bar-mode -1)   ; Disable the menu bar
+  (set-fringe-mode 10) ; Give some breathing room
 
 (use-package beacon
   :init
@@ -193,6 +195,36 @@
   :ensure t)
 (setq magit-view-git-manual-method 'man)
 
+(use-package general
+:ensure t
+:config
+;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
+(general-evil-setup t)
+
+;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
+;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
+;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
+;; will only have an effect for general.el key definers. The advice can later be removed with
+;; (general-auto-unbind-keys t).
+(general-auto-unbind-keys)
+
+
+(general-create-definer mr-x/leader-def
+  :states '(normal visual motion emacs insert)
+  :keymaps 'override
+  :prefix "SPC"
+  :global-prefix "C-SPC"))
+
+(mr-x/leader-def
+  "d" 'diary-show-all-entries
+  "a" 'mr-x/org-agenda-day
+  "m" 'mu4e
+  "p" 'projectile-command-map)
+
+(defun mr-x/org-agenda-day ()
+  (interactive)
+  (org-agenda nil "a"))
+
 (use-package evil
     :init (setq evil-want-integration t)
     (setq evil-want-keybinding nil)
@@ -237,11 +269,13 @@
   :custom
   (setq insert-directory-program "gls" dired-use-ls-dired t)
   (setq dired-listing-switches "-al --group-directories-first")
-  (setq dired-hide-details-mode 1)
   :config
   (evil-collection-define-key 'normal 'dired-mode-map
     "h" 'dired-up-directory
     "l" 'dired-find-file))
+(add-hook 'dired-mode-hook
+	  (lambda () (dired-hide-details-mode 1)))
+
 
 (defun my-dired-init ()
   "Bunch of stuff to run for dired, either immediately or when it's
@@ -330,6 +364,7 @@
   (visual-line-mode 1)
   (auto-fill-mode 0)
   (setq org-agenda-include-diary t)
+  (setq org-agenda-span 'day)
   (setq evil-auto-indent nil))
 
 (setq org-agenda-files
@@ -655,6 +690,7 @@
 (use-package devdocs)
 
 (electric-pair-mode 1)
+(global-set-key (kbd "s-b") #'treemacs)
 
 (setq org-format-latex-options (plist-put org-format-latex-options :scale 3.0))
 
@@ -779,10 +815,15 @@
 
 (use-package mu4e
   :ensure nil
+  :load-path "/opt/homebrew/Cellar/mu/1.12.3/share/emacs/site-lisp/mu/mu4e"
   :defer 20
   :config
-  (add-to-list 'load-path "/opt/homebrew/Cellar/mu/1.12.1/share/emacs/site-lisp/mu/mu4e")
   (setq mu4e-mu-binary "/opt/homebrew/bin/mu")
+  (setq mu4e-headers-fields
+  '( (:date          .  25)    ;; alternatively, use :human-date
+     (:flags         .   6)
+     (:from          .  22)
+     (:subject       .  nil))) ;; alternatively, use :thread-subject
 
 
   (setq mu4e-change-filenames-when-moving t)
@@ -803,17 +844,13 @@
 	  ("/[Gmail].Drafts"    . ?d)
 	  ("/[Gmail].All Mail"  . ?a))))
 
-(add-hook 'after-init-hook (lambda ()
-			     (message "Emacs is ready! This is your test after-init hook!")
-			     ))
-
-(load "~/.emacs_secrets.el")
-(require 'org-gcal)
-(use-package org-gcal
-  :config
-  (setq org-gcal-client-id (getenv "GCAL_CLIENT_ID")
-	org-gcal-client-secret (getenv "GCAL_SECRET") 
-	org-gcal-fetch-file-alist '(("mnandrade1999@gmail.com" . "~/agenda.org"))))
+;; (load "~/.emacs_secrets.el")
+;; (require 'org-gcal)
+;; (use-package org-gcal
+;;   :config
+;;   (setq org-gcal-client-id (getenv "GCAL_CLIENT_ID")
+;; 	org-gcal-client-secret (getenv "GCAL_SECRET") 
+;; 	org-gcal-fetch-file-alist '(("mnandrade1999@gmail.com" . "~/agenda.org"))))
 
 (setq erc-server "irc.libera.chat"
       erc-nick "MrX"    ; 

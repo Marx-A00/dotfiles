@@ -94,6 +94,12 @@
 
 #+end_src
 
+#+begin_src emacs-lisp
+  (use-package vterm
+    :ensure t)
+
+#+end_src
+
 ** Basic UI
 
 #+begin_src emacs-lisp
@@ -868,7 +874,9 @@
 ** Languages
 *** All Languages (experimental)
 #+begin_src emacs-lisp
-(electric-pair-mode 1)
+  (electric-pair-mode 1)
+  (global-set-key (kbd "s-b") #'treemacs)
+  
 #+end_src
 *** Latex
 #+begin_src emacs-lisp
@@ -1074,13 +1082,13 @@
 ** Google Calendar
 #+begin_src emacs-lisp
 
-  (load "~/.emacs_secrets.el")
-  (require 'org-gcal)
-  (use-package org-gcal
-    :config
-    (setq org-gcal-client-id (getenv "GCAL_CLIENT_ID")
-	  org-gcal-client-secret (getenv "GCAL_SECRET") 
-	  org-gcal-fetch-file-alist '(("mnandrade1999@gmail.com" . "~/agenda.org"))))
+  ;; (load "~/.emacs_secrets.el")
+  ;; (require 'org-gcal)
+  ;; (use-package org-gcal
+  ;;   :config
+  ;;   (setq org-gcal-client-id (getenv "GCAL_CLIENT_ID")
+  ;; 	org-gcal-client-secret (getenv "GCAL_SECRET") 
+  ;; 	org-gcal-fetch-file-alist '(("mnandrade1999@gmail.com" . "~/agenda.org"))))
 #+end_src
 * Misc
 ** Let's chat baby
