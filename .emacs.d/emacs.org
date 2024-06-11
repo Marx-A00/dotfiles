@@ -168,6 +168,36 @@
 
 #+end_src
 ** UX
+*** Popper
+
+#+begin_src emacs-lisp
+    (use-package popper
+      :ensure t ; or :straight t
+      :bind (("C-`"   . popper-toggle)
+	     ("M-`"   . popper-cycle)
+	     ("C-M-`" . popper-toggle-type))
+      :init
+      (setq popper-reference-buffers
+	    '("\\*Messages\\*"
+	      "\\*Output\\*$"
+	      "^keybindings-shortcuts-and-descriptions\\.org$"
+	      help-mode
+	      compilation-mode))
+      (popper-mode +1)
+      (popper-echo-mode +1))                ; For echo area hints
+
+    ;; Custom function to toggle vterm with popper
+  (defun mr-x/toggle-shortcuts ()
+    "Toggle a buffer in a popper window that quickly displays shortcuts."
+    (interactive)
+    (let ((shortcut-buffer (get-buffer "keybindings-shortcuts-and-descriptions.org")))
+      (if shortcut-buffer
+	  (popper-toggle-latest)
+	(find-file "~/roaming/notes/applications/emacs/keybindings-shortcuts-and-descriptions.org"))))
+
+  ;; Bind the custom function to a key
+  (global-set-key (kbd "C-c s") 'toggle-shortcuts)
+#+end_src
 *** Beacon
 #+begin_src emacs-lisp
 
@@ -288,36 +318,37 @@
 #+end_src
 * General
 #+begin_src emacs-lisp
-  (use-package general
-  :ensure t
-  :config
-  ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
-  (general-evil-setup t)
+    (use-package general
+    :ensure t
+    :config
+    ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
+    (general-evil-setup t)
 
-  ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
-  ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
-  ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
-  ;; will only have an effect for general.el key definers. The advice can later be removed with
-  ;; (general-auto-unbind-keys t).
-  (general-auto-unbind-keys)
+    ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
+    ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
+    ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
+    ;; will only have an effect for general.el key definers. The advice can later be removed with
+    ;; (general-auto-unbind-keys t).
+    (general-auto-unbind-keys)
 
 
-  (general-create-definer mr-x/leader-def
-    :states '(normal visual motion emacs insert)
-    :keymaps 'override
-    :prefix "SPC"
-    :global-prefix "C-SPC"))
+    (general-create-definer mr-x/leader-def
+      :states '(normal visual motion emacs insert)
+      :keymaps 'override
+      :prefix "SPC"
+      :global-prefix "C-SPC"))
 
-  (mr-x/leader-def
-    "d" 'diary-show-all-entries
-    "a" 'mr-x/org-agenda-day
-    "m" 'mu4e
-    "p" 'projectile-command-map
-    "<home>" 'dashboard-open)
+    (mr-x/leader-def
+      "d" 'diary-show-all-entries
+      "a" 'mr-x/org-agenda-day
+      "m" 'mu4e
+      "p" 'projectile-command-map
+      "<home>" 'dashboard-open
+      "s" 'toggle-shortcuts)
 
-  (defun mr-x/org-agenda-day ()
-    (interactive)
-    (org-agenda nil "a"))
+    (defun mr-x/org-agenda-day ()
+      (interactive)
+      (org-agenda nil "a"))
 
 
 #+end_src
