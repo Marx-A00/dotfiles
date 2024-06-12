@@ -1,18 +1,18 @@
 ;;; -*- lexical-binding: t; -*-
 
 ;;(setenv "PATH" (concat (getenv "PATH") ":/opt/homebrew/bin"))
-    ;;(setq exec-path (append exec-path '("/opt/homebrew/bin")))
+;;(setq exec-path (append exec-path '("/opt/homebrew/bin")))
 
-    ;; Check if `exec-path-from-shell` is not already installed
-  ;(unless (package-installed-p 'exec-path-from-shell)
-    ;; Refresh package databases
-   ; (package-refresh-contents)
-    ;; Install `exec-path-from-shell`
-    ;(package-install 'exec-path-from-shell))
+;; Check if `exec-path-from-shell` is not already installed
+					;(unless (package-installed-p 'exec-path-from-shell)
+;; Refresh package databases
+					; (package-refresh-contents)
+;; Install `exec-path-from-shell`
+					;(package-install 'exec-path-from-shell))
 
-  ;; Initialize `exec-path-from-shell` after installation
-  ;(when (memq window-system '(mac ns x))
-   ; (exec-path-from-shell-initialize))
+;; Initialize `exec-path-from-shell` after installation
+					;(when (memq window-system '(mac ns x))
+					; (exec-path-from-shell-initialize))
 (use-package exec-path-from-shell
   :ensure t
   :config
@@ -24,22 +24,46 @@
   :config
   (setq dashboard-banner-logo-title
 	"hi")
+  (setq dashboard-set-heading-icons nil)
+  (setq dashboard-icon-type 'all-the-icons)  ; use `all-the-icons' package
+  (setq dashboard-set-file-icons t)
+  (setq dashboard-navigation-cycle t)
   (setq dashboard-startup-banner nil)
   (setq dashboard-display-icons-p t)     ; display icons on both GUI and terminal
-  (setq dashboard-icon-type 'nerd-icons) ; use `nerd-icons' package
+
 
   (setq dashboard-buffer-name "*dash*")
   (setq dashboard-projects-backend 'projectile)
   (setq dashboard-items '((recents   . 5)
-		      (bookmarks . 5)
-		      (projects  . 5)
-		      (agenda    . 5)
-		      ))
-
+			  (bookmarks . 5)
+			  (projects  . 5)
+			  (agenda    . 5)
+			  ))
   (setq dashboard-item-shortcuts '((recents . "r")
 				   (agenda . "a")
 				   (projects . "p")
-				   )))
+				   (bookmarks . "m")
+				   ))
+  (setq dashboard-set-navigator t)
+  (setq 
+   dashboard-navigator-buttons
+   `((;; line1
+      (,(all-the-icons-octicon "file-directory" :height 1.1 :v-adjust 0.0)
+       "Open Dired"
+       "Open Dired"
+       (lambda (&rest _) (dired "~")))
+      (,(all-the-icons-octicon "file-code" :height 1.1 :v-adjust 0.0)
+       "Edit Config"
+       "Open Emacs configuration file"
+       (lambda (&rest _) (find-file user-init-file)))
+      (,(all-the-icons-octicon "file-text" :height 1.1 :v-adjust 0.0)
+       "New File"
+       "Create a new file"
+       (lambda (&rest _) (find-file "~/newfile.txt")))
+      (,(all-the-icons-octicon "sign-out" :height 1.1 :v-adjust 0.0)
+       "Quit"
+       "Quit Emacs"
+       (lambda (&rest _) (save-buffers-kill-terminal)))))))
 
 ;; Initialize package sources
   (require 'package)
@@ -285,7 +309,12 @@
   "p" 'projectile-command-map
   "<home>" 'dashboard-open
   "s" 'toggle-shortcuts
-  "v" 'toggle-vterm)
+  "v" 'toggle-vterm
+  "b" 'persp-counsel-switch-buffer
+  "1" (lambda () (interactive) (persp-switch-by-number 1))
+  "2" (lambda () (interactive) (persp-switch-by-number 2))
+  "3" (lambda () (interactive) (persp-switch-by-number 3))
+  "4" (lambda () (interactive) (persp-switch-by-number 4)))
 
 (defun mr-x/org-agenda-day ()
   (interactive)
