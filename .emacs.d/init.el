@@ -19,6 +19,28 @@
   (when (memq window-system '(mac ns x))
     (exec-path-from-shell-initialize)))
 
+(use-package dashboard
+  :ensure t
+  :config
+  (setq dashboard-banner-logo-title
+	"hi")
+  (setq dashboard-startup-banner nil)
+  (setq dashboard-display-icons-p t)     ; display icons on both GUI and terminal
+  (setq dashboard-icon-type 'nerd-icons) ; use `nerd-icons' package
+
+  (setq dashboard-buffer-name "*dash*")
+  (setq dashboard-projects-backend 'projectile)
+  (setq dashboard-items '((recents   . 5)
+		      (bookmarks . 5)
+		      (projects  . 5)
+		      (agenda    . 5)
+		      ))
+
+  (setq dashboard-item-shortcuts '((recents . "r")
+				   (agenda . "a")
+				   (projects . "p")
+				   )))
+
 ;; Initialize package sources
   (require 'package)
 
@@ -65,6 +87,9 @@
 
 ; NO LITTERING
 (use-package no-littering)
+
+(use-package vterm
+  :ensure t)
 
 (setq visible-bell t)
 
@@ -119,6 +144,44 @@
   (tooltip-mode -1)    ; Disable tooltips
   (menu-bar-mode -1)   ; Disable the menu bar
   (set-fringe-mode 10) ; Give some breathing room
+
+(use-package popper
+  :ensure t ; or :straight t
+  :bind (("C-`"   . popper-toggle)
+	 ("M-`"   . popper-cycle)
+	 ("C-M-`" . popper-toggle-type))
+  :init
+  (setq popper-reference-buffers
+	'("\\*Messages\\*"
+	  "\\*Output\\*$"
+	  "^keybindings-shortcuts-and-descriptions\\.org$"
+	  help-mode
+	  compilation-mode
+	  "\\*vterm\\*"))
+  (popper-mode +1)
+  (popper-echo-mode +1))                ; For echo area hints
+
+;; Custom function to toggle vterm with popper
+(defun mr-x/toggle-shortcuts ()
+  "Toggle a buffer in a popper window that quickly displays shortcuts."
+  (interactive)
+  (let ((shortcut-buffer (get-buffer "keybindings-shortcuts-and-descriptions.org")))
+    (if shortcut-buffer
+	(popper-toggle-latest)
+      (find-file "~/roaming/notes/applications/emacs/keybindings-shortcuts-and-descriptions.org"))))
+
+;; Custom function to toggle vterm with popper
+(defun toggle-vterm ()
+  "Toggle a vterm buffer in a popper window."
+  (interactive)
+  (let ((vterm-buffer (get-buffer "*vterm*")))
+    (if vterm-buffer
+	(popper-toggle-latest)
+      (vterm))))
+
+
+;; Bind the custom function to a key
+(global-set-key (kbd "C-c s") 'toggle-shortcuts)
 
 (use-package beacon
   :init
@@ -219,7 +282,10 @@
   "d" 'diary-show-all-entries
   "a" 'mr-x/org-agenda-day
   "m" 'mu4e
-  "p" 'projectile-command-map)
+  "p" 'projectile-command-map
+  "<home>" 'dashboard-open
+  "s" 'toggle-shortcuts
+  "v" 'toggle-vterm)
 
 (defun mr-x/org-agenda-day ()
   (interactive)
@@ -382,6 +448,11 @@
       (setq org-agenda-start-with-log-mode t)
       (setq org-log-done 'time)
       (setq org-log-into-drawer t)
+
+      (general-define-key
+       :keymaps 'org-mode-map
+       "C-c t" 'org-insert-todo-heading)
+
       (setq org-highlight-latex-and-related '(latex))
 
       ; org- habit setup
@@ -548,132 +619,157 @@
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
 
 (use-package org-roam
-	    :ensure t
-	    :demand t
-	    :custom
-	    (org-roam-directory "~/roaming/notes/")
-	    (org-roam-completion-everywhere t)
-	    ;; (org-roam-capture-templates
-	    ;;  '(("d" "default" plain
-	    ;; 	"%?"
-	    ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n+date: %U\n")
-	    ;; 	:unnarrowed t)
-	    ;;    ("w" "workout" plain
-	    ;; 	"%?"
-	    ;; 	:if-new (file+head "workouts/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-	    ;; 	:unnarrowed t)
-	    ;;    ("l" "programming language" plain
-	    ;; 	"* Characteristics\n\n- Family: %?\n- Inspired by: \n\n* Reference:\n\n"
-	    ;; 	:if-new (file+head "code-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-	    ;; 	:unnarrowed t)
-	    ;;    ("b" "book notes" plain
-	    ;; 	(file "~/roaming/Templates/BookNoteTemplate.org")
-	    ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-	    ;; 	:unnarrowed t)
-	    ;;    ("p" "project" plain "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
-	    ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
-	    ;; 	:unnarrowed t)))
-	    ;; (org-roam-dailies-capture-templates
-	    ;;  '(("d" "default" entry "* %<%I:%M %p>: %?"
-	    ;; 	:if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
-	     :bind (("C-c n f" . org-roam-node-find)
-		   ("C-c n i" . org-roam-node-insert)
-		   ("C-c n I" . org-roam-node-insert-immediate)
-						  ; ("C-c n p" . my/org-roam-find-project)
-						  ;("C-c n t" . my/org-roam-capture-task)
-						  ; ("C-c n b" . my/org-roam-capture-inbox)
-		   :map org-mode-map
-		   ("C-M-i"   . completion-at-point)
-		   :map org-roam-dailies-map
-		   ("Y" . org-roam-dailies-capture-yesterday)
-		   ("T" . org-roam-dailies-capture-tomorrow))
-	    :bind-keymap
-	    ("C-c n d" . org-roam-dailies-map)
-	    :config
-	    (require 'org-roam-dailies)
-	    (org-roam-db-autosync-mode))
-	  (setq org-roam-dailies-directory "journal/")
+	      :ensure t
+	      :demand t
+	      :custom
+	      (org-roam-directory "~/roaming/notes/")
+	      (org-roam-completion-everywhere t)
+	      ;; (org-roam-capture-templates
+	      ;;  '(("d" "default" plain
+	      ;; 	"%?"
+	      ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n+date: %U\n")
+	      ;; 	:unnarrowed t)
+	      ;;    ("w" "workout" plain
+	      ;; 	"%?"
+	      ;; 	:if-new (file+head "workouts/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+	      ;; 	:unnarrowed t)
+	      ;;    ("l" "programming language" plain
+	      ;; 	"* Characteristics\n\n- Family: %?\n- Inspired by: \n\n* Reference:\n\n"
+	      ;; 	:if-new (file+head "code-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+	      ;; 	:unnarrowed t)
+	      ;;    ("b" "book notes" plain
+	      ;; 	(file "~/roaming/Templates/BookNoteTemplate.org")
+	      ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+	      ;; 	:unnarrowed t)
+	      ;;    ("p" "project" plain "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
+	      ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
+	      ;; 	:unnarrowed t)))
+	      ;; (org-roam-dailies-capture-templates
+	      ;;  '(("d" "default" entry "* %<%I:%M %p>: %?"
+	      ;; 	:if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
 
-	  ;; Bind this to C-c n I
-	  (defun org-roam-node-insert-immediate (arg &rest args)
-	    (interactive "P")
-	    (let ((args (cons arg args))
-		  (org-roam-capture-templates (list (append (car org-roam-capture-templates)
-							    '(:immediate-finish t)))))
-	      (apply #'org-roam-node-insert args)))
+	      :bind (("C-c n f" . org-roam-node-find)
+		     ("C-c n i" . org-roam-node-insert)
+		     ("C-c n I" . org-roam-node-insert-immediate)
+					  ; ("C-c n p" . my/org-roam-find-project)
+					  ;("C-c n t" . my/org-roam-capture-task)
+					  ; ("C-c n b" . my/org-roam-capture-inbox)
+		     :map org-mode-map
+		     ("C-M-i"   . completion-at-point)
+		     :map org-roam-dailies-map
+		     ("Y" . org-roam-dailies-capture-yesterday)
+		     ("T" . org-roam-dailies-capture-tomorrow))
+	      :bind-keymap
+	      ("C-c n d" . org-roam-dailies-map)
+	      :config
+	      (require 'org-roam-dailies)
+	      (org-roam-db-autosync-mode))
+	    (setq org-roam-dailies-directory "journal/")
 
-	  (defun my/org-roam-filter-by-tag (tag-name)
-	  (lambda (node)
-	    (member tag-name (org-roam-node-tags node))))
+	    ;; Bind this to C-c n I
+	    (defun org-roam-node-insert-immediate (arg &rest args)
+	      (interactive "P")
+	      (let ((args (cons arg args))
+		    (org-roam-capture-templates (list (append (car org-roam-capture-templates)
+							      '(:immediate-finish t)))))
+		(apply #'org-roam-node-insert args)))
 
-	  (defun my/org-roam-list-notes-by-tag (tag-name)
-	  (mapcar #'org-roam-node-file
-		  (seq-filter
-		   (my/org-roam-filter-by-tag tag-name)
-		   (org-roam-node-list))))
+	    (defun my/org-roam-filter-by-tag (tag-name)
+	    (lambda (node)
+	      (member tag-name (org-roam-node-tags node))))
 
-	(defun my/org-roam-refresh-agenda-list ()
-	    (interactive)
-	    (setq org-agenda-files (my/org-roam-list-notes-by-tag "Project")))
+	    (defun my/org-roam-list-notes-by-tag (tag-name)
+	    (mapcar #'org-roam-node-file
+		    (seq-filter
+		     (my/org-roam-filter-by-tag tag-name)
+		     (org-roam-node-list))))
 
-(my/org-roam-refresh-agenda-list)
+	  (defun my/org-roam-refresh-agenda-list ()
+	      (interactive)
+	      (setq org-agenda-files (my/org-roam-list-notes-by-tag "Project")))
 
-	(defun my/org-roam-project-finalize-hook ()
-	    "Adds the captured project file to `org-agenda-files' if the
-	capture was not aborted."
-	  ;; Remove the hook since it was added temporarily
-	  (remove-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+  (my/org-roam-refresh-agenda-list)
 
-	  ;; Add project file to the agenda list if the capture was confirmed
-	  (unless org-note-abort
-	    (with-current-buffer (org-capture-get :buffer)
-	      (add-to-list 'org-agenda-files (buffer-file-name)))))
+	  (defun my/org-roam-project-finalize-hook ()
+	      "Adds the captured project file to `org-agenda-files' if the
+	  capture was not aborted."
+	    ;; Remove the hook since it was added temporarily
+	    (remove-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
 
-
-(defun my/org-roam-find-project ()
-(interactive)
-;; Add the project file to the agenda after capture is finished
-(add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
-
-;; Select a project file to open, creating it if necessary
-(org-roam-node-find
- nil
- nil
- (my/org-roam-filter-by-tag "Project")
- nil
- :templates
- '(("p" "project" plain
-    "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
-    :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
-    :unnarrowed t))))
-
-    (global-set-key (kbd "C-c n p") #'my/org-roam-find-project)
+	    ;; Add project file to the agenda list if the capture was confirmed
+	    (unless org-note-abort
+	      (with-current-buffer (org-capture-get :buffer)
+		(add-to-list 'org-agenda-files (buffer-file-name)))))
 
 
-  (defun my/org-roam-capture-inbox ()
-    (interactive)
-    (org-roam-capture- :node (org-roam-node-create)
-		       :templates '(("i" "inbox" plain "* %?"
-				     :if-new (file+head "Inbox.org" "#+title: Inbox\n")))))
-
-  (global-set-key (kbd "C-c n b") #'my/org-roam-capture-inbox)
-
-
-(defun my/org-roam-capture-task ()
-    (interactive)
+  (defun my/org-roam-find-project ()
+  (interactive)
   ;; Add the project file to the agenda after capture is finished
   (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
 
-  ;; Capture the new task, creating the project file if necessary
-  (org-roam-capture- :node (org-roam-node-read
-			    nil
-			    (my/org-roam-filter-by-tag "Project"))
-		     :templates '(("p" "project" plain "** TODO %?"
-				   :if-new (file+head+olp "%<%Y%m%d%H%M%S>-${slug}.org"
-							  "#+title: ${title}\n#+category: ${title}\n#+filetags: Project"
-							  ("Tasks"))))))
+  ;; Select a project file to open, creating it if necessary
+  (org-roam-node-find
+   nil
+   nil
+   (my/org-roam-filter-by-tag "Project")
+   nil
+   :templates
+   '(("p" "project" plain
+      "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
+      :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
+      :unnarrowed t))))
 
-(global-set-key (kbd "C-c n t") #'my/org-roam-capture-task)
+      (global-set-key (kbd "C-c n p") #'my/org-roam-find-project)
+
+
+    (defun my/org-roam-capture-inbox ()
+      (interactive)
+      (org-roam-capture- :node (org-roam-node-create)
+			 :templates '(("i" "inbox" plain "* %?"
+				       :if-new (file+head "Inbox.org" "#+title: Inbox\n")))))
+
+    (global-set-key (kbd "C-c n b") #'my/org-roam-capture-inbox)
+
+
+  (defun my/org-roam-capture-task ()
+      (interactive)
+    ;; Add the project file to the agenda after capture is finished
+    (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+
+    ;; Capture the new task, creating the project file if necessary
+    (org-roam-capture- :node (org-roam-node-read
+			      nil
+			      (my/org-roam-filter-by-tag "Project"))
+		       :templates '(("p" "project" plain "** TODO %?"
+				     :if-new (file+head+olp "%<%Y%m%d%H%M%S>-${slug}.org"
+							    "#+title: ${title}\n#+category: ${title}\n#+filetags: Project"
+							    ("Tasks"))))))
+
+  (global-set-key (kbd "C-c n t") #'my/org-roam-capture-task)
+
+  (defun my/org-roam-copy-todo-to-today ()
+  (interactive)
+  (let ((org-refile-keep nil) ;; Set this to nil to delete the original!
+	(org-roam-dailies-capture-templates
+	  '(("t" "tasks" entry "%?"
+	     :if-new (file+head+olp "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n" ("Tasks")))))
+	(org-after-refile-insert-hook #'save-buffer)
+	today-file
+	pos)
+    (save-window-excursion
+      (org-roam-dailies--capture (current-time) t)
+      (setq today-file (buffer-file-name))
+      (setq pos (point)))
+
+    ;; Only refile if the target file is different than the current file
+    (unless (equal (file-truename today-file)
+		   (file-truename (buffer-file-name)))
+      (org-refile nil nil (list "Tasks" today-file nil pos)))))
+
+(add-to-list 'org-after-todo-state-change-hook
+	     (lambda ()
+	       (when (equal org-state "DONE")
+		 (my/org-roam-copy-todo-to-today))))
 
 (use-package projectile
 :diminish projectile-mode
@@ -687,7 +783,12 @@
   (setq projectile-project-search-path '("~/code/projects")))
 (setq projectile-switch-project-action #'projectile-dired))
 
-(use-package devdocs)
+(use-package devdocs
+  :ensure t
+  :config
+  ;; Optional: Set default settings
+  (setq devdocs-browser 'eww) ;; Use eww as the default browser
+  (setq devdocs-offline-data-path "~/.emacs.d/devdocs")) ;; Directory for offline data
 
 (electric-pair-mode 1)
 (global-set-key (kbd "s-b") #'treemacs)
@@ -703,6 +804,9 @@
 (require 'web-mode)
 (add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
 (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
+
+(setq web-mode-content-types-alist '(("jsx" . "\\.js[x]?\\'")))
+(setq web-mode-enable-engine-detection t)
 
 (use-package prettier-js
   :ensure t)
@@ -729,7 +833,7 @@
   (insert "\n")
   (insert "\n")
   (insert "#+end_src")
-  (goto-char (point-max))))
+  (goto-char 32)))
 
 ;; emmet mode
 (require 'emmet-mode)

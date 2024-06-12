@@ -7,19 +7,19 @@
 #+begin_src emacs-lisp
 
 
-      ;;(setenv "PATH" (concat (getenv "PATH") ":/opt/homebrew/bin"))
-      ;;(setq exec-path (append exec-path '("/opt/homebrew/bin")))
+  ;;(setenv "PATH" (concat (getenv "PATH") ":/opt/homebrew/bin"))
+  ;;(setq exec-path (append exec-path '("/opt/homebrew/bin")))
 
-      ;; Check if `exec-path-from-shell` is not already installed
-    ;(unless (package-installed-p 'exec-path-from-shell)
-      ;; Refresh package databases
-     ; (package-refresh-contents)
-      ;; Install `exec-path-from-shell`
-      ;(package-install 'exec-path-from-shell))
+  ;; Check if `exec-path-from-shell` is not already installed
+					  ;(unless (package-installed-p 'exec-path-from-shell)
+  ;; Refresh package databases
+					  ; (package-refresh-contents)
+  ;; Install `exec-path-from-shell`
+					  ;(package-install 'exec-path-from-shell))
 
-    ;; Initialize `exec-path-from-shell` after installation
-    ;(when (memq window-system '(mac ns x))
-     ; (exec-path-from-shell-initialize))
+  ;; Initialize `exec-path-from-shell` after installation
+					  ;(when (memq window-system '(mac ns x))
+					  ; (exec-path-from-shell-initialize))
   (use-package exec-path-from-shell
     :ensure t
     :config
@@ -29,22 +29,48 @@
   (use-package dashboard
     :ensure t
     :config
-    (setq dashboard-banner-logo-title "shiii")
+    (setq dashboard-banner-logo-title
+	  "hi")
+    (setq dashboard-set-heading-icons nil)
+    (setq dashboard-icon-type 'all-the-icons)  ; use `all-the-icons' package
+    (setq dashboard-set-file-icons t)
+    (setq dashboard-navigation-cycle t)
     (setq dashboard-startup-banner nil)
     (setq dashboard-display-icons-p t)     ; display icons on both GUI and terminal
-    (setq dashboard-icon-type 'nerd-icons) ; use `nerd-icons' package
 
+
+    (setq dashboard-buffer-name "*dash*")
     (setq dashboard-projects-backend 'projectile)
     (setq dashboard-items '((recents   . 5)
-			(bookmarks . 5)
-			(projects  . 5)
-			(agenda    . 5)
-			))
-
+			    (bookmarks . 5)
+			    (projects  . 5)
+			    (agenda    . 5)
+			    ))
     (setq dashboard-item-shortcuts '((recents . "r")
 				     (agenda . "a")
 				     (projects . "p")
-				     )))
+				     (bookmarks . "m")
+				     ))
+    (setq dashboard-set-navigator t)
+    (setq 
+     dashboard-navigator-buttons
+     `((;; line1
+	(,(all-the-icons-octicon "file-directory" :height 1.1 :v-adjust 0.0)
+	 "Open Dired"
+	 "Open Dired"
+	 (lambda (&rest _) (dired "~")))
+	(,(all-the-icons-octicon "file-code" :height 1.1 :v-adjust 0.0)
+	 "Edit Config"
+	 "Open Emacs configuration file"
+	 (lambda (&rest _) (find-file user-init-file)))
+	(,(all-the-icons-octicon "file-text" :height 1.1 :v-adjust 0.0)
+	 "New File"
+	 "Create a new file"
+	 (lambda (&rest _) (find-file "~/newfile.txt")))
+	(,(all-the-icons-octicon "sign-out" :height 1.1 :v-adjust 0.0)
+	 "Quit"
+	 "Quit Emacs"
+	 (lambda (&rest _) (save-buffers-kill-terminal)))))))
 
 
 #+end_src
@@ -183,22 +209,23 @@
 *** Popper
 
 #+begin_src emacs-lisp
-    (use-package popper
-      :ensure t ; or :straight t
-      :bind (("C-`"   . popper-toggle)
-	     ("M-`"   . popper-cycle)
-	     ("C-M-`" . popper-toggle-type))
-      :init
-      (setq popper-reference-buffers
-	    '("\\*Messages\\*"
-	      "\\*Output\\*$"
-	      "^keybindings-shortcuts-and-descriptions\\.org$"
-	      help-mode
-	      compilation-mode))
-      (popper-mode +1)
-      (popper-echo-mode +1))                ; For echo area hints
+  (use-package popper
+    :ensure t ; or :straight t
+    :bind (("C-`"   . popper-toggle)
+	   ("M-`"   . popper-cycle)
+	   ("C-M-`" . popper-toggle-type))
+    :init
+    (setq popper-reference-buffers
+	  '("\\*Messages\\*"
+	    "\\*Output\\*$"
+	    "^keybindings-shortcuts-and-descriptions\\.org$"
+	    help-mode
+	    compilation-mode
+	    "\\*vterm\\*"))
+    (popper-mode +1)
+    (popper-echo-mode +1))                ; For echo area hints
 
-    ;; Custom function to toggle vterm with popper
+  ;; Custom function to toggle vterm with popper
   (defun mr-x/toggle-shortcuts ()
     "Toggle a buffer in a popper window that quickly displays shortcuts."
     (interactive)
@@ -206,6 +233,16 @@
       (if shortcut-buffer
 	  (popper-toggle-latest)
 	(find-file "~/roaming/notes/applications/emacs/keybindings-shortcuts-and-descriptions.org"))))
+
+  ;; Custom function to toggle vterm with popper
+  (defun toggle-vterm ()
+    "Toggle a vterm buffer in a popper window."
+    (interactive)
+    (let ((vterm-buffer (get-buffer "*vterm*")))
+      (if vterm-buffer
+	  (popper-toggle-latest)
+	(vterm))))
+
 
   ;; Bind the custom function to a key
   (global-set-key (kbd "C-c s") 'toggle-shortcuts)
@@ -330,37 +367,38 @@
 #+end_src
 * General
 #+begin_src emacs-lisp
-    (use-package general
-    :ensure t
-    :config
-    ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
-    (general-evil-setup t)
+      (use-package general
+      :ensure t
+      :config
+      ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
+      (general-evil-setup t)
 
-    ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
-    ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
-    ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
-    ;; will only have an effect for general.el key definers. The advice can later be removed with
-    ;; (general-auto-unbind-keys t).
-    (general-auto-unbind-keys)
+      ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
+      ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
+      ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
+      ;; will only have an effect for general.el key definers. The advice can later be removed with
+      ;; (general-auto-unbind-keys t).
+      (general-auto-unbind-keys)
 
 
-    (general-create-definer mr-x/leader-def
-      :states '(normal visual motion emacs insert)
-      :keymaps 'override
-      :prefix "SPC"
-      :global-prefix "C-SPC"))
+      (general-create-definer mr-x/leader-def
+	:states '(normal visual motion emacs insert)
+	:keymaps 'override
+	:prefix "SPC"
+	:global-prefix "C-SPC"))
 
-    (mr-x/leader-def
-      "d" 'diary-show-all-entries
-      "a" 'mr-x/org-agenda-day
-      "m" 'mu4e
-      "p" 'projectile-command-map
-      "<home>" 'dashboard-open
-      "s" 'toggle-shortcuts)
+      (mr-x/leader-def
+	"d" 'diary-show-all-entries
+	"a" 'mr-x/org-agenda-day
+	"m" 'mu4e
+	"p" 'projectile-command-map
+	"<home>" 'dashboard-open
+	"s" 'toggle-shortcuts
+	"v" 'toggle-vterm)
 
-    (defun mr-x/org-agenda-day ()
-      (interactive)
-      (org-agenda nil "a"))
+      (defun mr-x/org-agenda-day ()
+	(interactive)
+	(org-agenda nil "a"))
 
 
 #+end_src
@@ -952,7 +990,12 @@
 ** Devdocs
 
 #+begin_src emacs-lisp
-(use-package devdocs)
+(use-package devdocs
+  :ensure t
+  :config
+  ;; Optional: Set default settings
+  (setq devdocs-browser 'eww) ;; Use eww as the default browser
+  (setq devdocs-offline-data-path "~/.emacs.d/devdocs")) ;; Directory for offline data
 #+end_src
 ** Languages
 *** All Languages (experimental)
