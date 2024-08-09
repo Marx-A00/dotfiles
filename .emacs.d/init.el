@@ -1075,7 +1075,12 @@ With a prefix ARG, remove start location."
 (setq wakatime-cli-path "/opt/homebrew/bin/wakatime-cli")
 (global-wakatime-mode)
 
-;; (setq org-fc-directories "~/roaming/flashcards")
+(use-package hydra)
+(use-package org-fc
+  :load-path "~/src/org-fc"
+  :custom (org-fc-directories "~/roaming/flashcards/")
+  :config
+  (require 'org-fc-hydra))
 
 (use-package mu4e
   :ensure nil

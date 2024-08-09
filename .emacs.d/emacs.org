@@ -1318,7 +1318,13 @@
 
 ** Flashcards
 #+begin_src emacs-lisp
-  ;; (setq org-fc-directories "~/roaming/flashcards")
+
+  (use-package hydra)
+  (use-package org-fc
+    :load-path "~/src/org-fc"
+    :custom (org-fc-directories "~/roaming/flashcards/")
+    :config
+    (require 'org-fc-hydra))
 
 #+end_src
 ** mu4e
