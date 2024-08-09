@@ -481,54 +481,69 @@
 * Evil
 
 #+begin_src emacs-lisp
-      (use-package evil
-	:init (setq evil-want-integration t)
-	(setq evil-want-keybinding nil)
-	(setq evil-want-C-u-scroll t)
-	(setq evil-want-C-i-jump nil)
-	(setq evil-respect-visual-line-mode t)
-	:config
-	(evil-mode 1))
-
-      (defun my-evil-ex-put ()
-      "Execute the ':put' Ex command without needing to manually press RET."
-      (interactive)
-      (evil-ex "put")
-      (execute-kbd-macro (kbd "RET")))
-
-
-      (evil-define-key 'normal evil-ex-shortcut-map (kbd "s-<down> RET") (kbd ":put <RET>"))
-    ; give up, figure it out later
-
-
-
-
-
-
-	(use-package evil-collection
-	  :after evil
+	(use-package evil
+	  :init (setq evil-want-integration t)
+	  (setq evil-want-keybinding nil)
+	  (setq evil-want-C-u-scroll t)
+	  (setq evil-want-C-i-jump nil)
+	  (setq evil-respect-visual-line-mode t)
 	  :config
-	  (evil-collection-init))
+	  (evil-mode 1))
 
-      (use-package evil-org
-	:ensure t
-	:after org
-	:hook (org-mode . (lambda () evil-org-mode))
-	:config
-	(require 'evil-org-agenda)
-	(evil-org-agenda-set-keys))
+	(defun my-evil-ex-put ()
+	"Execute the ':put' Ex command without needing to manually press RET."
+	(interactive)
+	(evil-ex "put")
+	(execute-kbd-macro (kbd "RET")))
 
-  (use-package evil-owl
-    :config
-    (setq evil-owl-max-string-length 500)
-    (add-to-list 'display-buffer-alist
-		 '("*evil-owl*"
-		   (display-buffer-in-side-window)
-		   (side . bottom)
-		   (window-height . 0.3)))
-    (evil-owl-mode))
 
-  
+	(evil-define-key 'normal evil-ex-shortcut-map (kbd "s-<down> RET") (kbd ":put <RET>"))
+      ; give up, figure it out later
+
+
+    (evil-define-minor-mode-key '(normal insert emacs) 'org-fc-review-flip-mode
+    (kbd "RET") 'org-fc-review-flip
+    (kbd "n") 'org-fc-review-flip
+    (kbd "s") 'org-fc-review-suspend-card
+    (kbd "q") 'org-fc-review-quit)
+
+  (evil-define-minor-mode-key '(normal insert emacs) 'org-fc-review-rate-mode
+    (kbd "a") 'org-fc-review-rate-again
+    (kbd "h") 'org-fc-review-rate-hard
+    (kbd "g") 'org-fc-review-rate-good
+    (kbd "e") 'org-fc-review-rate-easy
+    (kbd "s") 'org-fc-review-suspend-card
+    (kbd "q") 'org-fc-review-quit)
+
+
+
+
+
+
+	  (use-package evil-collection
+	    :after evil
+	    :config
+	    (evil-collection-init))
+
+	(use-package evil-org
+	  :ensure t
+	  :after org
+	  :hook (org-mode . (lambda () evil-org-mode))
+	  :config
+	  (require 'evil-org-agenda)
+	  (evil-org-agenda-set-keys))
+
+    (use-package evil-owl
+      :config
+      (setq evil-owl-max-string-length 500)
+      (add-to-list 'display-buffer-alist
+		   '("*evil-owl*"
+		     (display-buffer-in-side-window)
+		     (side . bottom)
+		     (window-height . 0.3)))
+      (evil-owl-mode))
+
+
 
 #+end_src
 
