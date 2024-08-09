@@ -1316,6 +1316,11 @@
 
 #+end_src
 
+** Flashcards
+#+begin_src emacs-lisp
+  ;; (setq org-fc-directories "~/roaming/flashcards")
+
+#+end_src
 ** mu4e
 #+begin_src emacs-lisp
 

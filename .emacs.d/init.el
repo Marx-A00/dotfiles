@@ -1075,6 +1075,8 @@ With a prefix ARG, remove start location."
 (setq wakatime-cli-path "/opt/homebrew/bin/wakatime-cli")
 (global-wakatime-mode)
 
+;; (setq org-fc-directories "~/roaming/flashcards")
+
 (use-package mu4e
   :ensure nil
   :load-path "/opt/homebrew/Cellar/mu/1.12.3/share/emacs/site-lisp/mu/mu4e"
