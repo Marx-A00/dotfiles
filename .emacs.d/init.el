@@ -148,7 +148,8 @@
   :ensure t ; or :straight t
   :bind (("C-`"   . popper-toggle)
 	 ("M-`"   . popper-cycle)
-	 ("C-M-`" . popper-toggle-type))
+	 ("C-M-`" . popper-toggle-type)
+	 ("C-~" . popper-kill-latest-popup))
   :init
   (setq popper-reference-buffers
 	'("\\*Messages\\*"
@@ -1093,7 +1094,7 @@ With a prefix ARG, remove start location."
 (use-package hydra)
 (use-package org-fc
   :load-path "~/src/org-fc"
-  :custom (org-fc-directories "~/roaming/flashcards/")
+  :custom (org-fc-directories '("~/roaming/flashcards/"))
   :config
   (require 'org-fc-hydra))
 
