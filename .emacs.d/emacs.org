@@ -632,6 +632,13 @@
     (setq ivy-use-virtual-buffers nil)
     (setq ivy-count-format "(%d/%d) "))
 
+  ;; Taken from emacswiki to search for symbol/word at point
+  (define-key swiper-map (kbd "C-.")
+	      (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'symbol))))))
+
+  (define-key swiper-map (kbd "M-.")
+	      (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
+
   (use-package ivy-rich
     :init
     (ivy-rich-mode 1))
