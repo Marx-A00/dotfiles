@@ -13,12 +13,17 @@
 ;; Initialize `exec-path-from-shell` after installation
 					;(when (memq window-system '(mac ns x))
 					; (exec-path-from-shell-initialize))
+
+(setq confirm-kill-emacs #'yes-or-no-p)
+
 (use-package exec-path-from-shell
   :ensure t
-  :config
+  :init
   (when (memq window-system '(mac ns x))
     (exec-path-from-shell-initialize)))
+
 (require 'transient)
+
 (setq auth-sources '("~/.authinfo.gpg"))
 
 ;; Initialize package sources
@@ -92,9 +97,9 @@
     (setq doom-modeline-icon (display-graphic-p)))
 
 
-(defun task-tracker-for-modeline()
-  "Return a string"
-  (format  "Tasks: %d/%d" tasks-completed-for-day tasks-goal-for-day))
+;;(defun task-tracker-for-modeline()
+;;  "Return a string"
+;; (format  "Tasks: %d/%d" tasks-completed-for-day tasks-goal-for-day))
 
 
 (setq doom-modeline-modal-modern-icon nil)
@@ -102,7 +107,7 @@
 
 (setq mode-line-misc-info
       '((which-function-mode (which-func-mode ("" which-func-format " ")))
-	(:eval (task-tracker-for-modeline))
+       ;; (:eval (task-tracker-for-modeline))
 	(:eval (propertize " " 'display '(space :width 1)))
 	(:eval (persp-mode-line))))
 
@@ -110,6 +115,44 @@
       :init (which-key-mode)
       :config
       (setq which-key-idle-delay 0.3))
+
+(use-package multi-vterm
+      :config
+      (add-hook 'vterm-mode-hook
+		      (lambda ()
+		      (setq-local evil-insert-state-cursor 'box)
+		      (evil-insert-state)))
+      (define-key vterm-mode-map [return]                      #'vterm-send-return)
+
+      (setq vterm-keymap-exceptions nil)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
+      (evil-define-key 'normal vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+      (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
+      (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
+      (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
+      (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
+      (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
+      (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume))
+
+
+
 
 
     (defun mr-x/general-setup ()
@@ -144,53 +187,79 @@
 (use-package flyspell-correct-ivy
   :after flyspell-correct)
 
+(with-eval-after-load "ispell"
+  ;; Configure `LANG`, otherwise ispell.el cannot find a 'default
+  ;; dictionary' even though multiple dictionaries will be configured
+  ;; in next line.
+  ;; (setenv "LANG" "en_US.UTF-8")
+  (setq ispell-program-name "hunspell")
+  ;; Configure German, Swiss German, and two variants of English.
+  (setq ispell-dictionary "en_US")
+  ;; ispell-set-spellchecker-params has to be called
+  ;; before ispell-hunspell-add-multi-dic will work
+  (ispell-set-spellchecker-params)
+  ;; (ispell-hunspell-add-multi-dic "de_DE,de_CH,en_GB,en_US")
+  ;; For saving words to the personal dictionary, don't infer it from
+  ;; the locale, otherwise it would save to ~/.hunspell_de_DE.
+  (setq ispell-personal-dictionary "~/.hunspell_personal"))
+
+;; The personal dictionary file has to exist, otherwise hunspell will
+;; silently not use it.
+;;(unless (file-exists-p ispell-personal-dictionary)
+ ;; (write-region "" nil ispell-personal-dictionary nil 0))
+
 (use-package popper
-  :ensure t ; or :straight t
-  :bind (("C-`"   . popper-toggle)
-	 ("M-`"   . popper-cycle)
-	 ("C-M-`" . popper-toggle-type)
-	 ("C-~" . popper-kill-latest-popup))
-  :init
-  (setq popper-reference-buffers
-	'("\\*Messages\\*"
-	  "\\*Output\\*$"
-	  "^keybindings-shortcuts-and-descriptions\.org$"
-	  help-mode
-	  compilation-mode
-	  "main-diary\\.org$" 
-	  "\\*Backtrace\\*"
-	  "\\*Help\\*"
-	  "\\*vterm\\*"
-	  "\\*Ibuffer*\\*"
-	  "\\*Helpful Function:.*\\*" ; Helpful buffers
-	  "\\*Helpful Variable:.*\\*"
-	  "\\*Helpful Command:.*\\*"
-	  "\\*Helpful Key:.*\\*"))
+    :ensure t ; or :straight t
+    :bind (("C-`"   . popper-toggle)
+	   ("M-`"   . popper-cycle)
+	   ("C-M-`" . popper-toggle-type)
+	   ("C-~" . popper-kill-latest-popup))
+    :init
+    (setq popper-reference-buffers
+	  '("\\*Messages\\*"
+	    "\\*Output\\*$"
+	    "^keybindings-shortcuts-and-descriptions\.org$"
+	    help-mode
+	    compilation-mode
+	    "main-diary\\.org$" 
+	    "\\*Backtrace\\*"
+	    "\\*devdocs\\*"
+	    "\\*Warnings\\*"
+	    "\\*Help\\*"
+	    "\\*vterm.*\\*"
+	    "\\*vterminal.*\\*"
+	    "\\*Ibuffer*\\*"
+	    "\\*Helpful Function:.*\\*" ; Helpful buffers
+	    "\\*Helpful Variable:.*\\*"
+	    "\\*Helpful Command:.*\\*"
+	    "\\*Helpful Key:.*\\*"))
 
-  (popper-mode +1)
-  (popper-echo-mode +1))                ; For echo area hints
+    (popper-mode +1)
+    (popper-echo-mode +1))                ; For echo area hints
 
-;; Custom function to toggle vterm with popper
-(defun mr-x/toggle-shortcuts ()
-  "Toggle a buffer in a popper window that quickly displays shortcuts."
-  (interactive)
-  (let (shortcuts-buffer (get-buffer "keybindings-shortcuts-and-descriptions.org"))
-  (if shortcuts-buffer
-      (popper-toggle)
-      (find-file "~/roaming/notes/applications/emacs/keybindings-shortcuts-and-descriptions.org"))))
+(setq popper-group-function #'popper-group-by-perspective)
 
-;; Custom function to toggle vterm with popper
-(defun mr-x/toggle-vterm ()
-  "Toggle a vterm buffer in a popper window."
-  (interactive)
-  (let ((vterm-buffer (get-buffer "*vterm*")))
-    (if vterm-buffer
-	(popper-toggle-latest)
-      (vterm))))
+  ;; Custom function to toggle vterm with popper
+  (defun mr-x/toggle-shortcuts ()
+    "Toggle a buffer in a popper window that quickly displays shortcuts."
+    (interactive)
+    (let (shortcuts-buffer (get-buffer "keybindings-shortcuts-and-descriptions.org"))
+    (if shortcuts-buffer
+	(popper-toggle)
+	(find-file "~/roaming/notes/applications/emacs/keybindings-shortcuts-and-descriptions.org"))))
+
+  ;; Custom function to toggle vterm with popper
+  (defun mr-x/toggle-vterm ()
+    "Toggle a vterm buffer in a popper window."
+    (interactive)
+    (let ((vterm-buffer (get-buffer "*vterm*")))
+      (if vterm-buffer
+	  (popper-toggle-latest)
+	(vterm))))
 
 
-;; Bind the custom function to a key
-(global-set-key (kbd "C-c s") 'toggle-shortcuts)
+  ;; Bind the custom function to a key
+  (global-set-key (kbd "C-c s") 'toggle-shortcuts)
 
 (use-package beacon
   :init
@@ -236,58 +305,63 @@
     :hook (company-mode . company-box-mode))
 
 (defun mr-x/PDFviewSetup()
-    "preparation function for PDFView"
+      "preparation function for PDFView"
 
-  (global-display-line-numbers-mode nil)
-  (display-line-numbers-mode -1) 
-  (set-frame-parameter (selected-frame) 'alpha '(100 50)))
+    (global-display-line-numbers-mode nil)
+    (display-line-numbers-mode -1) 
+    (set-frame-parameter (selected-frame) 'alpha '(100 50)))
 
 
-  (add-hook 'pdf-view-mode-hook #'mr-x/PDFviewSetup)
 
-  (use-package pdf-tools
-    :defer t)
 
-  (use-package org-noter
-:config
-;; Your org-noter config ........
-(require 'org-noter-pdftools))
+(add-to-list 'auto-mode-alist '("\\.pdf\\'" . pdf-view-mode))
+(setq auto-mode-alist
+      (remove  '("\\.\\(?:PDF\\|EPUB\\|CBZ\\|FB2\\|O?XPS\\|DVI\\|OD[FGPST]\\|DOCX\\|XLSX?\\|PPTX?\\|pdf\\|epub\\|cbz\\|fb2\\|o?xps\\|djvu\\|dvi\\|od[fgpst]\\|docx\\|xlsx?\\|pptx?\\)\\'" . doc-view-mode-maybe) auto-mode-alist))
+(add-hook 'pdf-view-mode-hook #'mr-x/PDFviewSetup)
 
-(use-package org-pdftools
-  :hook (org-mode . org-pdftools-setup-link))
+(use-package pdf-tools
+      :defer t)
 
-(use-package org-noter-pdftools
-  :after org-noter
+    (use-package org-noter
   :config
-  ;; Add a function to ensure precise note is inserted
-  (defun org-noter-pdftools-insert-precise-note (&optional toggle-no-questions)
-    (interactive "P")
-    (org-noter--with-valid-session
-     (let ((org-noter-insert-note-no-questions (if toggle-no-questions
-						   (not org-noter-insert-note-no-questions)
-						 org-noter-insert-note-no-questions))
-	   (org-pdftools-use-isearch-link t)
-	   (org-pdftools-use-freepointer-annot t))
-       (org-noter-insert-note (org-noter--get-precise-info)))))
+  ;; Your org-noter config ........
+  (require 'org-noter-pdftools))
 
-  ;; fix https://github.com/weirdNox/org-noter/pull/93/commits/f8349ae7575e599f375de1be6be2d0d5de4e6cbf
-  (defun org-noter-set-start-location (&optional arg)
-    "When opening a session with this document, go to the current location.
-With a prefix ARG, remove start location."
-    (interactive "P")
-    (org-noter--with-valid-session
-     (let ((inhibit-read-only t)
-	   (ast (org-noter--parse-root))
-	   (location (org-noter--doc-approx-location (when (called-interactively-p 'any) 'interactive))))
-       (with-current-buffer (org-noter--session-notes-buffer session)
-	 (org-with-wide-buffer
-	  (goto-char (org-element-property :begin ast))
-	  (if arg
-	      (org-entry-delete nil org-noter-property-note-location)
-	    (org-entry-put nil org-noter-property-note-location
-			   (org-noter--pretty-print-location location))))))))
-  (with-eval-after-load 'pdf-annot
-    (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
+  (use-package org-pdftools
+    :hook (org-mode . org-pdftools-setup-link))
+
+  (use-package org-noter-pdftools
+    :after org-noter
+    :config
+    ;; Add a function to ensure precise note is inserted
+    (defun org-noter-pdftools-insert-precise-note (&optional toggle-no-questions)
+      (interactive "P")
+      (org-noter--with-valid-session
+       (let ((org-noter-insert-note-no-questions (if toggle-no-questions
+						     (not org-noter-insert-note-no-questions)
+						   org-noter-insert-note-no-questions))
+	     (org-pdftools-use-isearch-link t)
+	     (org-pdftools-use-freepointer-annot t))
+	 (org-noter-insert-note (org-noter--get-precise-info)))))
+
+    ;; fix https://github.com/weirdNox/org-noter/pull/93/commits/f8349ae7575e599f375de1be6be2d0d5de4e6cbf
+    (defun org-noter-set-start-location (&optional arg)
+      "When opening a session with this document, go to the current location.
+  With a prefix ARG, remove start location."
+      (interactive "P")
+      (org-noter--with-valid-session
+       (let ((inhibit-read-only t)
+	     (ast (org-noter--parse-root))
+	     (location (org-noter--doc-approx-location (when (called-interactively-p 'any) 'interactive))))
+	 (with-current-buffer (org-noter--session-notes-buffer session)
+	   (org-with-wide-buffer
+	    (goto-char (org-element-property :begin ast))
+	    (if arg
+		(org-entry-delete nil org-noter-property-note-location)
+	      (org-entry-put nil org-noter-property-note-location
+			     (org-noter--pretty-print-location location))))))))
+    (with-eval-after-load 'pdf-annot
+      (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
 
 (use-package lsp-ui
   :hook (lsp-mode . lsp-ui-mode))
@@ -310,6 +384,8 @@ With a prefix ARG, remove start location."
 	     (setq n (1+ n))
 	     (get-buffer bufname)))
     (switch-to-buffer (get-buffer-create bufname))
+    (org-mode)
+    (insert (format "This is scratch buffer number %d" (- n 1)))
     (if (= n 1) initial-major-mode))) ; 1, because n was incremented
 
 (setq initial-major-mode 'org-mode)
@@ -371,7 +447,8 @@ With a prefix ARG, remove start location."
   "f" 'link-hint-open-link
   "p" 'projectile-command-map
   "s" 'mr-x/toggle-shortcuts
-  "v" 'mr-x/toggle-vterm
+  "S" 'mr-x/scratch
+  "v" 'multi-vterm
   "b" 'persp-counsel-switch-buffer
   "1" (lambda () (interactive) (persp-switch-by-number 1))
   "2" (lambda () (interactive) (persp-switch-by-number 2))
@@ -522,11 +599,12 @@ With a prefix ARG, remove start location."
   (setq ivy-count-format "(%d/%d) "))
 
 ;; Taken from emacswiki to search for symbol/word at point
-(define-key swiper-map (kbd "C-.")
-	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'symbol))))))
+;; Must be done at end of init I guess
+;; (define-key swiper-map (kbd "C-.")
+;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'symbol))))))
 
-(define-key swiper-map (kbd "M-.")
-	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
+;; (define-key swiper-map (kbd "M-.")
+;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
 
 (use-package ivy-rich
   :init
@@ -566,43 +644,46 @@ With a prefix ARG, remove start location."
 
 (add-hook 'org-mode-hook #'org-inline-anim-mode)
 
- (defvar tasks-goal-for-day 5 "goal number of tasks for a day")
- (defvar tasks-completed-for-day 0 "actual number of tasks completed for a day")
- (defvar last-check-date (calendar-current-date))
 
 
 
- (defun reset-task-variables-on-day-change()
-   "resets"
-   (unless (equal org-agenda-current-date last-check-date)
-     (setq last-check-date org-agenda-current-date)
-     (setq tasks-completed-for-day 0)
-     (message "task tracker date has been reset")))
+;;  (defvar tasks-goal-for-day 5 "goal number of tasks for a day")
+;;  (defvar tasks-completed-for-day 0 "actual number of tasks completed for a day")
+;;  (defvar last-check-date (calendar-current-date))
 
 
-   (defun mr-x/task-counter ()
-"Simple function to track number of tasks completed in a given day."
-(interactive)
-;; Ensure reset-task-variables-on-day-change is defined
-(reset-task-variables-on-day-change)
-;; Increment the counter
-(cl-incf tasks-completed-for-day)
-;; Check if the task goal has been met
-(if (>= tasks-completed-for-day tasks-goal-for-day)
-    (message "Congrats!! You met your task completion goal for today")
-  (progn
-    (sit-for 2)
-    (message "Tasks completed today: %d/%d" tasks-completed-for-day tasks-goal-for-day)
-    (sit-for 2))))
+
+;;  (defun reset-task-variables-on-day-change()
+;;    "resets"
+;;    (unless (equal org-agenda-current-date last-check-date)
+;;      (setq last-check-date org-agenda-current-date)
+;;      (setq tasks-completed-for-day 0)
+;;      (message "task tracker date has been reset")))
 
 
- (add-to-list 'org-after-todo-state-change-hook
-	   (lambda ()
-	     (when (equal org-state "DONE")
-	       (mr-x/task-counter))))
+;;    (defun mr-x/task-counter ()
+;; "Simple function to track number of tasks completed in a given day."
+;; (interactive)
+;; ;; Ensure reset-task-variables-on-day-change is defined
+;; (reset-task-variables-on-day-change)
+;; ;; Increment the counter
+;; (cl-incf tasks-completed-for-day)
+;; ;; Check if the task goal has been met
+;; (if (>= tasks-completed-for-day tasks-goal-for-day)
+;;     (message "Congrats!! You met your task completion goal for today")
+;;   (progn
+;;     (sit-for 2)
+;;     (message "Tasks completed today: %d/%d" tasks-completed-for-day tasks-goal-for-day)
+;;     (sit-for 2))))
 
-(setq org-clock-persist 'history)
-(org-clock-persistence-insinuate)
+
+;;  (add-to-list 'org-after-todo-state-change-hook
+;; 	   (lambda ()
+;; 	     (when (equal org-state "DONE")
+;; 	       (mr-x/task-counter))))
+
+ (setq org-clock-persist 'history)
+ (org-clock-persistence-insinuate)
 
 (use-package org
       :hook (org-mode . mr-x/org-mode-setup)
@@ -636,7 +717,7 @@ With a prefix ARG, remove start location."
 	       "READY(r)"
 	       "IN-PROGRESS(i)"
 	       "REVIEW(v)"
-	       "WAIT(w@/!)"
+	       "WATCHING(w@/!)"
 	       "HOLD(h)"
 	       "|"
 	       "COMPLETED(c)"
@@ -756,6 +837,7 @@ With a prefix ARG, remove start location."
      '((emacs-lisp . t)
        (js . t)
        (typescript . t)
+       (sqlite . t)
        (latex . t)
        (python . t)))
 
@@ -940,10 +1022,16 @@ With a prefix ARG, remove start location."
 ;;    	    (when (equal org-state "DONE")
 ;;    	      (my/org-roam-copy-todo-to-today))))
 
+(use-package esup
+:ensure t
+;; To use MELPA Stable use ":pin melpa-stable",
+:pin melpa)
+
 (use-package projectile
 :diminish projectile-mode
 :config (projectile-mode)
 :custom ((projectile-completion-system 'ivy))
+:bind (:map projectile-command-map ("v" . multi-vterm-project))
 :bind-keymap
 ("C-c p" . projectile-command-map)
 :init
@@ -1024,7 +1112,7 @@ With a prefix ARG, remove start location."
 (use-package lsp-pyright
 :ensure t
 :hook (python-mode . (lambda ()
-			(require 'lsp-pyright)
+		       (require 'lsp-pyright)
 			(lsp)))
 :init
 (when (executable-find "python3")
@@ -1051,6 +1139,13 @@ With a prefix ARG, remove start location."
       (list (lambda ()
 	      (setq python-shell-interpreter "python3")))))
 
+(use-package rbenv
+  :ensure t
+  :config
+  (setq rbenv-installation-dir "~/rbenv"))
+
+(global-rbenv-mode)
+
 (use-package lsp-mode
   :commands (lsp lsp-deferred)
   :init
@@ -1065,6 +1160,10 @@ With a prefix ARG, remove start location."
 (setq-default gptel-model "gpt-4"
 	      gptel-api-key (getenv "GPT_API_KEY")
 	      gptel-default-mode 'org-mode)
+
+(gptel-make-anthropic "Claude"          ;Any name you want
+:stream t                             ;Streaming responses
+:key (getenv "ANTHRO_API_KEY"))
 
 (add-hook 'gptel-post-response-functions 'gptel-end-of-response)
 
