@@ -139,121 +139,82 @@
 #+begin_src emacs-lisp
 
 
-      (use-package vterm
-	:ensure t
-	:config
-	(defconst dracula-background "#282a36")
-	(defconst dracula-current-line "#44475a")
-	(defconst dracula-selection "#44475a")
-	(defconst dracula-foreground "#f8f8f2")
-	(defconst dracula-comment "#6272a4")
-	(defconst dracula-cyan "#8be9fd")
-	(defconst dracula-green "#50fa7b")
-	(defconst dracula-orange "#ffb86c")
-	(defconst dracula-pink "#ff79c6")
-	(defconst dracula-purple "#bd93f9")
-	(defconst dracula-red "#ff5555")
-	(defconst dracula-yellow "#f1fa8c")
+    (use-package vterm
+      :ensure t
+      :config
+      (defconst dracula-background "#282a36")
+      (defconst dracula-current-line "#44475a")
+      (defconst dracula-selection "#44475a")
+      (defconst dracula-foreground "#f8f8f2")
+      (defconst dracula-comment "#6272a4")
+      (defconst dracula-cyan "#8be9fd")
+      (defconst dracula-green "#50fa7b")
+      (defconst dracula-orange "#ffb86c")
+      (defconst dracula-pink "#ff79c6")
+      (defconst dracula-purple "#bd93f9")
+      (defconst dracula-red "#ff5555")
+      (defconst dracula-yellow "#f1fa8c")
 
-	(setq vterm-color-black   dracula-background)
-	(setq vterm-color-red     dracula-red)
-	(setq vterm-color-green   dracula-green)
-	(setq vterm-color-yellow  dracula-yellow)
-	(setq vterm-color-blue    dracula-purple)
-	(setq vterm-color-magenta dracula-pink)
-	(setq vterm-color-cyan    dracula-cyan)
-	(setq vterm-color-white   dracula-foreground))
+      (setq vterm-color-black   dracula-background)
+      (setq vterm-color-red     dracula-red)
+      (setq vterm-color-green   dracula-green)
+      (setq vterm-color-yellow  dracula-yellow)
+      (setq vterm-color-blue    dracula-purple)
+      (setq vterm-color-magenta dracula-pink)
+      (setq vterm-color-cyan    dracula-cyan)
+      (setq vterm-color-white   dracula-foreground))
 
-	;; Ensure TERM is set correctly
-	(setq vterm-term-environment-variable "xterm-256color")
-
-
-	;; Optional: set the shell explicitly if needed
-	;; (setq vterm-shell "/bin/zsh")
-      
-     (custom-set-faces
-    ;; Standard colors
-    '(vterm-color-black ((t (:foreground "#282a36" :background "#282a36"))))
-    '(vterm-color-red ((t (:foreground "#ff5555" :background "#ff5555"))))
-    '(vterm-color-green ((t (:foreground "#50fa7b" :background "#50fa7b"))))
-    '(vterm-color-yellow ((t (:foreground "#f1fa8c" :background "#f1fa8c"))))
-    '(vterm-color-blue ((t (:foreground "#bd93f9" :background "#bd93f9"))))
-    '(vterm-color-magenta ((t (:foreground "#ff79c6" :background "#ff79c6"))))
-    '(vterm-color-cyan ((t (:foreground "#8be9fd" :background "#8be9fd"))))
-    '(vterm-color-white ((t (:foreground "#f8f8f2" :background "#f8f8f2"))))
-
-    ;; Bright colors
-    '(vterm-color-bright-black ((t (:foreground "#6272a4" :background "#6272a4"))))
-    '(vterm-color-bright-red ((t (:foreground "#ff6e6e" :background "#ff6e6e"))))
-    '(vterm-color-bright-green ((t (:foreground "#69ff94" :background "#69ff94"))))
-    '(vterm-color-bright-yellow ((t (:foreground "#ffffa5" :background "#ffffa5"))))
-    '(vterm-color-bright-blue ((t (:foreground "#d6acff" :background "#d6acff"))))
-    '(vterm-color-bright-magenta ((t (:foreground "#ff92df" :background "#ff92df"))))
-    '(vterm-color-bright-cyan ((t (:foreground "#a4ffff" :background "#a4ffff"))))
-    '(vterm-color-bright-white ((t (:foreground "#ffffff" :background "#ffffff")))))
+      ;; Ensure TERM is set correctly
+      (setq vterm-term-environment-variable "xterm-256color")
 
 
+      ;; Optional: set the shell explicitly if needed
+      ;; (setq vterm-shell "/bin/zsh")
 
 
-      (use-package multi-vterm
-	    :config
-	    (add-hook 'vterm-mode-hook
-			    (lambda ()
-			    (setq-local evil-insert-state-cursor 'box)
-			    (evil-insert-state)))
+    (use-package multi-vterm
+	  :config
+	  (add-hook 'vterm-mode-hook
+			  (lambda ()
+			  (setq-local evil-insert-state-cursor 'box)
+			  (evil-insert-state)))
 
-	    (define-key vterm-mode-map [return]                      #'vterm-send-return)
+	  (define-key vterm-mode-map [return]                      #'vterm-send-return)
 
-	    (setq vterm-keymap-exceptions nil))
+	  (setq vterm-keymap-exceptions nil))
 
 
 
 
 
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
-      ;; 	;(evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
-      ;; 	(evil-define-key 'normal vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-      ;; 	(evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
-      ;; 	(evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
-      ;; 	(evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
-      ;; 	(evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
-      ;; 	(evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
-      ;; 	(evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
+    ;; 	;(evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
+    ;; 	(evil-define-key 'normal vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+    ;; 	(evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
+    ;; 	(evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
+    ;; 	(evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
+    ;; 	(evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
+    ;; 	(evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
+    ;; 	(evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)
 
 
 
-      ;; ;; (set-face-attribute 'vterm-color-black nil 
-      ;; 		     :background dracula-background :foreground dracula-background)
-      ;; (set-face-attribute 'vterm-color-red nil 
-      ;; 		     :background dracula-red :foreground dracula-red)
-      ;; (set-face-attribute 'vterm-color-green nil 
-      ;; 		     :background dracula-green :foreground dracula-green)
-      ;; (set-face-attribute 'vterm-color-yellow nil 
-      ;; 		     :background dracula-yellow :foreground dracula-yellow)
-      ;; (set-face-attribute 'vterm-color-blue nil 
-      ;; 		     :background dracula-purple :foreground dracula-purple)
-      ;; (set-face-attribute 'vterm-color-magenta nil 
-      ;; 		     :background dracula-pink :foreground dracula-pink)
-      ;; (set-face-attribute 'vterm-color-cyan nil 
-      ;; 		     :background dracula-cyan :foreground dracula-cyan)
-      ;; (set-face-attribute 'vterm-color-white nil 
-      ;; 		     :background dracula-foreground :foreground dracula-foreground)
 
 
 #+end_src
