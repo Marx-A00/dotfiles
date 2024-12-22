@@ -1183,11 +1183,10 @@
 	'(
 	  ("n" "new agenda"
 	   ((todo "WATCHING"
-		  ((org-agenda-overriding-header "WATCHING TASKS")
+		  ((org-agenda-overriding-header "WATCHING TASKS")))
+	    (agenda ""))
 
-		   ))))
-
-	  ))
+	  )))
 
       (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
 
