@@ -970,15 +970,15 @@
 
 
 
-    (defun my/style-org-agenda()
-      (set-face-attribute 'org-agenda-date nil :height 1.1)
-      (set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
-      (set-face-attribute 'org-agenda-date-today nil
-		    :foreground "#897d6c"   
-		    :background nil        
-		    :weight 'bold
-		    :underline nil)           ;; Make it bold
-      (set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
+    ;; (defun my/style-org-agenda()
+    ;;   (set-face-attribute 'org-agenda-date nil :height 1.1)
+    ;;   (set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
+    ;;   (set-face-attribute 'org-agenda-date-today nil
+    ;; 		    :foreground "#897d6c"   
+    ;; 		    :background nil        
+    ;; 		    :weight 'bold
+    ;; 		    :underline nil)           ;; Make it bold
+    ;;   (set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
 
 
 
@@ -1023,30 +1023,30 @@
 
 	)))
 
-    (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
+    ;; (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
 
 
 ;--------------------------------------------------------------------------------------------
 
-    (setq org-agenda-breadcrumbs-separator " ❱ "
-	  org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
-	  org-agenda-time-grid '((weekly today require-timed)
-				 (800 1000 1200 1400 1600 1800 2000)
-				 "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
-	  org-agenda-prefix-format '((agenda . "%i %-12:c%?-12t%b% s")
-				     (todo . " %i %-12:c")
-				     (tags . " %i %-12:c")
-				     (search . " %i %-12:c")))
+    ;; (setq org-agenda-breadcrumbs-separator " ❱ "
+    ;; 	  org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
+    ;; 	  org-agenda-time-grid '((weekly today require-timed)
+    ;; 				 (800 1000 1200 1400 1600 1800 2000)
+    ;; 				 "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
+    ;; 	  org-agenda-prefix-format '((agenda . "%i %-12:c%?-12t%b% s")
+    ;; 				     (todo . " %i %-12:c")
+    ;; 				     (tags . " %i %-12:c")
+    ;; 				     (search . " %i %-12:c")))
 
-    (setq org-agenda-format-date (lambda (date)
-				   (concat"\n"(make-string(window-width)9472)							"\n"(org-agenda-format-date-aligned date))))
-    (setq org-cycle-separator-lines 2)
+    ;; (setq org-agenda-format-date (lambda (date)
+    ;; 				   (concat"\n"(make-string(window-width)9472)							"\n"(org-agenda-format-date-aligned date))))
+    ;; (setq org-cycle-separator-lines 2)
 
-    (add-hook 'org-agenda-finalize-hook
-	      (lambda ()
-		(setq visual-fill-column-width 100) 
-		(setq visual-fill-column-center-text t)
-		(visual-fill-column-mode t)))
+    ;; (add-hook 'org-agenda-finalize-hook
+    ;; 	      (lambda ()
+    ;; 		(setq visual-fill-column-width 100) 
+    ;; 		(setq visual-fill-column-center-text t)
+    ;; 		(visual-fill-column-mode t)))
 
 (org-babel-do-load-languages
      'org-babel-load-languages
