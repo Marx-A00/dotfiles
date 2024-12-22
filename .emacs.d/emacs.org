@@ -1151,33 +1151,43 @@
 
    ;--------------------------------------------------------------------------------------------
 
-      (setq org-agenda-custom-commands
-	  '(("c" "Custom Agenda with Headers and Separators"
-	     (
+      ;; (setq org-agenda-custom-commands
+      ;; 	'(("c" "Custom Agenda with Headers and Separators"
+      ;; 	   (
 
-	      (tags-todo "+DEADLINE<=\"<today>\""
-			 ((org-agenda-overriding-header
-			   "\n------ Tasks with Deadlines ------\n")))  ;; Separator 0
+      ;; 	    (tags-todo "+DEADLINE<=\"<today>\""
+      ;; 		       ((org-agenda-overriding-header
+      ;; 			 "\n------ Tasks with Deadlines ------\n")))  ;; Separator 0
 
-	      (tags-todo "+SCHEDULED<=\"<today>\""
-			 ((org-agenda-overriding-header
-			   "\n====== Scheduled Tasks for Today ======\n")))  ;; Separator 1
+      ;; 	    (tags-todo "+SCHEDULED<=\"<today>\""
+      ;; 		       ((org-agenda-overriding-header
+      ;; 			 "\n====== Scheduled Tasks for Today ======\n")))  ;; Separator 1
 
-	      (tags-todo "+work"
-			 ((org-agenda-overriding-header
-			   "\n---- Work Tasks ----\n")))  ;; Separator 2
+      ;; 	    (tags-todo "+work"
+      ;; 		       ((org-agenda-overriding-header
+      ;; 			 "\n---- Work Tasks ----\n")))  ;; Separator 2
 
 
-	      )  
+      ;; 	    )  
 
-	     ;; Apply sorting strategy globally
-	     ((org-agenda-sorting-strategy
-	       '((agenda time-up priority-down category-keep))))
+      ;; 	   ;; Apply sorting strategy globally
+      ;; 	   ((org-agenda-sorting-strategy
+      ;; 	     '((agenda time-up priority-down category-keep))))
 
-	     ;; Global options for the whole custom agenda
+      ;; 	   ;; Global options for the whole custom agenda
 
-	     ((org-agenda-sorting-strategy
-	       '((agenda time-up priority-down category-keep)))))))
+      ;; 	   ((org-agenda-sorting-strategy
+      ;; 	     '((agenda time-up priority-down category-keep)))))))
+
+  (setq org-agenda-custom-commands
+	'(
+	  ("n" "new agenda"
+	   ((todo "WATCHING"
+		  ((org-agenda-overriding-header "WATCHING TASKS")
+
+		   ))))
+
+	  ))
 
       (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
 
