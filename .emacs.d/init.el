@@ -1015,13 +1015,13 @@
     ;; 	     '((agenda time-up priority-down category-keep)))))))
 
 (setq org-agenda-custom-commands
-      '(
-	("n" "new agenda"
-	 ((todo "WATCHING"
-		((org-agenda-overriding-header "WATCHING TASKS")))
-	  (agenda ""))
-
-	)))
+    '(
+      ("n" "new agenda"
+       ((todo "WATCHING"
+	      ((org-agenda-overriding-header "WATCHING TASKS")))
+	(agenda "")
+	(tags "+STYLE=\"habit\""
+	      ((org-agenda-overriding-header "habits"))))))) ;; Close properly
 
     ;; (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
 
