@@ -240,11 +240,6 @@
       :init (doom-modeline-mode 1))
 
 
-  ;;(defun task-tracker-for-modeline()
-  ;;  "Return a string"
-  ;; (format  "Tasks: %d/%d" tasks-completed-for-day tasks-goal-for-day))
-
-
   (setq doom-modeline-modal-modern-icon nil)
   (setq doom-modeline-persp-name t)
   (setq org-clock-string-limit 20)
