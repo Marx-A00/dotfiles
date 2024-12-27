@@ -1343,6 +1343,7 @@
 (global-set-key (kbd "C-h D") 'devdocs-lookup)
 
 (electric-pair-mode 1)
+(setq electric-pair-preserve-balance nil)
 (global-set-key (kbd "s-b") #'treemacs-add-and-display-current-project-exclusively)
 
 (use-package evil-matchit
