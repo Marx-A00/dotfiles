@@ -230,13 +230,6 @@
     (menu-bar-mode -1)   ; Disable the menu bar
     (set-fringe-mode 10) ; Give some breathing room
 
-(use-package flyspell-correct
-  :after flyspell
-  :bind (:map flyspell-mode-map ("C-;" . flyspell-correct-wrapper)))
-
-(use-package flyspell-correct-ivy
-  :after flyspell-correct)
-
 (with-eval-after-load "ispell"
   ;; Configure `LANG`, otherwise ispell.el cannot find a 'default
   ;; dictionary' even though multiple dictionaries will be configured
@@ -257,6 +250,13 @@
 ;; silently not use it.
 ;;(unless (file-exists-p ispell-personal-dictionary)
  ;; (write-region "" nil ispell-personal-dictionary nil 0))
+
+(use-package flyspell-correct
+  :after flyspell
+  :bind (:map flyspell-mode-map ("C-;" . flyspell-correct-wrapper)))
+
+(use-package flyspell-correct-ivy
+    :after flyspell-correct)
 
 (use-package popper
     :ensure t 
@@ -306,10 +306,6 @@
       (if vterm-buffer
 	  (popper-toggle-latest)
 	(vterm))))
-
-
-  ;; Bind the custom function to a key
-  (global-set-key (kbd "C-c s") 'toggle-shortcuts)
 
 (use-package beacon
   :init
