@@ -1106,26 +1106,28 @@
   (setq org-agenda-deadline-faces
 	'((1.0001 . org-warning)              ; due yesterday or before
 	  (0.0    . org-upcoming-deadline)))  ; due today or later
-  
-  (defun org-habit-streak-count ()
-  (goto-char (point-min))
-  (while (not (eobp))
-    ;;on habit line?
-    (when (get-text-property (point) 'org-habit-p)
-      (let ((streak 0)
-	    (counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
-	    )
-	(move-to-column counter)
-	;;until end of line
-	(while (= (char-after (point)) org-habit-completed-glyph)
-		(setq streak (+ streak 1))
-		(setq counter (- counter 1))
-		(backward-char 1))
-	(end-of-line)
-	(insert (number-to-string streak))))
-    (forward-line 1)))
 
-  (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
+  ;; (defun org-habit-streak-count ()
+  ;; (goto-char (point-min))
+  ;; (while (not (eobp))
+  ;;   ;;on habit line?
+  ;;   (when (get-text-property (point) 'org-habit-p)
+  ;;     (let ((streak 0)
+  ;; 	  (counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
+  ;; 	  )
+  ;;       (move-to-column counter)
+  ;;       ;;until end of line
+  ;;       (while (= (char-after (point)) org-habit-completed-glyph)
+  ;; 	      (setq streak (+ streak 1))
+  ;; 	      (setq counter (- counter 1))
+  ;; 	      (backward-char 1))
+  ;;       (end-of-line)
+  ;;       (insert (number-to-string streak))))
+  ;;   (forward-line 1)))
+
+  ;; (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
+
+
 #+end_src
 
 *** Org Agenda Style
