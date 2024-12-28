@@ -970,74 +970,99 @@
 
 
 
-    (defun my/style-org-agenda()
-      (set-face-attribute 'org-agenda-date nil :height 1.1)
-      (set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
-      (set-face-attribute 'org-agenda-date-today nil
-		    :foreground "#897d6c"   
-		    :background nil        
-		    :weight 'bold
-		    :underline nil)           ;; Make it bold
-      (set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
+(defun my/style-org-agenda()
+  (set-face-attribute 'org-agenda-date nil :height 1.1)
+  (set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
+  (set-face-attribute 'org-agenda-date-today nil
+		      :foreground "#897d6c"   
+		      :background nil        
+		      :weight 'bold
+		      :underline nil)           ;; Make it bold
+  (set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
 
 
 
 
 
- ;--------------------------------------------------------------------------------------------
+					;--------------------------------------------------------------------------------------------
 
-    ;; (setq org-agenda-custom-commands
-    ;; 	'(("c" "Custom Agenda with Headers and Separators"
-    ;; 	   (
+;; (setq org-agenda-custom-commands
+;; 	'(("c" "Custom Agenda with Headers and Separators"
+;; 	   (
 
-    ;; 	    (tags-todo "+DEADLINE<=\"<today>\""
-    ;; 		       ((org-agenda-overriding-header
-    ;; 			 "\n------ Tasks with Deadlines ------\n")))  ;; Separator 0
+;; 	    (tags-todo "+DEADLINE<=\"<today>\""
+;; 		       ((org-agenda-overriding-header
+;; 			 "\n------ Tasks with Deadlines ------\n")))  ;; Separator 0
 
-    ;; 	    (tags-todo "+SCHEDULED<=\"<today>\""
-    ;; 		       ((org-agenda-overriding-header
-    ;; 			 "\n====== Scheduled Tasks for Today ======\n")))  ;; Separator 1
+;; 	    (tags-todo "+SCHEDULED<=\"<today>\""
+;; 		       ((org-agenda-overriding-header
+;; 			 "\n====== Scheduled Tasks for Today ======\n")))  ;; Separator 1
 
-    ;; 	    (tags-todo "+work"
-    ;; 		       ((org-agenda-overriding-header
-    ;; 			 "\n---- Work Tasks ----\n")))  ;; Separator 2
-
-
-    ;; 	    )  
-
-    ;; 	   ;; Apply sorting strategy globally
-    ;; 	   ((org-agenda-sorting-strategy
-    ;; 	     '((agenda time-up priority-down category-keep))))
-
-    ;; 	   ;; Global options for the whole custom agenda
-
-    ;; 	   ((org-agenda-sorting-strategy
-    ;; 	     '((agenda time-up priority-down category-keep)))))))
-
-    ;; (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
+;; 	    (tags-todo "+work"
+;; 		       ((org-agenda-overriding-header
+;; 			 "\n---- Work Tasks ----\n")))  ;; Separator 2
 
 
-;--------------------------------------------------------------------------------------------
+;; 	    )  
 
-    (setq org-agenda-breadcrumbs-separator " ❱ "
-	  org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
-	  org-agenda-time-grid '((weekly today require-timed)
-				 (800 1000 1200 1400 1600 1800 2000)
-				 "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
-	  org-agenda-prefix-format '((agenda . "%i %-12:c%?-12t%b% s")
-				     (todo . " %i %-12:c")
-				     (tags . " %i %-12:c")
-				     (search . " %i %-12:c")))
+;; 	   ;; Apply sorting strategy globally
+;; 	   ((org-agenda-sorting-strategy
+;; 	     '((agenda time-up priority-down category-keep))))
 
-    (setq org-agenda-format-date (lambda (date)
-				   (concat"\n"(make-string(window-width)9472)							"\n"(org-agenda-format-date-aligned date))))
-    (setq org-cycle-separator-lines 2)
+;; 	   ;; Global options for the whole custom agenda
 
-    (add-hook 'org-agenda-finalize-hook
-	      (lambda ()
-		(setq visual-fill-column-width 100) 
-		(setq visual-fill-column-center-text t)
-		(visual-fill-column-mode t)))
+;; 	   ((org-agenda-sorting-strategy
+;; 	     '((agenda time-up priority-down category-keep)))))))
+
+;; (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
+
+
+					;--------------------------------------------------------------------------------------------
+
+(setq org-agenda-breadcrumbs-separator " ❱ "
+      org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
+      org-agenda-todo-keyword-format ""
+      org-agenda-remove-tags t
+      org-agenda-time-grid '((weekly today require-timed)
+			     (800 1000 1200 1400 1600 1800 2000)
+			     "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
+      org-agenda-prefix-format " %i %?-2 t")
+
+(setq org-agenda-custom-commands
+      '(
+	("n" "new agenda"
+	 (
+
+  (tags "+SCHEDULED<=\"<today>\"" (
+			  (org-agenda-overriding-header "\n⚡ Today")
+			  ;; (org-agenda-todo-ignore-scheduled 'all)
+			  (org-agenda-prefix-format "   %-2i ")
+			  ;; (org-agenda-todo-keyword-format "")
+			  ))
+
+
+
+	  (todo "WATCHING"
+		((org-agenda-overriding-header "WATCHING TASKS")))
+	  (agenda "")
+	  (tags "+STYLE=\"habit\"+SCHEDULED=\"<today>\""
+		((org-agenda-overriding-header "habits")))
+
+
+
+
+	  )))) 
+
+
+(setq org-agenda-format-date (lambda (date)
+			       (concat"\n"(make-string(window-width)9472)							"\n"(org-agenda-format-date-aligned date))))
+(setq org-cycle-separator-lines 2)
+
+(add-hook 'org-agenda-finalize-hook
+	  (lambda ()
+	    (setq visual-fill-column-width 100) 
+	    (setq visual-fill-column-center-text t)
+	    (visual-fill-column-mode t)))
 
 (org-babel-do-load-languages
      'org-babel-load-languages
