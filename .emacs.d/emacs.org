@@ -911,83 +911,88 @@
 ** Org Mode Setup
 #+begin_src emacs-lisp
 
-	(defun mr-x/org-mode-setup()
+    (defun mr-x/org-mode-setup()
 
-	    (visual-line-mode 1)
-	    (auto-fill-mode 0)
-	    (setq org-agenda-include-diary t)
-	    (setq org-fold-core-style 'overlays)
-	    (setq org-agenda-span 'day)
-	    (setq evil-auto-indent nil))
+	(visual-line-mode 1)
+	(auto-fill-mode 0)
+	(setq org-agenda-include-diary t)
+	(setq org-fold-core-style 'overlays)
+	(setq org-agenda-span 'day)
+	(setq evil-auto-indent nil))
 
-	(setq org-agenda-files
-	      '("~/roaming/agenda.org"
-		"~/roaming/habits.org"
-		"~/jira"))
+    (setq org-agenda-files
+	  '("~/roaming/agenda.org"
+	    "~/roaming/habits.org"
+	    "~/jira"))
 
-	; Animation support
+    ; Animation support
 
-	(add-hook 'org-mode-hook #'org-inline-anim-mode)
+    (add-hook 'org-mode-hook #'org-inline-anim-mode)
 
-      ;; Org store link at point from chat gpt
+  ;; Org store link at point from chat gpt
 
-      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-      ;; (defun org-store-link-at-point ()					        ;;
-      ;;   "Store a link at the current buffer position, including line and column."  ;;
-      ;;   (let ((filename (buffer-file-name))				        ;;
-      ;;         (line-number (line-number-at-pos))				        ;;
-      ;;         (col-number (current-column)))				        ;;
-      ;;     (org-store-link-props						        ;;
-      ;;      :type "file+line+column"					        ;;
-      ;;      :link (format "file:%s::%d:%d" filename line-number col-number)	        ;;
-      ;;      :description (format "Link to %s (line %d, col %d)"		        ;;
-      ;;                           (file-name-nondirectory filename)		        ;;
-      ;;                           line-number col-number))))			        ;;
-      ;; 									        ;;
-      ;; ;; Set this function to `org-store-link' hook for customized link storing.   ;;
-      ;; (org-link-set-parameters "file+line+column" :store 'org-store-link-at-point) ;;
-      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-
-
-	;;  (defvar tasks-goal-for-day 5 "goal number of tasks for a day")
-	;;  (defvar tasks-completed-for-day 0 "actual number of tasks completed for a day")
-	;;  (defvar last-check-date (calendar-current-date))
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; (defun org-store-link-at-point ()					        ;;
+  ;;   "Store a link at the current buffer position, including line and column."  ;;
+  ;;   (let ((filename (buffer-file-name))				        ;;
+  ;;         (line-number (line-number-at-pos))				        ;;
+  ;;         (col-number (current-column)))				        ;;
+  ;;     (org-store-link-props						        ;;
+  ;;      :type "file+line+column"					        ;;
+  ;;      :link (format "file:%s::%d:%d" filename line-number col-number)	        ;;
+  ;;      :description (format "Link to %s (line %d, col %d)"		        ;;
+  ;;                           (file-name-nondirectory filename)		        ;;
+  ;;                           line-number col-number))))			        ;;
+  ;; 									        ;;
+  ;; ;; Set this function to `org-store-link' hook for customized link storing.   ;;
+  ;; (org-link-set-parameters "file+line+column" :store 'org-store-link-at-point) ;;
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 
-	;;  (defun reset-task-variables-on-day-change()
-	;;    "resets"
-	;;    (unless (equal org-agenda-current-date last-check-date)
-	;;      (setq last-check-date org-agenda-current-date)
-	;;      (setq tasks-completed-for-day 0)
-	;;      (message "task tracker date has been reset")))
+
+    ;;  (defvar tasks-goal-for-day 5 "goal number of tasks for a day")
+    ;;  (defvar tasks-completed-for-day 0 "actual number of tasks completed for a day")
+    ;;  (defvar last-check-date (calendar-current-date))
 
 
-	;;    (defun mr-x/task-counter ()
-	;; "Simple function to track number of tasks completed in a given day."
-	;; (interactive)
-	;; ;; Ensure reset-task-variables-on-day-change is defined
-	;; (reset-task-variables-on-day-change)
-	;; ;; Increment the counter
-	;; (cl-incf tasks-completed-for-day)
-	;; ;; Check if the task goal has been met
-	;; (if (>= tasks-completed-for-day tasks-goal-for-day)
-	;;     (message "Congrats!! You met your task completion goal for today")
-	;;   (progn
-	;;     (sit-for 2)
-	;;     (message "Tasks completed today: %d/%d" tasks-completed-for-day tasks-goal-for-day)
-	;;     (sit-for 2))))
+
+    ;;  (defun reset-task-variables-on-day-change()
+    ;;    "resets"
+    ;;    (unless (equal org-agenda-current-date last-check-date)
+    ;;      (setq last-check-date org-agenda-current-date)
+    ;;      (setq tasks-completed-for-day 0)
+    ;;      (message "task tracker date has been reset")))
 
 
-	;;  (add-to-list 'org-after-todo-state-change-hook
-	;; 	   (lambda ()
-	;; 	     (when (equal org-state "DONE")
-	;; 	       (mr-x/task-counter))))
+    ;;    (defun mr-x/task-counter ()
+    ;; "Simple function to track number of tasks completed in a given day."
+    ;; (interactive)
+    ;; ;; Ensure reset-task-variables-on-day-change is defined
+    ;; (reset-task-variables-on-day-change)
+    ;; ;; Increment the counter
+    ;; (cl-incf tasks-completed-for-day)
+    ;; ;; Check if the task goal has been met
+    ;; (if (>= tasks-completed-for-day tasks-goal-for-day)
+    ;;     (message "Congrats!! You met your task completion goal for today")
+    ;;   (progn
+    ;;     (sit-for 2)
+    ;;     (message "Tasks completed today: %d/%d" tasks-completed-for-day tasks-goal-for-day)
+    ;;     (sit-for 2))))
 
-	 (setq org-clock-persist 'history)
-	 (org-clock-persistence-insinuate)
+
+    ;;  (add-to-list 'org-after-todo-state-change-hook
+    ;; 	   (lambda ()
+    ;; 	     (when (equal org-state "DONE")
+    ;; 	       (mr-x/task-counter))))
+
+     (setq org-clock-persist 'history)
+     (org-clock-persistence-insinuate)
+
+  (use-package org-tidy
+    :ensure t
+    :hook
+    (org-mode . org-tidy-mode))
 
 
 #+end_src

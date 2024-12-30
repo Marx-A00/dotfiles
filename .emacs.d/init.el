@@ -840,6 +840,11 @@
    (setq org-clock-persist 'history)
    (org-clock-persistence-insinuate)
 
+(use-package org-tidy
+  :ensure t
+  :hook
+  (org-mode . org-tidy-mode))
+
 (use-package org
       :hook (org-mode . mr-x/org-mode-setup)
       :config
