@@ -52,6 +52,9 @@
 ;; Startup UI
 
 (setq inhibit-startup-message t)
+(setq display-line-numbers-type 'relative)
+(display-line-numbers-mode 1)
+(set-face-attribute 'default nil :font "Iosevka" :height 280)
 
 ;; UX
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
@@ -77,3 +80,11 @@
   
   (evil-mode 1))
 
+(use-package evil-collection
+  :ensure t
+  :after evil
+  :config
+  (evil-collection-init))
+
+
+;; Test
