@@ -44,9 +44,36 @@
 
 (setq package-enable-at-startup nil)
 
+(elpaca elpaca-use-package
+  ;; Enable Elpaca support for use-package's :ensure keyword.
+  (elpaca-use-package-mode))
+
 
 ;; Startup UI
 
 (setq inhibit-startup-message t)
 
+;; UX
+(global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
+
+;; EVIL
+
+(use-package evil
+  :ensure t
+  :demand t
+  
+  :init (setq evil-want-integration t)
+  
+  
+  (setq evil-want-keybinding nil)
+  
+  (setq evil-want-C-u-scroll t)
+  
+  (setq evil-want-C-i-jump nil)
+  
+  (setq evil-respect-visual-line-mode t)
+  
+  :config
+  
+  (evil-mode 1))
 

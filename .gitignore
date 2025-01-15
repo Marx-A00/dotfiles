@@ -1,7 +1,10 @@
-/.emacs.d/.org-generic-id-locations
-/.emacs.d/.tutor/
-/.emacs.d/bookmarks
-/.emacs.d/oauth2-auto.plist
-/.emacs.d/org-persist/
-/.emacs.d/recentf
-/.emacs.d/transient/
+emacs/.emacs.d/elpaca/
+emacs/.emacs.d/.org-generic-id-locations
+emacs/.emacs.d/.tutor/
+emacs/.emacs.d/bookmarks
+emacs/.emacs.d/oauth2-auto.plist
+emacs/.emacs.d/org-persist/
+emacs/.emacs.d/recentf
+emacs/.emacs.d/transient/
+emacs/.emacs.d/auto-save-list/
+ebak/
