@@ -59,6 +59,44 @@
 ;; UX
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
 
+
+
+
+;; Test
+
+;; Ivy & Counsel
+
+(use-package swiper
+  :ensure t)
+
+(use-package ivy
+  :ensure (:wait t)
+  :bind (("C-s" . swiper)
+	   :map ivy-minibuffer-map
+	   ("TAB" . ivy-alt-done)
+	   ("C-l" . ivy-alt-done)
+	   ("C-j" . ivy-next-line)
+	   ("C-k" . ivy-previous-line)
+	   :map ivy-switch-buffer-map
+	   ("C-k" . ivy-previous-line)
+	   ("C-l" . ivy-done)
+	   ("C-d" . ivy-switch-buffer-kill)
+	   :map ivy-reverse-i-search-map
+	   ("C-k" . ivy-previous-line)
+	   ("C-d" . ivy-reverse-i-search-kill))
+  :config
+  (ivy-mode 1)
+  (setq ivy-use-virtual-buffers nil)
+  (setq ivy-count-format "(%d/%d) "))
+  
+;; Taken from emacswiki to search for symbol/word at point
+;; Must be done at end of init I guess
+;; (define-key swiper-map (kbd "C-.")
+;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'symbol))))))
+
+;; (define-key swiper-map (kbd "M-.")
+;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
+  
 ;; EVIL
 
 (use-package evil
@@ -82,9 +120,9 @@
 
 (use-package evil-collection
   :ensure t
-  :after evil
+  :after (evil ivy)
   :config
   (evil-collection-init))
 
 
-;; Test
+
