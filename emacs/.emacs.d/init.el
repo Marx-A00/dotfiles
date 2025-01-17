@@ -48,19 +48,29 @@
   ;; Enable Elpaca support for use-package's :ensure keyword.
   (elpaca-use-package-mode))
 
+;; keep things clean
+
+
+(use-package no-littering
+  :ensure t
+  :config
+  (no-littering-theme-backups))
+
+;; Still need to fix #file showing up maybe
 
 ;; Startup UI
-
+(set-frame-parameter (selected-frame) 'alpha '(60 50))
 (setq inhibit-startup-message t)
 (setq display-line-numbers-type 'relative)
-(display-line-numbers-mode 1)
+(display-line-numbers-mode t)
 (set-face-attribute 'default nil :font "Iosevka" :height 280)
 
 ;; UX
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
 
 
-
+;; org (kinda not really)
+(visual-line-mode 1)
 
 ;; Test
 
@@ -70,7 +80,7 @@
   :ensure t)
 
 (use-package ivy
-  :ensure (:wait t)
+  :ensure t
   :bind (("C-s" . swiper)
 	   :map ivy-minibuffer-map
 	   ("TAB" . ivy-alt-done)
