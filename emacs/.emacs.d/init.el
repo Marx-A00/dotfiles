@@ -85,6 +85,21 @@
 
 ;; org (kinda not really)
 (visual-line-mode 1)
+	(defun mr-x/org-mode-setup()
+
+	    (visual-line-mode 1)
+	    (auto-fill-mode 0)
+	    (setq org-agenda-include-diary t)
+	    (setq org-fold-core-style 'overlays)
+	    (setq org-agenda-span 'day)
+	    (setq evil-auto-indent nil))
+
+	(setq org-agenda-files
+	      '("~/roaming/agenda.org"
+		"~/roaming/habits.org"
+		"~/jira"))
+(setq org-clock-persist 'history)
+(org-clock-persistence-insinuate)
 
 ;; Test
 
