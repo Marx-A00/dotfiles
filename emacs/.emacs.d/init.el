@@ -66,6 +66,11 @@
   :config
   (load-theme 'doom-sourcerer))
 
+(use-package doom-modeline
+  :ensure t
+  :init (doom-modeline-mode 1)
+  (setq doom-modeline-modal-modern-icon nil))
+
 
 (set-frame-parameter (selected-frame) 'alpha '(60 50))
 (setq inhibit-startup-message t)
@@ -121,20 +126,12 @@
 (use-package evil
   :ensure t
   :demand t
-  
   :init (setq evil-want-integration t)
-  
-  
   (setq evil-want-keybinding nil)
-  
   (setq evil-want-C-u-scroll t)
-  
   (setq evil-want-C-i-jump nil)
-  
   (setq evil-respect-visual-line-mode t)
-  
   :config
-  
   (evil-mode 1))
 
 (use-package evil-collection
