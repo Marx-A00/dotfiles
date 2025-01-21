@@ -1,3 +1,4 @@
+;;; -*- lexical-binding: t; -*-
 
 ;; Package Configuration
 
@@ -184,7 +185,239 @@
    ;; (setq org-bullets-face-name (quote org-bullet-face))
 
 
-   (add-hook 'org-mode-hook (lambda () (org-superstar-mode 1)))
+(add-hook 'org-mode-hook (lambda () (org-superstar-mode 1)))
+
+;; org agenda
+ (setq org-agenda-skip-scheduled-if-done t
+	org-agenda-skip-deadline-if-done t
+	org-agenda-include-deadlines t
+	org-agenda-block-separator #x2501
+	org-agenda-compact-blocks t
+	org-agenda-start-with-log-mode t)
+
+ (setq org-agenda-clockreport-parameter-plist
+	(quote (:link t :maxlevel 5 :fileskip0 t :compact t :narrow 80)))
+ (setq org-agenda-deadline-faces
+	'((1.0001 . org-warning)              ; due yesterday or before
+	  (0.0    . org-upcoming-deadline)))  ; due today or later
+ 
+ (defun org-habit-streak-count ()
+ (goto-char (point-min))
+ (while (not (eobp))
+   ;;on habit line?
+   (when (get-text-property (point) 'org-habit-p)
+     (let ((streak 0)
+	    (counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
+	    )
+	(move-to-column counter)
+	;;until end of line
+	(while (= (char-after (point)) org-habit-completed-glyph)
+		(setq streak (+ streak 1))
+		(setq counter (- counter 1))
+		(backward-char 1))
+	(end-of-line)
+	(insert (number-to-string streak))))
+   (forward-line 1)))
+
+(add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
+
+      (defun my/style-org-agenda()
+	(set-face-attribute 'org-agenda-date nil :height 1.1)
+	(set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
+	(set-face-attribute 'org-agenda-date-today nil
+		      :foreground "#897d6c"   
+		      :background nil        
+		      :weight 'bold
+		      :underline nil)           ;; Make it bold
+	(set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
+
+     (setq org-agenda-breadcrumbs-separator " ❱ "
+	    org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
+	    org-agenda-time-grid '((weekly today require-timed)
+				   (800 1000 1200 1400 1600 1800 2000)
+				   "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
+	    org-agenda-prefix-format '((agenda . "%i %-12:c%?-12t%b% s")
+				       (todo . " %i %-12:c")
+				       (tags . " %i %-12:c")
+				       (search . " %i %-12:c")))
+
+     (setq org-agenda-format-date (lambda (date)
+				    (concat"\n"(make-string(window-width)9472)
+			   		   "\n"(org-agenda-format-date-aligned date))))
+     (setq org-cycle-separator-lines 2)
+
+     (add-hook 'org-agenda-finalize-hook
+		(lambda ()
+		  (setq visual-fill-column-width 100) 
+		  (setq visual-fill-column-center-text t)
+		  (visual-fill-column-mode t)))
+
+   (use-package org-roam
+   :ensure t
+   :demand t
+   :custom
+   (org-roam-directory "~/roaming/notes/")
+   (org-roam-completion-everywhere t)
+   ;; (org-roam-capture-templates
+   ;;  '(("d" "default" plain
+   ;; 	"%?"
+   ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n+date: %U\n")
+   ;; 	:unnarrowed t)
+   ;;    ("w" "workout" plain
+   ;; 	"%?"
+   ;; 	:if-new (file+head "workouts/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+   ;; 	:unnarrowed t)
+   ;;    ("l" "programming language" plain
+   ;; 	"* Characteristics\n\n- Family: %?\n- Inspired by: \n\n* Reference:\n\n"
+   ;; 	:if-new (file+head "code-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+   ;; 	:unnarrowed t)
+   ;;    ("b" "book notes" plain
+   ;; 	(file "~/roaming/Templates/BookNoteTemplate.org")
+   ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+   ;; 	:unnarrowed t)
+   ;;    ("p" "project" plain "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
+   ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
+   ;; 	:unnarrowed t)))
+   ;; (org-roam-dailies-capture-templates
+   ;;  '(("d" "default" entry "* %<%I:%M %p>: %?"
+   ;; 	:if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
+
+   :bind (("C-c n f" . org-roam-node-find)
+	   ("C-c n i" . org-roam-node-insert)
+	   ("C-c n I" . org-roam-node-insert-immediate)
+					  ; ("C-c n p" . my/org-roam-find-project)
+					  ;("C-c n t" . my/org-roam-capture-task)
+					  ; ("C-c n b" . my/org-roam-capture-inbox)
+	   :map org-mode-map
+	   ("C-M-i"   . completion-at-point)
+	   :map org-roam-dailies-map
+	   ("Y" . org-roam-dailies-capture-yesterday)
+	   ("T" . org-roam-dailies-capture-tomorrow))
+   :bind-keymap
+   ("C-c n d" . org-roam-dailies-map)
+   :config
+   (require 'org-roam-dailies)
+ 
+   (org-roam-db-autosync-mode))
+(setq org-roam-dailies-directory "journal/")
+
+
+ ;; Bind this to C-c n I
+ (defun org-roam-node-insert-immediate (arg &rest args)
+   (interactive "P")
+   (let ((args (cons arg args))
+	  (org-roam-capture-templates (list (append (car org-roam-capture-templates)
+						    '(:immediate-finish t)))))
+     (apply #'org-roam-node-insert args)))
+
+(with-eval-after-load 'org-roam
+  (require 'org-roam-node)
+ (defun my/org-roam-filter-by-tag (tag-name)
+   (lambda (node)
+     (member tag-name (org-roam-node-tags node))))
+
+ (defun my/org-roam-list-notes-by-tag (tag-name)
+   (mapcar #'org-roam-node-file
+	    (seq-filter
+	     (my/org-roam-filter-by-tag tag-name)
+	     (org-roam-node-list))))
+
+ (defun my/org-roam-refresh-agenda-list ()
+   (interactive)
+   (setq org-agenda-files (my/org-roam-list-notes-by-tag "Project")))
+
+ (my/org-roam-refresh-agenda-list))
+
+ (defun my/org-roam-project-finalize-hook ()
+   "Adds the captured project file to `org-agenda-files' if the
+	   capture was not aborted."
+   ;; Remove the hook since it was added temporarily
+   (remove-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+
+   ;; Add project file to the agenda list if the capture was confirmed
+   (unless org-note-abort
+     (with-current-buffer (org-capture-get :buffer)
+	(add-to-list 'org-agenda-files (buffer-file-name)))))
+
+
+ (defun my/org-roam-find-project ()
+   (interactive)
+   ;; Add the project file to the agenda after capture is finished
+   (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+
+   ;; Select a project file to open, creating it if necessary
+   (org-roam-node-find
+    nil
+    nil
+    (my/org-roam-filter-by-tag "Project")
+    nil
+    :templates
+    '(("p" "project" plain
+	"* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
+	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
+	:unnarrowed t))))
+
+ (global-set-key (kbd "C-c n p") #'my/org-roam-find-project)
+
+
+ (defun my/org-roam-capture-inbox ()
+   (interactive)
+   (org-roam-capture- :node (org-roam-node-create)
+		       :templates '(("i" "inbox" plain "* %?"
+				     :if-new (file+head "Inbox.org" "#+title: Inbox\n")))))
+
+ (global-set-key (kbd "C-c n b") #'my/org-roam-capture-inbox)
+
+
+ (defun my/org-roam-capture-task ()
+   (interactive)
+   ;; Add the project file to the agenda after capture is finished
+   (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+
+   ;; Capture the new task, creating the project file if necessary
+   (org-roam-capture- :node (org-roam-node-read
+			      nil
+			      (my/org-roam-filter-by-tag "Project"))
+		       :templates '(("p" "project" plain "** TODO %?"
+				     :if-new (file+head+olp "%<%Y%m%d%H%M%S>-${slug}.org"
+							    "#+title: ${title}\n#+category: ${title}\n#+filetags: Project"
+							    ("Tasks"))))))
+
+ (global-set-key (kbd "C-c n t") #'my/org-roam-capture-task)
+
+
+
+ (defun my/org-roam-copy-todo-to-today ()
+   (interactive)
+   (let ((org-refile-keep t) ;; Set this to nil to delete the original!
+	  (org-roam-dailies-capture-templates
+	   '(("t" "tasks" entry "%?"
+	      :if-new (file+head+olp "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n" ("Tasks")))))
+	  (org-after-refile-insert-hook #'save-buffer)
+	  today-file
+	  pos)
+
+     ;; Check if the task is a habit by checking the STYLE property
+     (unless (string= (org-entry-get nil "STYLE") "habit")
+	(save-window-excursion
+	  (org-roam-dailies--capture (current-time) t)
+	  (setq today-file (buffer-file-name))
+	  (setq pos (point)))
+
+	;; Only refile if the target file is different than the current file
+	(unless (equal (file-truename today-file)
+		       (file-truename (buffer-file-name)))
+	  (org-refile nil nil (list "Tasks" today-file nil pos))))))
+
+
+
+ (add-to-list 'org-after-todo-state-change-hook
+	       (lambda ()
+		 (when (or (equal org-state "DONE")
+			   (equal org-state "CANC"))
+		   (my/org-roam-copy-todo-to-today))))
+
+
 
 
 
