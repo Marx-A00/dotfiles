@@ -101,6 +101,93 @@
 (setq org-clock-persist 'history)
 (org-clock-persistence-insinuate)
 
+   (use-package org
+	:hook (org-mode . mr-x/org-mode-setup)
+	:config
+	(setq org-hide-emphasis-markers t)
+	(setq org-agenda-start-with-log-mode t)
+	(setq org-log-done 'time)
+	(setq org-log-into-drawer t)
+
+	;; (general-define-key
+	;;  :keymaps 'org-mode-map
+	;;  "C-c t" 'org-insert-todo-heading)
+
+	(setq org-highlight-latex-and-related '(latex))
+
+	; org- habit setup
+
+	(require 'org-habit)
+	(add-to-list 'org-modules 'org-habit)
+	(setq org-habit-graph-column 60)
+
+	(setq org-todo-keywords
+	      '((sequence
+		 "TODO(t)"
+		 "NEXT(n)"
+		 "|"
+		 "DONE(d!)")
+		(sequence
+		 "BACKLOG(b)"
+		 "PLAN(p)"
+		 "READY(r)"
+		 "IN-PROGRESS(i)"
+		 "REVIEW(v)"
+		 "WATCHING(w@/!)"
+		 "HOLD(h)"
+		 "|"
+		 "COMPLETED(c)"
+		 "CANC(k@)")))
+
+	(setq org-todo-keyword-faces
+	      '(("TODO" . "#FF1800")
+		("NEXT" . "#FF1800")
+		("PLAN" . "#F67F2F")
+		("DONE" . "#62656A")
+		("HOLD" . "#62656A")
+		("WAIT" . "#B7CBA8")
+		("IN-PROGRESS" . "#b7cba8") 
+		("BACKLOG" . "#62656A")))
+
+	(custom-set-faces
+	 '(org-level-1 ((t (:foreground "#ff743f")))))
+
+	(custom-set-faces
+	 '(org-level-2 ((t (:foreground "#67bc44")))))
+
+	(custom-set-faces
+	 '(org-level-3 ((t (:foreground "#67c0de")))))
+
+	(setq org-refile-targets
+	      '(("Archive.org" :maxlevel . 1)))
+
+	(advice-add 'org-refile :after 'org-save-all-org-buffers))
+
+ ;; (defun org-summary-todo (n-done n-not-done)
+ ;;   "Switch entry to DONE when all subentries are done, to TODO otherwise."
+ ;;   (let (org-log-done org-todo-log-states)   ; turn off logging
+ ;;     (org-todo (if (= n-not-done 0) "DONE" "TODO"))))
+
+;; (add-hook 'org-after-todo-statistics-hook #'org-summary-todo)
+
+
+(use-package org-superstar
+  :ensure t
+  :config
+  (setq org-superstar-headline-bullets-list
+ '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
+  (setq org-ellipsis " ‧"))
+
+
+
+   ;;  (require 'org-bullets)
+   ;; (setq org-bullets-face-name (quote org-bullet-face))
+
+
+   (add-hook 'org-mode-hook (lambda () (org-superstar-mode 1)))
+
+
+
 ;; Test
 
 ;; Ivy & Counsel
