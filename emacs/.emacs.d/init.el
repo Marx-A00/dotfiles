@@ -1,15 +1,13 @@
 ;;; -*- lexical-binding: t; -*-
 
-;; Package Configuration
-
 (defvar elpaca-installer-version 0.8)
 (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
 (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
 (defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
 (defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-                              :ref nil :depth 1
-                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-                              :build (:not elpaca--activate-package)))
+			      :ref nil :depth 1
+			      :files (:defaults "elpaca-test.el" (:exclude "extensions"))
+			      :build (:not elpaca--activate-package)))
 (let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
        (build (expand-file-name "elpaca/" elpaca-builds-directory))
        (order (cdr elpaca-order))
@@ -19,20 +17,20 @@
     (make-directory repo t)
     (when (< emacs-major-version 28) (require 'subr-x))
     (condition-case-unless-debug err
-        (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-                  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
-                                                  ,@(when-let* ((depth (plist-get order :depth)))
-                                                      (list (format "--depth=%d" depth) "--no-single-branch"))
-                                                  ,(plist-get order :repo) ,repo))))
-                  ((zerop (call-process "git" nil buffer t "checkout"
-                                        (or (plist-get order :ref) "--"))))
-                  (emacs (concat invocation-directory invocation-name))
-                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-                                        "--eval" "(byte-recompile-directory \".\" 0 'force)")))
-                  ((require 'elpaca))
-                  ((elpaca-generate-autoloads "elpaca" repo)))
-            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-          (error "%s" (with-current-buffer buffer (buffer-string))))
+	(if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
+		  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
+						  ,@(when-let* ((depth (plist-get order :depth)))
+						      (list (format "--depth=%d" depth) "--no-single-branch"))
+						  ,(plist-get order :repo) ,repo))))
+		  ((zerop (call-process "git" nil buffer t "checkout"
+					(or (plist-get order :ref) "--"))))
+		  (emacs (concat invocation-directory invocation-name))
+		  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+					"--eval" "(byte-recompile-directory \".\" 0 'force)")))
+		  ((require 'elpaca))
+		  ((elpaca-generate-autoloads "elpaca" repo)))
+	    (progn (message "%s" (buffer-string)) (kill-buffer buffer))
+	  (error "%s" (with-current-buffer buffer (buffer-string))))
       ((error) (warn "%s" err) (delete-directory repo 'recursive))))
   (unless (require 'elpaca-autoloads nil t)
     (require 'elpaca)
@@ -200,7 +198,7 @@
  (setq org-agenda-deadline-faces
 	'((1.0001 . org-warning)              ; due yesterday or before
 	  (0.0    . org-upcoming-deadline)))  ; due today or later
- 
+
  (defun org-habit-streak-count ()
  (goto-char (point-min))
  (while (not (eobp))
@@ -243,7 +241,7 @@
 
      (setq org-agenda-format-date (lambda (date)
 				    (concat"\n"(make-string(window-width)9472)
-			   		   "\n"(org-agenda-format-date-aligned date))))
+					   "\n"(org-agenda-format-date-aligned date))))
      (setq org-cycle-separator-lines 2)
 
      (add-hook 'org-agenda-finalize-hook
@@ -297,7 +295,7 @@
    ("C-c n d" . org-roam-dailies-map)
    :config
    (require 'org-roam-dailies)
- 
+
    (org-roam-db-autosync-mode))
 (setq org-roam-dailies-directory "journal/")
 
@@ -417,8 +415,32 @@
 			   (equal org-state "CANC"))
 		   (my/org-roam-copy-todo-to-today))))
 
+    (org-babel-do-load-languages
+     'org-babel-load-languages
+     '((emacs-lisp . t)
+	 (js . t)
+	 (sqlite . t)
+	 (sql . t)
+	 (latex . t)
+	 (python . t)))
 
+	 (setq org-babel-python-command "python3")
+(require 'org-tempo)
+(add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+(add-to-list 'org-structure-template-alist '("py" . "src python"))
+(add-to-list 'org-structure-template-alist '("C" . "comment"))
+(add-to-list 'org-structure-template-alist '("js" . "src javascript"))
+(add-to-list 'org-structure-template-alist '("l" . "export latex"))
 
+ ;; Automatically tangle our Emacs.org config file when we save it
+ (defun efs/org-babel-tangle-config ()
+   (when (string-equal (buffer-file-name)
+			(expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
+     ;; Dynamic scoping to the rescue
+     (let ((org-confirm-babel-evaluate nil))
+	(org-babel-tangle))))
+
+ (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
 
 
 ;; Test
@@ -447,7 +469,7 @@
   (ivy-mode 1)
   (setq ivy-use-virtual-buffers nil)
   (setq ivy-count-format "(%d/%d) "))
-  
+
 ;; Taken from emacswiki to search for symbol/word at point
 ;; Must be done at end of init I guess
 ;; (define-key swiper-map (kbd "C-.")
@@ -455,7 +477,7 @@
 
 ;; (define-key swiper-map (kbd "M-.")
 ;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
-  
+
 ;; EVIL
 
 (use-package evil
@@ -480,7 +502,7 @@
   :commands (dired dired-jump)
   :bind (("C-x C-j" . dired-jump))
   :bind (:map dired-mode-map
-        ("." . dired-omit-mode))
+	("." . dired-omit-mode))
   :hook (dired-mode-hook . (lambda ()
 			     (dired-hide-details-mode)
 			     (dired-omit-mode)))
