@@ -74,13 +74,13 @@
 
 (set-frame-parameter (selected-frame) 'alpha '(60 50))
 (setq inhibit-startup-message t)
-(setq display-line-numbers-type 'relative)
 (display-line-numbers-mode t)
 (set-face-attribute 'default nil :font "Iosevka" :height 280)
 
 ;; UX
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
 (setq visible-bell t)
+(fset 'yes-or-no-p 'y-or-n-p)
 
 
 ;; org (kinda not really)
@@ -139,3 +139,33 @@
   :after (evil ivy)
   :config
   (evil-collection-init))
+
+(use-package dired
+  :ensure nil
+  :commands (dired dired-jump)
+  :bind (("C-x C-j" . dired-jump))
+  :bind (:map dired-mode-map
+        ("." . dired-omit-mode))
+  :hook (dired-mode-hook . (lambda ()
+			     (dired-hide-details-mode)
+			     (dired-omit-mode)))
+  :custom
+  (dired-omit-files (rx (seq bol ".")))
+  (setq insert-directory-program "gls")
+  (setq dired-listing-switches "-al --group-directories-first")
+  :config
+  (evil-collection-define-key 'normal 'dired-mode-map
+    "h" 'dired-up-directory
+    "l" 'dired-find-file)
+  :init
+  (with-eval-after-load 'dired (require 'dired-x)))
+
+(use-package all-the-icons-dired
+  :ensure t
+  :hook (dired-mode . all-the-icons-dired-mode))
+
+;; test
+
+(setq display-line-numbers-type 'relative)
+(dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
+  (add-hook mode (lambda () (display-line-numbers-mode 1))))
