@@ -57,6 +57,10 @@
 
 ;; Still need to fix #file showing up maybe
 
+(use-package all-the-icons
+  :ensure t
+  :if (display-graphic-p))
+
 (use-package doom-themes
   :ensure t
   :config
@@ -68,15 +72,61 @@
   (setq doom-modeline-modal-modern-icon nil))
 
 
-(set-frame-parameter (selected-frame) 'alpha '(60 50))
-(setq inhibit-startup-message t)
-(display-line-numbers-mode t)
 (set-face-attribute 'default nil :font "Iosevka" :height 280)
 
-;; UX
+(defun mr-x/general-setup ()
+  (display-line-numbers-mode 1)
+  (set-frame-parameter (selected-frame) 'alpha '(80 50)))
+
+(add-hook 'text-mode-hook #'mr-x/general-setup)
+(add-hook 'prog-mode-hook #'mr-x/general-setup)
+
+					; opacity
+(set-frame-parameter (selected-frame) 'alpha '(80 50))
+(add-to-list 'default-frame-alist '(alpha-background . 20))
+					; keybindings section
+(global-set-key (kbd "C-<escape>") #'universal-argument)
+(global-set-key (kbd "C-c d") 'diff-buffer-with-file)
+(global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
+(global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
+(global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
+(global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
+
+
+
+(setq inhibit-startup-message t) ; Disable the startup message
+(scroll-bar-mode -1) ; Disable the visible scrollbar
+(tool-bar-mode -1)   ; Disable the toolbar
+(tooltip-mode -1)    ; Disable tooltips
+(menu-bar-mode -1)   ; Disable the menu bar
+(set-fringe-mode 10) ; Give some breathing room
+
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
 (setq visible-bell t)
 (fset 'yes-or-no-p 'y-or-n-p)
+
+(use-package which-key
+  :ensure t
+  :config
+  (which-key-mode)
+  (setq which-key-idle-delay 1))
+
+(use-package evil
+  :ensure t
+  :demand t
+  :init (setq evil-want-integration t)
+  (setq evil-want-keybinding nil)
+  (setq evil-want-C-u-scroll t)
+  (setq evil-want-C-i-jump nil)
+  (setq evil-respect-visual-line-mode t)
+  :config
+  (evil-mode 1))
+
+(use-package evil-collection
+  :ensure t
+  :after (evil ivy)
+  :config
+  (evil-collection-init))
 
 (use-package dired
   :ensure nil
@@ -502,19 +552,7 @@
 			   (equal org-state "CANC"))
 		   (my/org-roam-copy-todo-to-today))))
 
-(use-package evil
+(use-package rainbow-delimiters
   :ensure t
-  :demand t
-  :init (setq evil-want-integration t)
-  (setq evil-want-keybinding nil)
-  (setq evil-want-C-u-scroll t)
-  (setq evil-want-C-i-jump nil)
-  (setq evil-respect-visual-line-mode t)
   :config
-  (evil-mode 1))
-
-(use-package evil-collection
-  :ensure t
-  :after (evil ivy)
-  :config
-  (evil-collection-init))
+  (add-hook 'prog-mode-hook #'rainbow-delimiters-mode))
