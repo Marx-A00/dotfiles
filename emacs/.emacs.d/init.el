@@ -40,14 +40,13 @@
 (elpaca `(,@elpaca-order))
 
 ;; Disable package.el
-
 (setq package-enable-at-startup nil)
 
 (elpaca elpaca-use-package
   ;; Enable Elpaca support for use-package's :ensure keyword.
   (elpaca-use-package-mode))
 
-;; keep things clean
+;; Cleaning
 
 
 (use-package no-littering
@@ -57,8 +56,6 @@
   (no-littering-theme-backups))
 
 ;; Still need to fix #file showing up maybe
-
-;; Startup UI
 
 (use-package doom-themes
   :ensure t
@@ -81,9 +78,72 @@
 (setq visible-bell t)
 (fset 'yes-or-no-p 'y-or-n-p)
 
+(use-package dired
+  :ensure nil
+  :commands (dired dired-jump)
+  :bind (("C-x C-j" . dired-jump))
+  :bind (:map dired-mode-map
+	("." . dired-omit-mode))
+  :hook (dired-mode-hook . (lambda ()
+			     (dired-hide-details-mode)
+			     (dired-omit-mode)))
+  :custom
+  (dired-omit-files (rx (seq bol ".")))
+  (setq insert-directory-program "gls")
+  (setq dired-listing-switches "-al --group-directories-first")
+  :config
+  (evil-collection-define-key 'normal 'dired-mode-map
+    "h" 'dired-up-directory
+    "l" 'dired-find-file)
+  :init
+  (with-eval-after-load 'dired (require 'dired-x)))
+
+(use-package all-the-icons-dired
+  :ensure t
+  :hook (dired-mode . all-the-icons-dired-mode))
+
+(setq display-line-numbers-type 'relative)
+(dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
+  (add-hook mode (lambda () (display-line-numbers-mode 1))))
+
+;; Ivy & Counsel
+
+(use-package swiper
+  :ensure t)
+
+(use-package ivy
+  :ensure t
+  :bind (("C-s" . swiper)
+	   :map ivy-minibuffer-map
+	   ("TAB" . ivy-alt-done)
+	   ("C-l" . ivy-alt-done)
+	   ("C-j" . ivy-next-line)
+	   ("C-k" . ivy-previous-line)
+	   :map ivy-switch-buffer-map
+	   ("C-k" . ivy-previous-line)
+	   ("C-l" . ivy-done)
+	   ("C-d" . ivy-switch-buffer-kill)
+	   :map ivy-reverse-i-search-map
+	   ("C-k" . ivy-previous-line)
+	   ("C-d" . ivy-reverse-i-search-kill))
+  :config
+  (ivy-mode 1)
+  (setq ivy-use-virtual-buffers nil)
+  (setq ivy-count-format "(%d/%d) "))
+
+;; Taken from emacswiki to search for symbol/word at point
+;; Must be done at end of init I guess
+;; (define-key swiper-map (kbd "C-.")
+;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'symbol))))))
+
+;; (define-key swiper-map (kbd "M-.")
+;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
+
+;; Startup UI
+
+
 
 ;; org (kinda not really)
-(visual-line-mode 1)
 	(defun mr-x/org-mode-setup()
 
 	    (visual-line-mode 1)
@@ -250,7 +310,34 @@
 		  (setq visual-fill-column-center-text t)
 		  (visual-fill-column-mode t)))
 
-   (use-package org-roam
+(org-babel-do-load-languages
+     'org-babel-load-languages
+     '((emacs-lisp . t)
+	 (js . t)
+	 (sqlite . t)
+	 (sql . t)
+	 (latex . t)
+	 (python . t)))
+
+	 (setq org-babel-python-command "python3")
+(require 'org-tempo)
+(add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+(add-to-list 'org-structure-template-alist '("py" . "src python"))
+(add-to-list 'org-structure-template-alist '("C" . "comment"))
+(add-to-list 'org-structure-template-alist '("js" . "src javascript"))
+(add-to-list 'org-structure-template-alist '("l" . "export latex"))
+
+ ;; Automatically tangle our Emacs.org config file when we save it
+ (defun efs/org-babel-tangle-config ()
+   (when (string-equal (buffer-file-name)
+			(expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
+     ;; Dynamic scoping to the rescue
+     (let ((org-confirm-babel-evaluate nil))
+	(org-babel-tangle))))
+
+ (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
+
+(use-package org-roam
    :ensure t
    :demand t
    :custom
@@ -415,71 +502,6 @@
 			   (equal org-state "CANC"))
 		   (my/org-roam-copy-todo-to-today))))
 
-    (org-babel-do-load-languages
-     'org-babel-load-languages
-     '((emacs-lisp . t)
-	 (js . t)
-	 (sqlite . t)
-	 (sql . t)
-	 (latex . t)
-	 (python . t)))
-
-	 (setq org-babel-python-command "python3")
-(require 'org-tempo)
-(add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
-(add-to-list 'org-structure-template-alist '("py" . "src python"))
-(add-to-list 'org-structure-template-alist '("C" . "comment"))
-(add-to-list 'org-structure-template-alist '("js" . "src javascript"))
-(add-to-list 'org-structure-template-alist '("l" . "export latex"))
-
- ;; Automatically tangle our Emacs.org config file when we save it
- (defun efs/org-babel-tangle-config ()
-   (when (string-equal (buffer-file-name)
-			(expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
-     ;; Dynamic scoping to the rescue
-     (let ((org-confirm-babel-evaluate nil))
-	(org-babel-tangle))))
-
- (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
-
-
-;; Test
-
-;; Ivy & Counsel
-
-(use-package swiper
-  :ensure t)
-
-(use-package ivy
-  :ensure t
-  :bind (("C-s" . swiper)
-	   :map ivy-minibuffer-map
-	   ("TAB" . ivy-alt-done)
-	   ("C-l" . ivy-alt-done)
-	   ("C-j" . ivy-next-line)
-	   ("C-k" . ivy-previous-line)
-	   :map ivy-switch-buffer-map
-	   ("C-k" . ivy-previous-line)
-	   ("C-l" . ivy-done)
-	   ("C-d" . ivy-switch-buffer-kill)
-	   :map ivy-reverse-i-search-map
-	   ("C-k" . ivy-previous-line)
-	   ("C-d" . ivy-reverse-i-search-kill))
-  :config
-  (ivy-mode 1)
-  (setq ivy-use-virtual-buffers nil)
-  (setq ivy-count-format "(%d/%d) "))
-
-;; Taken from emacswiki to search for symbol/word at point
-;; Must be done at end of init I guess
-;; (define-key swiper-map (kbd "C-.")
-;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'symbol))))))
-
-;; (define-key swiper-map (kbd "M-.")
-;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
-
-;; EVIL
-
 (use-package evil
   :ensure t
   :demand t
@@ -496,33 +518,3 @@
   :after (evil ivy)
   :config
   (evil-collection-init))
-
-(use-package dired
-  :ensure nil
-  :commands (dired dired-jump)
-  :bind (("C-x C-j" . dired-jump))
-  :bind (:map dired-mode-map
-	("." . dired-omit-mode))
-  :hook (dired-mode-hook . (lambda ()
-			     (dired-hide-details-mode)
-			     (dired-omit-mode)))
-  :custom
-  (dired-omit-files (rx (seq bol ".")))
-  (setq insert-directory-program "gls")
-  (setq dired-listing-switches "-al --group-directories-first")
-  :config
-  (evil-collection-define-key 'normal 'dired-mode-map
-    "h" 'dired-up-directory
-    "l" 'dired-find-file)
-  :init
-  (with-eval-after-load 'dired (require 'dired-x)))
-
-(use-package all-the-icons-dired
-  :ensure t
-  :hook (dired-mode . all-the-icons-dired-mode))
-
-;; test
-
-(setq display-line-numbers-type 'relative)
-(dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
-  (add-hook mode (lambda () (display-line-numbers-mode 1))))
