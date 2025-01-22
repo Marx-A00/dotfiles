@@ -101,6 +101,16 @@
 (menu-bar-mode -1)   ; Disable the menu bar
 (set-fringe-mode 10) ; Give some breathing room
 
+(defun mr-x/org-mode-visual-fill ()
+  (setq visual-fill-column-width 100
+	visual-fill-column-center-text t)
+  (visual-fill-column-mode 1))
+
+(use-package visual-fill-column
+  :ensure t
+  :config
+  (add-hook 'org-mode-hook #'mr-x/org-mode-visual-fill))
+
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
 (setq visible-bell t)
 (fset 'yes-or-no-p 'y-or-n-p)
@@ -127,9 +137,6 @@
     :after (evil ivy)
     :config
     (evil-collection-init))
-
-  (use-package evil-org
-    :ensure t)
 
 (use-package evil-org
   :ensure t
