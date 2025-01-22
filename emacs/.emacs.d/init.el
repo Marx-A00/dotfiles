@@ -123,10 +123,21 @@
   (evil-mode 1))
 
 (use-package evil-collection
+    :ensure t
+    :after (evil ivy)
+    :config
+    (evil-collection-init))
+
+  (use-package evil-org
+    :ensure t)
+
+(use-package evil-org
   :ensure t
-  :after (evil ivy)
+  :after org
   :config
-  (evil-collection-init))
+  (add-hook 'org-mode-hook #'evil-org-mode)
+  (require 'evil-org-agenda)
+  (evil-org-agenda-set-keys))
 
 (use-package dired
   :ensure nil
