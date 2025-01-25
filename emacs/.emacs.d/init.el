@@ -348,6 +348,7 @@
 (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
 
       (defun my/style-org-agenda()
+	(setq org-agenda-window-setup 'other-window)
 	(set-face-attribute 'org-agenda-date nil :height 1.1)
 	(set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
 	(set-face-attribute 'org-agenda-date-today nil
@@ -378,10 +379,14 @@
 		  (setq visual-fill-column-center-text t)
 		  (visual-fill-column-mode t)))
 
-(org-babel-do-load-languages
+(use-package ob-typescript
+  :ensure t)
+
+    (org-babel-do-load-languages
      'org-babel-load-languages
      '((emacs-lisp . t)
 	 (js . t)
+	 (typescript . t)
 	 (sqlite . t)
 	 (sql . t)
 	 (latex . t)
@@ -389,6 +394,7 @@
 
 	 (setq org-babel-python-command "python3")
 (require 'org-tempo)
+(add-to-list 'org-structure-template-alist '("ts" . "src typescript"))
 (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
 (add-to-list 'org-structure-template-alist '("py" . "src python"))
 (add-to-list 'org-structure-template-alist '("C" . "comment"))
