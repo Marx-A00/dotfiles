@@ -143,6 +143,61 @@
   (setq visible-bell t)
   (fset 'yes-or-no-p 'y-or-n-p)
 #+end_src
+
+*** Keybindings
+#+begin_src emacs-lisp
+  (use-package general
+  :ensure t
+  :config
+  ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
+  (general-evil-setup t)
+
+  ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
+  ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
+  ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
+  ;; will only have an effect for general.el key definers. The advice can later be removed with
+  ;; (general-auto-unbind-keys t).
+  (general-auto-unbind-keys)
+
+
+  (general-create-definer mr-x/leader-def
+    :states '(normal visual motion emacs insert)
+    :keymaps 'override
+    :prefix "SPC"
+    :global-prefix "C-SPC"))
+
+  (mr-x/leader-def
+    "d" 'diary-show-all-entries
+    "a" 'mr-x/org-agenda-day
+    ;; "m" 'mu4e
+    ;; "f" 'link-hint-open-link
+    ;; "p" 'projectile-command-map
+    "h" 'winner-undo
+    "l" 'winner-redo
+    ;; "s" 'mr-x/toggle-shortcuts
+    ;; "S" 'mr-x/scratch
+    ;; "v" 'multi-vterm
+    ;; "b" 'persp-counsel-switch-buffer
+    "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
+    ;; "1" (lambda () (interactive) (persp-switch-by-number 1))
+    ;; "2" (lambda () (interactive) (persp-switch-by-number 2))
+    ;; "3" (lambda () (interactive) (persp-switch-by-number 3))
+    ;; "4" (lambda () (interactive) (persp-switch-by-number 4))
+    ;; "5" (lambda () (interactive) (persp-switch-by-number 5))
+
+    )
+
+  (defun mr-x/org-agenda-day ()
+    (interactive)
+    (org-agenda nil "a"))
+
+
+#+end_src
+
+*** All I do is win win win no matter what
+#+begin_src emacs-lisp
+(winner-mode 1)
+#+end_src
 ** Time To Get Some Help
 #+begin_src emacs-lisp
   (use-package which-key
@@ -649,6 +704,18 @@
 		   (when (or (equal org-state "DONE")
 			     (equal org-state "CANC"))
 		     (my/org-roam-copy-todo-to-today))))
+#+end_src
+
+*** Org Roam UI
+#+begin_src emacs-lisp
+  (use-package org-roam-ui
+    :ensure t
+    :after org-roam
+    :config
+    (setq org-roam-ui-sync-theme t
+    org-roam-ui-follow t
+    org-roam-ui-update-on-save t
+    org-roam-ui-open-on-start t))
 #+end_src
 * Development
 ** Languages
