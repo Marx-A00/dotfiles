@@ -49,6 +49,8 @@
 ;; Cleaning
 
 
+
+
 (use-package no-littering
   :ensure t
   :config
@@ -101,6 +103,16 @@
 (menu-bar-mode -1)   ; Disable the menu bar
 (set-fringe-mode 10) ; Give some breathing room
 
+(use-package perspective
+:ensure t
+:bind
+("C-x C-b" . persp-counsel-switch-buffer)         ; or use a nicer switcher, see below
+("C-x C-i" . persp-ibuffer)
+:custom
+(persp-mode-prefix-key (kbd "C-x M-x"))  ; pick your own prefix key here
+:init
+(persp-mode))
+
 (defun mr-x/org-mode-visual-fill ()
   (setq visual-fill-column-width 100
 	visual-fill-column-center-text t)
@@ -116,7 +128,9 @@
 (fset 'yes-or-no-p 'y-or-n-p)
 
 (use-package general
+
 :ensure t
+:demand t
 :config
 ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
 (general-evil-setup t)
@@ -126,41 +140,58 @@
 ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
 ;; will only have an effect for general.el key definers. The advice can later be removed with
 ;; (general-auto-unbind-keys t).
-(general-auto-unbind-keys)
+(general-auto-unbind-keys))
+
+(with-eval-after-load 'general
+  (general-create-definer mr-x/leader-def
+    :states '(normal visual motion emacs insert)
+    :keymaps 'override
+    :prefix "SPC"
+    :global-prefix "C-SPC"))
+
+(with-eval-after-load 'general
+  (mr-x/leader-def
+    "d" 'diary-show-all-entries
+    "a" 'mr-x/org-agenda-day
+    ;; "m" 'mu4e
+    "f" 'link-hint-open-link
+    ;; "p" 'projectile-command-map
+    "h" 'winner-undo
+    "l" 'winner-redo
+    ;; "s" 'mr-x/toggle-shortcuts
+    ;; "S" 'mr-x/scratch
+    ;; "v" 'multi-vterm
+    "b" 'persp-counsel-switch-buffer
+    "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
+    "1" (lambda () (interactive) (persp-switch-by-number 1))
+    "2" (lambda () (interactive) (persp-switch-by-number 2))
+    "3" (lambda () (interactive) (persp-switch-by-number 3))
+    "4" (lambda () (interactive) (persp-switch-by-number 4))
+    "5" (lambda () (interactive) (persp-switch-by-number 5))))
 
 
-(general-create-definer mr-x/leader-def
-  :states '(normal visual motion emacs insert)
-  :keymaps 'override
-  :prefix "SPC"
-  :global-prefix "C-SPC"))
 
-(mr-x/leader-def
-  "d" 'diary-show-all-entries
-  "a" 'mr-x/org-agenda-day
-  ;; "m" 'mu4e
-  ;; "f" 'link-hint-open-link
-  ;; "p" 'projectile-command-map
-  "h" 'winner-undo
-  "l" 'winner-redo
-  ;; "s" 'mr-x/toggle-shortcuts
-  ;; "S" 'mr-x/scratch
-  ;; "v" 'multi-vterm
-  ;; "b" 'persp-counsel-switch-buffer
-  "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
-  ;; "1" (lambda () (interactive) (persp-switch-by-number 1))
-  ;; "2" (lambda () (interactive) (persp-switch-by-number 2))
-  ;; "3" (lambda () (interactive) (persp-switch-by-number 3))
-  ;; "4" (lambda () (interactive) (persp-switch-by-number 4))
-  ;; "5" (lambda () (interactive) (persp-switch-by-number 5))
 
-  )
 
-(defun mr-x/org-agenda-day ()
-  (interactive)
-  (org-agenda nil "a"))
+
+  (defun mr-x/org-agenda-day ()
+    (interactive)
+    (org-agenda nil "a"))
 
 (winner-mode 1)
+
+(use-package helpful
+  :ensure t
+  :custom
+  (counsel-describe-function-function #'helpful-callable)
+  (counsel-describe-variable-function #'helpful-variable))
+
+(global-set-key (kbd "C-h v") #'helpful-variable)
+(global-set-key (kbd "C-h k") #'helpful-key)
+(global-set-key (kbd "C-h x") #'helpful-command)
+
+(use-package link-hint
+  :ensure t)
 
 (use-package which-key
   :ensure t
@@ -253,6 +284,15 @@
 
 ;; (define-key swiper-map (kbd "M-.")
 ;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
+
+
+(use-package counsel
+  :ensure t
+  :config
+  (counsel-mode 1))
+
+(global-set-key (kbd "M-x") 'counsel-M-x)
+(global-set-key (kbd "C-x C-f") 'counsel-find-file)
 
 ;; Startup UI
 
@@ -427,36 +467,48 @@
 		  (visual-fill-column-mode t)))
 
 (use-package ob-typescript
-  :ensure t)
+    :ensure t
+    (:wait t))
 
-    (org-babel-do-load-languages
-     'org-babel-load-languages
-     '((emacs-lisp . t)
-	 (js . t)
-	 (typescript . t)
-	 (sqlite . t)
-	 (sql . t)
-	 (latex . t)
-	 (python . t)))
+      (org-babel-do-load-languages
+       'org-babel-load-languages
+       '((emacs-lisp . t)
+	   (js . t)
+	   (typescript . t)
+	   (sqlite . t)
+	   (sql . t)
+	   (latex . t)
+	   (python . t)))
 
-	 (setq org-babel-python-command "python3")
-(require 'org-tempo)
-(add-to-list 'org-structure-template-alist '("ts" . "src typescript"))
-(add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
-(add-to-list 'org-structure-template-alist '("py" . "src python"))
-(add-to-list 'org-structure-template-alist '("C" . "comment"))
-(add-to-list 'org-structure-template-alist '("js" . "src javascript"))
-(add-to-list 'org-structure-template-alist '("l" . "export latex"))
+	   (setq org-babel-python-command "python3")
+  (require 'org-tempo)
+  (add-to-list 'org-structure-template-alist '("ts" . "src typescript"))
+  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+  (add-to-list 'org-structure-template-alist '("py" . "src python"))
+  (add-to-list 'org-structure-template-alist '("C" . "comment"))
+  (add-to-list 'org-structure-template-alist '("js" . "src javascript"))
+  (add-to-list 'org-structure-template-alist '("l" . "export latex"))
 
- ;; Automatically tangle our Emacs.org config file when we save it
- (defun efs/org-babel-tangle-config ()
-   (when (string-equal (buffer-file-name)
-			(expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
-     ;; Dynamic scoping to the rescue
-     (let ((org-confirm-babel-evaluate nil))
-	(org-babel-tangle))))
+   ;; Automatically tangle our Emacs.org config file when we save it
+   (defun efs/org-babel-tangle-config ()
+     (when (string-equal (buffer-file-name)
+			  (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
+       ;; Dynamic scoping to the rescue
+       (let ((org-confirm-babel-evaluate nil))
+	  (org-babel-tangle))))
 
- (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
+   (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
+
+   (setq-default prettify-symbols-alist '(("#+BEGIN_SRC" . "†")
+					 ("#+END_SRC" . "†")
+					 ("#+begin_src" . "†")
+					 ("#+end_src" . "†")
+					 ("#+BEGIN_LaTeX" . "†")
+					 ("#+END_LaTeX" . "†")
+					 (">=" . "≥")
+					 ("=>" . "⇨")))
+(setq prettify-symbols-unprettify-at-point 'right-edge)
+(add-hook 'org-mode-hook 'prettify-symbols-mode)
 
 (use-package org-roam
    :ensure t
@@ -636,3 +688,33 @@
   :ensure t
   :config
   (add-hook 'prog-mode-hook #'rainbow-delimiters-mode))
+
+(use-package typescript-mode
+      :ensure t
+      :mode "\\.ts\\'"
+      :config
+      (setq typescript-indent-level 2))
+
+    (use-package web-mode
+      :ensure t
+      :config
+      (add-to-list 'auto-mode-alist '("\\.phtml\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.php\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.[agj]sp\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.as[cp]x\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.erb\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.mustache\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.djhtml\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.html?\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.scss\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.css\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
+      (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode)))
+
+(defun my-web-mode-hook ()
+  "Hooks for Web mode."
+  (setq web-mode-markup-indent-offset 2)
+  (setq web-mode-css-indent-offset 2)
+  (setq web-mode-code-indent-offset 2))
+
+(add-hook 'web-mode-hook  'my-web-mode-hook)
