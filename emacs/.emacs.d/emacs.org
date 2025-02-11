@@ -462,11 +462,6 @@
 	  (custom-set-faces
 	   '(org-level-3 ((t (:foreground "#67c0de")))))
 
-	  (setq org-refile-targets
-		'(("Archive.org" :maxlevel . 1)))
-
-	  (advice-add 'org-refile :after 'org-save-all-org-buffers))
-
    ;; (defun org-summary-todo (n-done n-not-done)
    ;;   "Switch entry to DONE when all subentries are done, to TODO otherwise."
    ;;   (let (org-log-done org-todo-log-states)   ; turn off logging
@@ -537,7 +532,7 @@
 
        (setq org-agenda-breadcrumbs-separator " ❱ "
 	      org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
-	      org-agenda-time-grid '((weekly today require-timed)
+	      org-agenda-time-grid '((daily today)
 				     (800 1000 1200 1400 1600 1800 2000)
 				     "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
 	      org-agenda-prefix-format '((agenda . "%i %-12:c%?-12t%b% s")
