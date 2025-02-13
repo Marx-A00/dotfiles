@@ -127,6 +127,10 @@
 (setq visible-bell t)
 (fset 'yes-or-no-p 'y-or-n-p)
 
+(setq initial-major-mode 'org-mode)
+(setq initial-scratch-message "\
+# Clear your mind young one.")
+
 (use-package general
 
 :ensure t
@@ -430,8 +434,8 @@
 	    org-agenda-time-grid '((daily today)
 				   (800 1000 1200 1400 1600 1800 2000)
 				   "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
-	    org-agenda-prefix-format '((agenda . "%i %-12:c%?-12t%b% s")
-				       (todo . " %i %-12:c")
+	    org-agenda-prefix-format '((agenda . "%i %-12:c [%e] %?-12t%b% s")
+				       (todo . " %i %-12:c [%e] ")
 				       (tags . " %i %-12:c")
 				       (search . " %i %-12:c")))
 
