@@ -440,20 +440,22 @@
 				       (search . " %i %-12:c")))
 (setq org-agenda-custom-commands
       '(("p" "Projects Agenda"
-	 ((alltodo ""
-		   ((org-agenda-overriding-header "Projects")
+	 ((todo "NEXT"
+
+		((org-agenda-overriding-header
+		  (concat "Projects\n"
+			  (make-string (window-width) 9472) "\n\n"))
+
+
+
 		    (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
-					"~/roaming/notes/20250212103431-customize_org_agenda.org"
-
-				     ;; "~/roaming/notes/"
-				     ;; "~/roaming/notes/"
-				     ;; "~/roaming/notes/"
-				     ;; "~/roaming/notes/"
-				     ;; "~/roaming/notes/"
-
-
-
-
+				 "~/roaming/notes/20250212103431-customize_org_agenda.org"
+				 "~/roaming/notes/20240507202146-openpair.org"
+				 "~/roaming/notes/20250107142334-rec.org"
+				 "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
+				 "~/roaming/notes/20250220152855-personal_website.org"
+				 "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+			       "~/roaming/notes/20240416191540-typingpracticeapplication.org"
 				     ))))))))
 
      (setq org-agenda-format-date (lambda (date)
