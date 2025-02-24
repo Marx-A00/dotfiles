@@ -232,29 +232,36 @@
   :ensure nil
   :commands (dired dired-jump)
   :bind (("C-x C-j" . dired-jump))
-  :bind (:map dired-mode-map
-	("." . dired-omit-mode))
-  :hook (dired-mode-hook . (lambda ()
-			     (dired-hide-details-mode)
-			     (dired-omit-mode)))
+  :init
+  (with-eval-after-load 'dired
+    (require 'dired-x))
+
   :custom
+  (setq dired-use-ls-dired t)
   (dired-omit-files (rx (seq bol ".")))
   (setq insert-directory-program "gls")
   (setq dired-listing-switches "-al --group-directories-first")
+
   :config
+    ;; Override Evil-collection keybinding for "."
+(with-eval-after-load 'evil-collection
   (evil-collection-define-key 'normal 'dired-mode-map
+    "H" 'dired-omit-mode ;; Rebind "." to toggle dired-omit-mode
     "h" 'dired-up-directory
-    "l" 'dired-find-file)
-  :init
-  (with-eval-after-load 'dired (require 'dired-x)))
+    "l" 'dired-find-file))
 
-(use-package all-the-icons-dired
-  :ensure t
-  :hook (dired-mode . all-the-icons-dired-mode))
+  ;; Apply settings after dired loads
+  (add-hook 'dired-mode-hook (lambda ()
+			       (dired-hide-details-mode 1)
+			       (dired-omit-mode 1))))
 
-(setq display-line-numbers-type 'relative)
-(dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
-  (add-hook mode (lambda () (display-line-numbers-mode 1))))
+  (use-package all-the-icons-dired
+    :ensure t
+    :hook (dired-mode . all-the-icons-dired-mode))
+
+  (setq display-line-numbers-type 'relative)
+  (dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
+    (add-hook mode (lambda () (display-line-numbers-mode 1))))
 
 ;; Ivy & Counsel
 
