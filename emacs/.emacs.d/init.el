@@ -55,7 +55,9 @@
   :ensure t
   :config
   (setq custom-file (no-littering-expand-etc-file-name "custom.el"))
+  (load custom-file 'noerror)
   (no-littering-theme-backups))
+
 
 ;; Still need to fix #file showing up maybe
 
@@ -156,7 +158,7 @@
 (with-eval-after-load 'general
   (mr-x/leader-def
     "d" 'diary-show-all-entries
-    "a" 'mr-x/org-agenda-day
+    "a" 'mr-x/org-agenda-custom
     ;; "m" 'mu4e
     "f" 'link-hint-open-link
     ;; "p" 'projectile-command-map
@@ -181,6 +183,10 @@
   (defun mr-x/org-agenda-day ()
     (interactive)
     (org-agenda nil "a"))
+
+  (defun mr-x/org-agenda-custom ()
+    (interactive)
+    (org-agenda nil "c"))
 
 (winner-mode 1)
 
@@ -229,31 +235,32 @@
   (evil-org-agenda-set-keys))
 
 (use-package dired
-  :ensure nil
+  :ensure nil  
   :commands (dired dired-jump)
   :bind (("C-x C-j" . dired-jump))
-  :init
-  (with-eval-after-load 'dired
-    (require 'dired-x))
-
-  :custom
-  (setq dired-use-ls-dired t)
-  (dired-omit-files (rx (seq bol ".")))
+  :config
   (setq insert-directory-program "gls")
+  (setq dired-use-ls-dired t)
   (setq dired-listing-switches "-al --group-directories-first")
 
-  :config
-    ;; Override Evil-collection keybinding for "."
-(with-eval-after-load 'evil-collection
-  (evil-collection-define-key 'normal 'dired-mode-map
-    "H" 'dired-omit-mode ;; Rebind "." to toggle dired-omit-mode
-    "h" 'dired-up-directory
-    "l" 'dired-find-file))
+  (with-eval-after-load 'evil-collection
+    (evil-define-key 'normal 'dired-mode-map
+      "H" 'dired-omit-mode
+      "h" 'dired-up-directory
+      "l" 'dired-find-file))
 
-  ;; Apply settings after dired loads
-  (add-hook 'dired-mode-hook (lambda ()
-			       (dired-hide-details-mode 1)
-			       (dired-omit-mode 1))))
+  (add-hook 'dired-mode-hook
+	(lambda ()
+	  (define-key dired-mode-map "H" 'dired-omit-mode)
+	  (dired-omit-mode 1)
+	  (dired-hide-details-mode 1))))
+
+(use-package dired-x
+  :ensure nil 
+  :after dired
+  :config
+  (setq dired-omit-files (rx (seq bol "."))))
+
 
   (use-package all-the-icons-dired
     :ensure t
@@ -486,7 +493,8 @@
 	  (lambda ()
 	    (setq visual-fill-column-width 100) 
 	    (setq visual-fill-column-center-text t)
-	    (visual-fill-column-mode t)))
+	    (visual-fill-column-mode t)
+	    (display-line-numbers-mode 1)))
 
 (use-package ob-typescript
     :ensure t
