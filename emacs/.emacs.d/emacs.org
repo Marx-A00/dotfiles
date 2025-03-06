@@ -323,11 +323,10 @@
     (setq dired-use-ls-dired t)
     (setq dired-listing-switches "-al --group-directories-first")
 
-    (with-eval-after-load 'evil-collection
-      (evil-define-key 'normal 'dired-mode-map
-	"H" 'dired-omit-mode
-	"h" 'dired-up-directory
-	"l" 'dired-find-file))
+    (evil-define-key 'normal 'dired-mode-map
+      "H" 'dired-omit-mode
+      "h" 'dired-up-directory
+      "l" 'dired-find-file)
 
     (add-hook 'dired-mode-hook
 	  (lambda ()
