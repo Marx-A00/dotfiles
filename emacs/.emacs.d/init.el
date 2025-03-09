@@ -179,18 +179,7 @@
     "d" '(:ignore t :wk "Dired")
     "d d" '(dired :wk "Open Dired")
     "d j" '(dired-jump :wk "Dired jump to current")
-    "d H" '(dired-omit-mode :wk "Dired Omit Mode")
-
-
-    )
-
-
-  )
-
-
-
-
-
+    "d H" '(dired-omit-mode :wk "Dired Omit Mode")))
 
   (defun mr-x/org-agenda-day ()
     (interactive)
@@ -254,14 +243,12 @@
   (setq insert-directory-program "gls")
   (setq dired-use-ls-dired t)
   (setq dired-listing-switches "-al --group-directories-first")
-
   (evil-define-key 'normal dired-mode-map
     "h" 'dired-up-directory
     "l" 'dired-find-file)
 
   (add-hook 'dired-mode-hook
 	(lambda ()
-	  (define-key dired-mode-map "H" 'dired-omit-mode)
 	  (dired-omit-mode 1)
 	  (dired-hide-details-mode 1))))
 
@@ -728,6 +715,8 @@
   :ensure t
   :config
   (add-hook 'prog-mode-hook #'rainbow-delimiters-mode))
+
+(electric-indent-mode -1)
 
 (use-package typescript-mode
       :ensure t
