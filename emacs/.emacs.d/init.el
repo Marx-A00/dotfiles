@@ -230,15 +230,14 @@
 (use-package evil-org
   :ensure t
   :after org
+  :hook (org-mode . evil-org-mode)
   :config
-  (add-hook 'org-mode-hook #'evil-org-mode)
   (require 'evil-org-agenda)
   (evil-org-agenda-set-keys))
 
 (use-package dired
   :ensure nil  
   :commands (dired dired-jump)
-  :bind (("C-x C-j" . dired-jump))
   :config
   (setq insert-directory-program "gls")
   (setq dired-use-ls-dired t)
@@ -386,14 +385,12 @@
 
 (use-package org-superstar
   :ensure t
+  :hook (org-mode . org-superstar-mode)
   :config
   (setq org-superstar-headline-bullets-list
 	'("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
   (setq org-ellipsis " ‧"))
 
-
-
-(add-hook 'org-mode-hook (lambda () (org-superstar-mode 1)))
 
 ;; org agenda
 (setq org-agenda-skip-scheduled-if-done t
@@ -713,8 +710,7 @@
 
 (use-package rainbow-delimiters
   :ensure t
-  :config
-  (add-hook 'prog-mode-hook #'rainbow-delimiters-mode))
+  :hook (prog-mode . rainbow-delimiters-mode))
 
 (electric-indent-mode -1)
 
