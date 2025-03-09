@@ -157,7 +157,7 @@
 
 (with-eval-after-load 'general
   (mr-x/leader-def
-    "d" 'diary-show-all-entries
+
     "a" 'mr-x/org-agenda-custom
     ;; "m" 'mu4e
     "f" 'link-hint-open-link
@@ -173,7 +173,19 @@
     "2" (lambda () (interactive) (persp-switch-by-number 2))
     "3" (lambda () (interactive) (persp-switch-by-number 3))
     "4" (lambda () (interactive) (persp-switch-by-number 4))
-    "5" (lambda () (interactive) (persp-switch-by-number 5))))
+    "5" (lambda () (interactive) (persp-switch-by-number 5)))
+
+  (mr-x/leader-def
+    "d" '(:ignore t :wk "Dired")
+    "d d" '(dired :wk "Open Dired")
+    "d j" '(dired-jump :wk "Dired jump to current")
+    "d H" '(dired-omit-mode :wk "Dired Omit Mode")
+
+
+    )
+
+
+  )
 
 
 
@@ -243,8 +255,7 @@
   (setq dired-use-ls-dired t)
   (setq dired-listing-switches "-al --group-directories-first")
 
-  (evil-define-key 'normal 'dired-mode-map
-    "H" 'dired-omit-mode
+  (evil-define-key 'normal dired-mode-map
     "h" 'dired-up-directory
     "l" 'dired-find-file)
 
