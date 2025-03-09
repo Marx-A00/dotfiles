@@ -302,8 +302,8 @@
   (use-package evil-org
     :ensure t
     :after org
+    :hook (org-mode . evil-org-mode)
     :config
-    (add-hook 'org-mode-hook #'evil-org-mode)
     (require 'evil-org-agenda)
     (evil-org-agenda-set-keys))
 
@@ -318,7 +318,6 @@
     (use-package dired
     :ensure nil  
     :commands (dired dired-jump)
-    :bind (("C-x C-j" . dired-jump))
     :config
     (setq insert-directory-program "gls")
     (setq dired-use-ls-dired t)
@@ -403,189 +402,187 @@
 
 #+begin_src emacs-lisp
 
-    ;; Startup UI
+  ;; Startup UI
 
 
 
-    ;; org (kinda not really)
-    (defun mr-x/org-mode-setup()
+  ;; org (kinda not really)
+  (defun mr-x/org-mode-setup()
 
-      (visual-line-mode 1)
-      (auto-fill-mode 0)
-      (setq org-agenda-include-diary t)
-      (setq org-fold-core-style 'overlays)
-      (setq org-agenda-span 'day)
-      (setq evil-auto-indent nil))
+    (visual-line-mode 1)
+    (auto-fill-mode 0)
+    (setq org-agenda-include-diary t)
+    (setq org-fold-core-style 'overlays)
+    (setq org-agenda-span 'day)
+    (setq evil-auto-indent nil))
 
-    (setq org-agenda-files
-	  '("~/roaming/agenda.org"
-	    "~/roaming/habits.org"
-	    "~/jira"))
-    (setq org-clock-persist t)
-    (org-clock-persistence-insinuate)
+  (setq org-agenda-files
+	'("~/roaming/agenda.org"
+	  "~/roaming/habits.org"
+	  "~/jira"))
+  (setq org-clock-persist t)
+  (org-clock-persistence-insinuate)
 
-    (use-package org
-      :hook (org-mode . mr-x/org-mode-setup)
-      :config
-      (setq org-hide-emphasis-markers t)
-      (setq org-agenda-start-with-log-mode t)
-      (setq org-log-done 'time)
-      (setq org-log-into-drawer t)
-
-
-      (setq org-highlight-latex-and-related '(latex))
-
-					    ; org- habit setup
-
-      (require 'org-habit)
-      (add-to-list 'org-modules 'org-habit)
-      (setq org-habit-graph-column 60)
-
-      (setq org-todo-keywords
-	    '((sequence
-	       "TODO(t)"
-	       "NEXT(n)"
-	       "|"
-	       "DONE(d!)")
-	      (sequence
-	       "BACKLOG(b)"
-	       "PLAN(p)"
-	       "READY(r)"
-	       "IN-PROGRESS(i)"
-	       "REVIEW(v)"
-	       "WATCHING(w@/!)"
-	       "HOLD(h)"
-	       "|"
-	       "COMPLETED(c)"
-	       "CANC(k@)")))
-
-      (setq org-todo-keyword-faces
-	    '(("TODO" . "#FF1800")
-	      ("NEXT" . "#FF1800")
-	      ("PLAN" . "#F67F2F")
-	      ("DONE" . "#62656A")
-	      ("HOLD" . "#62656A")
-	      ("WAIT" . "#B7CBA8")
-	      ("IN-PROGRESS" . "#b7cba8") 
-	      ("BACKLOG" . "#62656A")))
-
-      (custom-set-faces
-       '(org-level-1 ((t (:foreground "#ff743f")))))
-
-      (custom-set-faces
-       '(org-level-2 ((t (:foreground "#67bc44")))))
-
-      (custom-set-faces
-       '(org-level-3 ((t (:foreground "#67c0de"))))))
-
-    (use-package org-superstar
-      :ensure t
-      :config
-      (setq org-superstar-headline-bullets-list
-	    '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
-      (setq org-ellipsis " ‧"))
+  (use-package org
+    :hook (org-mode . mr-x/org-mode-setup)
+    :config
+    (setq org-hide-emphasis-markers t)
+    (setq org-agenda-start-with-log-mode t)
+    (setq org-log-done 'time)
+    (setq org-log-into-drawer t)
 
 
+    (setq org-highlight-latex-and-related '(latex))
 
-    (add-hook 'org-mode-hook (lambda () (org-superstar-mode 1)))
+					  ; org- habit setup
 
-    ;; org agenda
-    (setq org-agenda-skip-scheduled-if-done t
-	  org-agenda-skip-deadline-if-done t
-	  org-agenda-include-deadlines t
-	  org-agenda-block-separator #x2501
-	  org-agenda-compact-blocks t
-	  org-agenda-start-with-log-mode t)
+    (require 'org-habit)
+    (add-to-list 'org-modules 'org-habit)
+    (setq org-habit-graph-column 60)
 
-    (setq org-agenda-clockreport-parameter-plist
-	  (quote (:link t :maxlevel 5 :fileskip0 t :compact t :narrow 80)))
-    (setq org-agenda-deadline-faces
-	  '((1.0001 . org-warning)              ; due yesterday or before
-	    (0.0    . org-upcoming-deadline)))  ; due today or later
+    (setq org-todo-keywords
+	  '((sequence
+	     "TODO(t)"
+	     "NEXT(n)"
+	     "|"
+	     "DONE(d!)")
+	    (sequence
+	     "BACKLOG(b)"
+	     "PLAN(p)"
+	     "READY(r)"
+	     "IN-PROGRESS(i)"
+	     "REVIEW(v)"
+	     "WATCHING(w@/!)"
+	     "HOLD(h)"
+	     "|"
+	     "COMPLETED(c)"
+	     "CANC(k@)")))
 
-    (defun org-habit-streak-count ()
-      (goto-char (point-min))
-      (while (not (eobp))
-	;;on habit line?
-	(when (get-text-property (point) 'org-habit-p)
-	  (let ((streak 0)
-		(counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
-		)
-	    (move-to-column counter)
-	    ;;until end of line
-	    (while (= (char-after (point)) org-habit-completed-glyph)
-	      (setq streak (+ streak 1))
-	      (setq counter (- counter 1))
-	      (backward-char 1))
-	    (end-of-line)
-	    (insert (number-to-string streak))))
-	(forward-line 1)))
+    (setq org-todo-keyword-faces
+	  '(("TODO" . "#FF1800")
+	    ("NEXT" . "#FF1800")
+	    ("PLAN" . "#F67F2F")
+	    ("DONE" . "#62656A")
+	    ("HOLD" . "#62656A")
+	    ("WAIT" . "#B7CBA8")
+	    ("IN-PROGRESS" . "#b7cba8") 
+	    ("BACKLOG" . "#62656A")))
 
-    (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
+    (custom-set-faces
+     '(org-level-1 ((t (:foreground "#ff743f")))))
 
-    (defun my/style-org-agenda()
-      (setq org-agenda-window-setup 'other-window)
-      (set-face-attribute 'org-agenda-date nil :height 1.1)
-      (set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
-      (set-face-attribute 'org-agenda-date-today nil
-			  :foreground "#897d6c"   
-			  :background nil        
-			  :weight 'bold
-			  :underline nil)           ;; Make it bold
-      (set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
+    (custom-set-faces
+     '(org-level-2 ((t (:foreground "#67bc44")))))
 
-    (setq org-agenda-breadcrumbs-separator " ❱ "
-	  org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
-	  org-agenda-time-grid '((daily today)
-				 (800 1000 1200 1400 1600 1800 2000)
-				 "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
-	  org-agenda-prefix-format '((agenda . "%i %-12:c [%e] %?-12t%b% s")
-				     (todo . " %i %-12:c [%e] ")
-				     (tags . " %i %-12:c")
-				     (search . " %i %-12:c")))
+    (custom-set-faces
+     '(org-level-3 ((t (:foreground "#67c0de"))))))
+
+  (use-package org-superstar
+    :ensure t
+    :hook (org-mode . org-superstar-mode)
+    :config
+    (setq org-superstar-headline-bullets-list
+	  '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
+    (setq org-ellipsis " ‧"))
+
+
+  ;; org agenda
+  (setq org-agenda-skip-scheduled-if-done t
+	org-agenda-skip-deadline-if-done t
+	org-agenda-include-deadlines t
+	org-agenda-block-separator #x2501
+	org-agenda-compact-blocks t
+	org-agenda-start-with-log-mode t)
+
+  (setq org-agenda-clockreport-parameter-plist
+	(quote (:link t :maxlevel 5 :fileskip0 t :compact t :narrow 80)))
+  (setq org-agenda-deadline-faces
+	'((1.0001 . org-warning)              ; due yesterday or before
+	  (0.0    . org-upcoming-deadline)))  ; due today or later
+
+  (defun org-habit-streak-count ()
+    (goto-char (point-min))
+    (while (not (eobp))
+      ;;on habit line?
+      (when (get-text-property (point) 'org-habit-p)
+	(let ((streak 0)
+	      (counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
+	      )
+	  (move-to-column counter)
+	  ;;until end of line
+	  (while (= (char-after (point)) org-habit-completed-glyph)
+	    (setq streak (+ streak 1))
+	    (setq counter (- counter 1))
+	    (backward-char 1))
+	  (end-of-line)
+	  (insert (number-to-string streak))))
+      (forward-line 1)))
+
+  (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
+
+  (defun my/style-org-agenda()
+    (setq org-agenda-window-setup 'other-window)
+    (set-face-attribute 'org-agenda-date nil :height 1.1)
+    (set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
+    (set-face-attribute 'org-agenda-date-today nil
+			:foreground "#897d6c"   
+			:background nil        
+			:weight 'bold
+			:underline nil)           ;; Make it bold
+    (set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
+
+  (setq org-agenda-breadcrumbs-separator " ❱ "
+	org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
+	org-agenda-time-grid '((daily today)
+			       (800 1000 1200 1400 1600 1800 2000)
+			       "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
+	org-agenda-prefix-format '((agenda . "%i %-12:c [%e] %?-12t%b% s")
+				   (todo . " %i %-12:c [%e] ")
+				   (tags . " %i %-12:c")
+				   (search . " %i %-12:c")))
 
 
 
 
-    (setq org-agenda-custom-commands
-	  '(("p" "Projects Agenda"
-	     ((todo "NEXT"
-		    ((org-agenda-overriding-header
-		      (concat "Projects\n" (make-string (window-width) 9472) "\n\n"))
-		     (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
-					 "~/roaming/notes/20250212103431-customize_org_agenda.org"
-					 "~/roaming/notes/20240507202146-openpair.org"
-					 "~/roaming/notes/20250107142334-rec.org"
-					 "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
-					 "~/roaming/notes/20250220152855-personal_website.org"
-					 "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
-					 "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
-	    ("c" "Custom Projects & Agenda"
-	     ((agenda ""
-		      ((org-agenda-overriding-header "Agenda")))
-	      (todo "NEXT"
-		    ((org-agenda-overriding-header
-		      (concat "Projects\n" (make-string (window-width) 9472) "\n"))
-		     (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
-					 "~/roaming/notes/20250212103431-customize_org_agenda.org"
-					 "~/roaming/notes/20240507202146-openpair.org"
-					 "~/roaming/notes/20250107142334-rec.org"
-					 "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
-					 "~/roaming/notes/20250220152855-personal_website.org"
-					 "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
-					 "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
-	     nil)))
-    (setq org-agenda-format-date (lambda (date)
-				   (concat"\n"(make-string(window-width)9472)
-					  "\n"(org-agenda-format-date-aligned date))))
-    (setq org-cycle-separator-lines 2)
+  (setq org-agenda-custom-commands
+	'(("p" "Projects Agenda"
+	   ((todo "NEXT"
+		  ((org-agenda-overriding-header
+		    (concat "Projects\n" (make-string (window-width) 9472) "\n\n"))
+		   (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
+				       "~/roaming/notes/20250212103431-customize_org_agenda.org"
+				       "~/roaming/notes/20240507202146-openpair.org"
+				       "~/roaming/notes/20250107142334-rec.org"
+				       "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
+				       "~/roaming/notes/20250220152855-personal_website.org"
+				       "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+				       "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
+	  ("c" "Custom Projects & Agenda"
+	   ((agenda ""
+		    ((org-agenda-overriding-header "Agenda")))
+	    (todo "NEXT"
+		  ((org-agenda-overriding-header
+		    (concat "Projects\n" (make-string (window-width) 9472) "\n"))
+		   (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
+				       "~/roaming/notes/20250212103431-customize_org_agenda.org"
+				       "~/roaming/notes/20240507202146-openpair.org"
+				       "~/roaming/notes/20250107142334-rec.org"
+				       "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
+				       "~/roaming/notes/20250220152855-personal_website.org"
+				       "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+				       "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
+	   nil)))
+  (setq org-agenda-format-date (lambda (date)
+				 (concat"\n"(make-string(window-width)9472)
+					"\n"(org-agenda-format-date-aligned date))))
+  (setq org-cycle-separator-lines 2)
 
-    (add-hook 'org-agenda-finalize-hook
-	      (lambda ()
-		(setq visual-fill-column-width 100) 
-		(setq visual-fill-column-center-text t)
-		(visual-fill-column-mode t)
-		(display-line-numbers-mode 1)))
+  (add-hook 'org-agenda-finalize-hook
+	    (lambda ()
+	      (setq visual-fill-column-width 100) 
+	      (setq visual-fill-column-center-text t)
+	      (visual-fill-column-mode t)
+	      (display-line-numbers-mode 1)))
 
 
 
@@ -831,8 +828,7 @@
 
   (use-package rainbow-delimiters
     :ensure t
-    :config
-    (add-hook 'prog-mode-hook #'rainbow-delimiters-mode))
+    :hook (prog-mode . rainbow-delimiters-mode))
 
   (electric-indent-mode -1)
 
