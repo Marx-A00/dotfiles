@@ -432,6 +432,10 @@
 		      :underline nil)           ;; Make it bold
   (set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
 
+(add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
+
+
+
 (setq org-agenda-breadcrumbs-separator " ❱ "
       org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
       org-agenda-time-grid '((daily today)
@@ -463,7 +467,7 @@
 		  ((org-agenda-overriding-header "Agenda")))
 	  (todo "NEXT"
 		((org-agenda-overriding-header
-		  (concat "Projects\n" (make-string (window-width) 9472) "\n"))
+		  (concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
 		 (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
 				     "~/roaming/notes/20250212103431-customize_org_agenda.org"
 				     "~/roaming/notes/20240507202146-openpair.org"
