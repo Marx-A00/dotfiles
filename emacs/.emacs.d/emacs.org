@@ -58,13 +58,20 @@
 
 #+end_src
 
-** Keeping Emacs Clean
+** Exec Path from Shell
 #+begin_src emacs-lisp
 
-  ;; Cleaning
+  (use-package exec-path-from-shell
+    :ensure t
+    :config
+    (when (memq window-system '(mac ns x))
+      (exec-path-from-shell-initialize)))
 
+#+end_src
 
+** Keeping Emacs Clean
 
+#+begin_src emacs-lisp
 
   (use-package no-littering
     :ensure t
@@ -72,10 +79,6 @@
     (setq custom-file (no-littering-expand-etc-file-name "custom.el"))
     (load custom-file 'noerror)
     (no-littering-theme-backups))
-
-
-  ;; Still need to fix #file showing up maybe
-
 
 #+end_src
 
@@ -163,18 +166,22 @@
   (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
   (setq visible-bell t)
   (fset 'yes-or-no-p 'y-or-n-p)
+
+  (use-package highlight
+    :ensure t)
 #+end_src
 *** Scratch Buffer Setup
 #+begin_src emacs-lisp
-(setq initial-major-mode 'org-mode)
-(setq initial-scratch-message "\
-# Clear your mind young one.")
+
+  (setq initial-major-mode 'org-mode)
+  (setq initial-scratch-message "\
+  # Clear your mind young one.")
+
 #+end_src
 *** Keybindings
 #+begin_src emacs-lisp
 
   (use-package general
-
   :ensure t
   :demand t
   :config
@@ -197,7 +204,6 @@
 
   (with-eval-after-load 'general
     (mr-x/leader-def
-
       "a" 'mr-x/org-agenda-custom
       ;; "m" 'mu4e
       "f" 'link-hint-open-link
@@ -235,7 +241,9 @@
 *** All I do is win win win no matter what
 
 #+begin_src emacs-lisp
-(winner-mode 1)
+
+  (winner-mode 1)
+
 #+end_src
 
 ** Time To Get Some Help
@@ -265,6 +273,7 @@
 #+end_src
 
 #+begin_src emacs-lisp
+
   (use-package which-key
     :ensure t
     :config
@@ -311,9 +320,6 @@
 ** Dired
 
 #+begin_src emacs-lisp
-
-
-
 
     (use-package dired
     :ensure nil  
@@ -401,10 +407,6 @@
 ** Org Mode Setup
 
 #+begin_src emacs-lisp
-
-  ;; Startup UI
-
-
 
   ;; org (kinda not really)
   (defun mr-x/org-mode-setup()
@@ -521,7 +523,7 @@
   (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
 
   (defun my/style-org-agenda()
-    (setq org-agenda-window-setup 'other-window)
+    (setq org-agenda-window-setup 'only-window)
     (set-face-attribute 'org-agenda-date nil :height 1.1)
     (set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
     (set-face-attribute 'org-agenda-date-today nil
@@ -570,6 +572,7 @@
 				       "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
 				       "~/roaming/notes/20250220152855-personal_website.org"
 				       "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+				       "~/roaming/notes/20250309222443-virtual_museum.org"
 				       "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
 	   nil)))
   (setq org-agenda-format-date (lambda (date)
@@ -583,7 +586,6 @@
 	      (setq visual-fill-column-center-text t)
 	      (visual-fill-column-mode t)
 	      (display-line-numbers-mode 1)))
-
 
 
 
