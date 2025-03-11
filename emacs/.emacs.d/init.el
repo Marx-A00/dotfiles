@@ -166,7 +166,7 @@
     ;; "s" 'mr-x/toggle-shortcuts
     ;; "S" 'mr-x/scratch
     ;; "v" 'multi-vterm
-    "b" 'persp-counsel-switch-buffer
+    ;; "b" 'persp-counsel-switch-buffer
     "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
     "1" (lambda () (interactive) (persp-switch-by-number 1))
     "2" (lambda () (interactive) (persp-switch-by-number 2))
@@ -178,7 +178,13 @@
     "d" '(:ignore t :wk "Dired")
     "d d" '(dired :wk "Open Dired")
     "d j" '(dired-jump :wk "Dired jump to current")
-    "d H" '(dired-omit-mode :wk "Dired Omit Mode")))
+    "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
+
+  (mr-x/leader-def
+  "b" '(:ignore t :wk "buffer")
+  "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
+  "b k" '(kill-this-buffer :wk "kill this buffer")
+  "b r" '(revert-buffer :wk "reload buffer")))
 
   (defun mr-x/org-agenda-day ()
     (interactive)
