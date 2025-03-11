@@ -46,10 +46,11 @@
   ;; Enable Elpaca support for use-package's :ensure keyword.
   (elpaca-use-package-mode))
 
-;; Cleaning
-
-
-
+(use-package exec-path-from-shell
+  :ensure t
+  :config
+  (when (memq window-system '(mac ns x))
+    (exec-path-from-shell-initialize)))
 
 (use-package no-littering
   :ensure t
@@ -57,9 +58,6 @@
   (setq custom-file (no-littering-expand-etc-file-name "custom.el"))
   (load custom-file 'noerror)
   (no-littering-theme-backups))
-
-
-;; Still need to fix #file showing up maybe
 
 (use-package all-the-icons
   :ensure t
@@ -129,12 +127,14 @@
 (setq visible-bell t)
 (fset 'yes-or-no-p 'y-or-n-p)
 
+(use-package highlight
+  :ensure t)
+
 (setq initial-major-mode 'org-mode)
 (setq initial-scratch-message "\
 # Clear your mind young one.")
 
 (use-package general
-
 :ensure t
 :demand t
 :config
@@ -157,7 +157,6 @@
 
 (with-eval-after-load 'general
   (mr-x/leader-def
-
     "a" 'mr-x/org-agenda-custom
     ;; "m" 'mu4e
     "f" 'link-hint-open-link
@@ -167,7 +166,7 @@
     ;; "s" 'mr-x/toggle-shortcuts
     ;; "S" 'mr-x/scratch
     ;; "v" 'multi-vterm
-    "b" 'persp-counsel-switch-buffer
+    ;; "b" 'persp-counsel-switch-buffer
     "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
     "1" (lambda () (interactive) (persp-switch-by-number 1))
     "2" (lambda () (interactive) (persp-switch-by-number 2))
@@ -179,7 +178,13 @@
     "d" '(:ignore t :wk "Dired")
     "d d" '(dired :wk "Open Dired")
     "d j" '(dired-jump :wk "Dired jump to current")
-    "d H" '(dired-omit-mode :wk "Dired Omit Mode")))
+    "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
+
+  (mr-x/leader-def
+  "b" '(:ignore t :wk "buffer")
+  "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
+  "b k" '(kill-this-buffer :wk "kill this buffer")
+  "b r" '(revert-buffer :wk "reload buffer")))
 
   (defun mr-x/org-agenda-day ()
     (interactive)
@@ -208,6 +213,7 @@
   :ensure t
   :config
   (which-key-mode)
+  (setq which-key-separator " → ")
   (setq which-key-idle-delay 1))
 
 (use-package evil
@@ -308,11 +314,13 @@
 (global-set-key (kbd "M-x") 'counsel-M-x)
 (global-set-key (kbd "C-x C-f") 'counsel-find-file)
 
-;; Startup UI
-
-
-
 ;; org (kinda not really)
+
+(use-package toc-org
+  :ensure t
+  :commands toc-org-enable
+  :hook (org-mode . toc-org-mode))
+
 (defun mr-x/org-mode-setup()
 
   (visual-line-mode 1)
@@ -427,7 +435,7 @@
 (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
 
 (defun my/style-org-agenda()
-  (setq org-agenda-window-setup 'other-window)
+  (setq org-agenda-window-setup 'only-window)
   (set-face-attribute 'org-agenda-date nil :height 1.1)
   (set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
   (set-face-attribute 'org-agenda-date-today nil
@@ -436,6 +444,10 @@
 		      :weight 'bold
 		      :underline nil)           ;; Make it bold
   (set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
+
+(add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
+
+
 
 (setq org-agenda-breadcrumbs-separator " ❱ "
       org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
@@ -468,7 +480,7 @@
 		  ((org-agenda-overriding-header "Agenda")))
 	  (todo "NEXT"
 		((org-agenda-overriding-header
-		  (concat "Projects\n" (make-string (window-width) 9472) "\n"))
+		  (concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
 		 (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
 				     "~/roaming/notes/20250212103431-customize_org_agenda.org"
 				     "~/roaming/notes/20240507202146-openpair.org"
@@ -476,6 +488,7 @@
 				     "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
 				     "~/roaming/notes/20250220152855-personal_website.org"
 				     "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+				     "~/roaming/notes/20250309222443-virtual_museum.org"
 				     "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
 	 nil)))
 (setq org-agenda-format-date (lambda (date)
