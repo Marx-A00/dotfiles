@@ -200,59 +200,65 @@
 
 #+begin_src emacs-lisp
 
-  (use-package general
-  :ensure t
-  :demand t
-  :config
-  ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
-  (general-evil-setup t)
+      (use-package general
+      :ensure t
+      :demand t
+      :config
+      ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
+      (general-evil-setup t)
 
-  ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
-  ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
-  ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
-  ;; will only have an effect for general.el key definers. The advice can later be removed with
-  ;; (general-auto-unbind-keys t).
-  (general-auto-unbind-keys))
+      ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
+      ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
+      ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
+      ;; will only have an effect for general.el key definers. The advice can later be removed with
+      ;; (general-auto-unbind-keys t).
+      (general-auto-unbind-keys))
 
-  (with-eval-after-load 'general
-    (general-create-definer mr-x/leader-def
-      :states '(normal visual motion emacs insert)
-      :keymaps 'override
-      :prefix "SPC"
-      :global-prefix "C-SPC"))
+      (with-eval-after-load 'general
+	(general-create-definer mr-x/leader-def
+	  :states '(normal visual motion emacs insert)
+	  :keymaps 'override
+	  :prefix "SPC"
+	  :global-prefix "C-SPC"))
 
-  (with-eval-after-load 'general
-    (mr-x/leader-def
-      "a" 'mr-x/org-agenda-custom
-      ;; "m" 'mu4e
-      "f" 'link-hint-open-link
-      ;; "p" 'projectile-command-map
-      "h" 'winner-undo
-      "l" 'winner-redo
-      ;; "s" 'mr-x/toggle-shortcuts
-      ;; "S" 'mr-x/scratch
-      ;; "v" 'multi-vterm
-      "b" 'persp-counsel-switch-buffer
-      "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
-      "1" (lambda () (interactive) (persp-switch-by-number 1))
-      "2" (lambda () (interactive) (persp-switch-by-number 2))
-      "3" (lambda () (interactive) (persp-switch-by-number 3))
-      "4" (lambda () (interactive) (persp-switch-by-number 4))
-      "5" (lambda () (interactive) (persp-switch-by-number 5)))
+      (with-eval-after-load 'general
+	(mr-x/leader-def
+	  "a" 'mr-x/org-agenda-custom
+	  ;; "m" 'mu4e
+	  "f" 'link-hint-open-link
+	  ;; "p" 'projectile-command-map
+	  "h" 'winner-undo
+	  "l" 'winner-redo
+	  ;; "s" 'mr-x/toggle-shortcuts
+	  ;; "S" 'mr-x/scratch
+	  ;; "v" 'multi-vterm
+	  ;; "b" 'persp-counsel-switch-buffer
+	  "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
+	  "1" (lambda () (interactive) (persp-switch-by-number 1))
+	  "2" (lambda () (interactive) (persp-switch-by-number 2))
+	  "3" (lambda () (interactive) (persp-switch-by-number 3))
+	  "4" (lambda () (interactive) (persp-switch-by-number 4))
+	  "5" (lambda () (interactive) (persp-switch-by-number 5)))
 
-    (mr-x/leader-def
-      "d" '(:ignore t :wk "Dired")
-      "d d" '(dired :wk "Open Dired")
-      "d j" '(dired-jump :wk "Dired jump to current")
-      "d H" '(dired-omit-mode :wk "Dired Omit Mode")))
+	(mr-x/leader-def
+	  "d" '(:ignore t :wk "Dired")
+	  "d d" '(dired :wk "Open Dired")
+	  "d j" '(dired-jump :wk "Dired jump to current")
+	  "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
 
-    (defun mr-x/org-agenda-day ()
-      (interactive)
-      (org-agenda nil "a"))
+	(mr-x/leader-def
+	"b" '(:ignore t :wk "buffer")
+	"b b" '(persp-counsel-switch-buffer :wk "switch buffer")
+	"b k" '(kill-this-buffer :wk "kill this buffer")
+	"b r" '(revert-buffer :wk "reload buffer")))
 
-    (defun mr-x/org-agenda-custom ()
-      (interactive)
-      (org-agenda nil "c"))
+	(defun mr-x/org-agenda-day ()
+	  (interactive)
+	  (org-agenda nil "a"))
+
+	(defun mr-x/org-agenda-custom ()
+	  (interactive)
+	  (org-agenda nil "c"))
 
 
 #+end_src
