@@ -4,6 +4,23 @@
 #+end_src
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el
 
+* Table of Contents :TOC:
+- [[#setup][Setup]]
+  - [[#elpaca][Elpaca]]
+  - [[#exec-path-from-shell][Exec Path from Shell]]
+  - [[#keeping-emacs-clean][Keeping Emacs Clean]]
+  - [[#ui][UI]]
+  - [[#gain-some-perspective][Gain Some Perspective]]
+  - [[#ux][UX]]
+  - [[#time-to-get-some-help][Time To Get Some Help]]
+  - [[#dired][Dired]]
+  - [[#ivy--swiper][Ivy & Swiper]]
+- [[#org][Org]]
+  - [[#org-mode-setup][Org Mode Setup]]
+  - [[#org-babel][Org Babel]]
+  - [[#org-roam][Org Roam]]
+- [[#development][Development]]
+  - [[#languages][Languages]]
 
 * Setup
 
@@ -178,7 +195,9 @@
   # Clear your mind young one.")
 
 #+end_src
+
 *** Keybindings
+
 #+begin_src emacs-lisp
 
   (use-package general
@@ -278,6 +297,7 @@
     :ensure t
     :config
     (which-key-mode)
+    (setq which-key-separator " → ")
     (setq which-key-idle-delay 1))
 
 #+end_src
@@ -409,6 +429,12 @@
 #+begin_src emacs-lisp
 
   ;; org (kinda not really)
+
+  (use-package toc-org
+    :ensure t
+    :commands toc-org-enable
+    :hook (org-mode . toc-org-mode))
+
   (defun mr-x/org-mode-setup()
 
     (visual-line-mode 1)

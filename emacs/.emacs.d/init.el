@@ -207,6 +207,7 @@
   :ensure t
   :config
   (which-key-mode)
+  (setq which-key-separator " → ")
   (setq which-key-idle-delay 1))
 
 (use-package evil
@@ -308,6 +309,12 @@
 (global-set-key (kbd "C-x C-f") 'counsel-find-file)
 
 ;; org (kinda not really)
+
+(use-package toc-org
+  :ensure t
+  :commands toc-org-enable
+  :hook (org-mode . toc-org-mode))
+
 (defun mr-x/org-mode-setup()
 
   (visual-line-mode 1)
