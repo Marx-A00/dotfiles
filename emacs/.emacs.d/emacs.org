@@ -7,8 +7,10 @@
 * Table of Contents :TOC:
 - [[#setup][Setup]]
   - [[#elpaca][Elpaca]]
+  - [[#unleash-the-demon][Unleash the Demon]]
   - [[#exec-path-from-shell][Exec Path from Shell]]
   - [[#keeping-emacs-clean][Keeping Emacs Clean]]
+  - [[#terminal][Terminal]]
   - [[#ui][UI]]
   - [[#gain-some-perspective][Gain Some Perspective]]
   - [[#ux][UX]]
@@ -20,6 +22,7 @@
   - [[#org-babel][Org Babel]]
   - [[#org-roam][Org Roam]]
 - [[#development][Development]]
+  - [[#i-want-to-be-a-writer][I want to be a writer]]
   - [[#languages][Languages]]
 
 * Setup
@@ -74,6 +77,36 @@
     (elpaca-use-package-mode))
 
 #+end_src
+** Unleash the Demon
+
+#+begin_src emacs-lisp
+
+  (pcase system-type
+    ('gnu/linux "It's Linux!")
+    ('windows-nt "It's Windows!")
+    ('darwin "It's macOS!"))
+
+  (if (daemonp)
+      (message "Loading in the daemon!")
+    (message "Loading in regular Emacs!"))
+
+  (defun mr-x/set-font-faces ()
+    (message "Setting faces!")
+    (set-face-attribute 'default nil :font "Iosevka" :height 280))
+
+    ;; Set the fixed pitch face
+
+  (if (daemonp)
+      (add-hook 'after-make-frame-functions
+		(lambda (frame)
+		  (setq doom-modeline-icon t)
+		  (with-selected-frame frame
+		    (mr-x/set-font-faces))))
+    (mr-x/set-font-faces))
+
+
+
+#+end_src
 
 ** Exec Path from Shell
 #+begin_src emacs-lisp
@@ -98,7 +131,32 @@
     (no-littering-theme-backups))
 
 #+end_src
+** Terminal
+#+begin_src emacs-lisp
 
+
+  (use-package vterm
+    :ensure t)
+
+
+    ;; Optional: set the shell explicitly if needed
+    ;; (setq vterm-shell "/bin/zsh")
+
+
+  ;; (use-package multi-vterm
+  ;; 	 :config
+  ;; 	 (add-hook 'vterm-mode-hook
+  ;; 			 (lambda ()
+  ;; 			 (setq-local evil-insert-state-cursor 'box)
+  ;; 			 (evil-insert-state)))
+
+  ;; 	 (define-key vterm-mode-map [return]                      #'vterm-send-return)
+
+  ;; 	 (setq vterm-keymap-exceptions nil))
+
+
+
+#+end_src
 ** UI
 
 #+begin_src emacs-lisp
@@ -250,7 +308,7 @@
 	"b" '(:ignore t :wk "buffer")
 	"b b" '(persp-counsel-switch-buffer :wk "switch buffer")
 	"b k" '(kill-this-buffer :wk "kill this buffer")
-	"b r" '(revert-buffer :wk "reload buffer")))
+	"b r" '(revert-buffer :wk "revert buffer")))
 
 	(defun mr-x/org-agenda-day ()
 	  (interactive)
@@ -859,6 +917,11 @@
     org-roam-ui-open-on-start t))
 #+end_src
 * Development
+** I want to be a writer
+#+begin_src emacs-lisp
+    (use-package simple-httpd
+      :ensure t)
+#+end_src
 ** Languages
 *** Elisp
 
