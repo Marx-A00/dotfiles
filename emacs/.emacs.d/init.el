@@ -46,6 +46,29 @@
   ;; Enable Elpaca support for use-package's :ensure keyword.
   (elpaca-use-package-mode))
 
+(pcase system-type
+  ('gnu/linux "It's Linux!")
+  ('windows-nt "It's Windows!")
+  ('darwin "It's macOS!"))
+
+(if (daemonp)
+    (message "Loading in the daemon!")
+  (message "Loading in regular Emacs!"))
+
+(defun mr-x/set-font-faces ()
+  (message "Setting faces!")
+  (set-face-attribute 'default nil :font "Iosevka" :height 280))
+
+  ;; Set the fixed pitch face
+
+(if (daemonp)
+    (add-hook 'after-make-frame-functions
+	      (lambda (frame)
+		(setq doom-modeline-icon t)
+		(with-selected-frame frame
+		  (mr-x/set-font-faces))))
+  (mr-x/set-font-faces))
+
 (use-package exec-path-from-shell
   :ensure t
   :config
@@ -58,6 +81,25 @@
   (setq custom-file (no-littering-expand-etc-file-name "custom.el"))
   (load custom-file 'noerror)
   (no-littering-theme-backups))
+
+(use-package vterm
+  :ensure t)
+
+
+  ;; Optional: set the shell explicitly if needed
+  ;; (setq vterm-shell "/bin/zsh")
+
+
+;; (use-package multi-vterm
+;; 	 :config
+;; 	 (add-hook 'vterm-mode-hook
+;; 			 (lambda ()
+;; 			 (setq-local evil-insert-state-cursor 'box)
+;; 			 (evil-insert-state)))
+
+;; 	 (define-key vterm-mode-map [return]                      #'vterm-send-return)
+
+;; 	 (setq vterm-keymap-exceptions nil))
 
 (use-package all-the-icons
   :ensure t
@@ -184,7 +226,7 @@
   "b" '(:ignore t :wk "buffer")
   "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
   "b k" '(kill-this-buffer :wk "kill this buffer")
-  "b r" '(revert-buffer :wk "reload buffer")))
+  "b r" '(revert-buffer :wk "revert buffer")))
 
   (defun mr-x/org-agenda-day ()
     (interactive)
@@ -720,6 +762,9 @@
   org-roam-ui-follow t
   org-roam-ui-update-on-save t
   org-roam-ui-open-on-start t))
+
+(use-package simple-httpd
+  :ensure t)
 
 (use-package rainbow-delimiters
   :ensure t
