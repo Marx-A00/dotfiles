@@ -85,6 +85,46 @@
 (use-package vterm
   :ensure t)
 
+  (use-package multi-vterm
+      :ensure t
+      :after vterm
+      :config
+
+      (add-hook 'vterm-mode-hook
+		      (lambda ()
+		      (setq-local evil-insert-state-cursor 'box)
+		      (evil-insert-state)))
+      (define-key vterm-mode-map [return]                      #'vterm-send-return)
+
+      (setq vterm-keymap-exceptions nil)
+      ;; dedicated terminal height of 30%
+      (setq multi-vterm-dedicated-window-height-percent 40)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
+      (evil-define-key 'normal vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+      (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
+      (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
+      (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
+      (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
+      (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
+      (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume))
+
 
   ;; Optional: set the shell explicitly if needed
   ;; (setq vterm-shell "/bin/zsh")
@@ -177,64 +217,73 @@
 # Clear your mind young one.")
 
 (use-package general
-:ensure t
-:demand t
-:config
-;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
-(general-evil-setup t)
+      :ensure t
+      :demand t
+      :config
+      ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
+      (general-evil-setup t)
 
-;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
-;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
-;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
-;; will only have an effect for general.el key definers. The advice can later be removed with
-;; (general-auto-unbind-keys t).
-(general-auto-unbind-keys))
+      ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
+      ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
+      ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
+      ;; will only have an effect for general.el key definers. The advice can later be removed with
+      ;; (general-auto-unbind-keys t).
+      (general-auto-unbind-keys))
 
-(with-eval-after-load 'general
-  (general-create-definer mr-x/leader-def
-    :states '(normal visual motion emacs insert)
-    :keymaps 'override
-    :prefix "SPC"
-    :global-prefix "C-SPC"))
+      (with-eval-after-load 'general
+	(general-create-definer mr-x/leader-def
+	  :states '(normal visual motion emacs insert)
+	  :keymaps 'override
+	  :prefix "SPC"
+	  :global-prefix "C-SPC"))
 
-(with-eval-after-load 'general
-  (mr-x/leader-def
-    "a" 'mr-x/org-agenda-custom
-    ;; "m" 'mu4e
-    "f" 'link-hint-open-link
-    ;; "p" 'projectile-command-map
-    "h" 'winner-undo
-    "l" 'winner-redo
-    ;; "s" 'mr-x/toggle-shortcuts
-    ;; "S" 'mr-x/scratch
-    ;; "v" 'multi-vterm
-    ;; "b" 'persp-counsel-switch-buffer
-    "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
-    "1" (lambda () (interactive) (persp-switch-by-number 1))
-    "2" (lambda () (interactive) (persp-switch-by-number 2))
-    "3" (lambda () (interactive) (persp-switch-by-number 3))
-    "4" (lambda () (interactive) (persp-switch-by-number 4))
-    "5" (lambda () (interactive) (persp-switch-by-number 5)))
+      (with-eval-after-load 'general
+	(mr-x/leader-def
+	  "a" 'mr-x/org-agenda-custom
+	  ;; "m" 'mu4e
+	  "f" 'link-hint-open-link
+	  ;; "p" 'projectile-command-map
+	  "h" 'winner-undo
+	  "l" 'winner-redo
+	  ;; "s" 'mr-x/toggle-shortcuts
+	  ;; "S" 'mr-x/scratch
+	  ;; "v" 'multi-vterm
+	  "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
+	  "1" (lambda () (interactive) (persp-switch-by-number 1))
+	  "2" (lambda () (interactive) (persp-switch-by-number 2))
+	  "3" (lambda () (interactive) (persp-switch-by-number 3))
+	  "4" (lambda () (interactive) (persp-switch-by-number 4))
+	  "5" (lambda () (interactive) (persp-switch-by-number 5)))
 
-  (mr-x/leader-def
-    "d" '(:ignore t :wk "Dired")
-    "d d" '(dired :wk "Open Dired")
-    "d j" '(dired-jump :wk "Dired jump to current")
-    "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
+	(mr-x/leader-def
+	  "d" '(:ignore t :wk "Dired")
+	  "d d" '(dired :wk "Open Dired")
+	  "d j" '(dired-jump :wk "Dired jump to current")
+	  "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
 
-  (mr-x/leader-def
-  "b" '(:ignore t :wk "buffer")
-  "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
-  "b k" '(kill-this-buffer :wk "kill this buffer")
-  "b r" '(revert-buffer :wk "revert buffer")))
+	(mr-x/leader-def
+	"b" '(:ignore t :wk "buffer")
+	"b b" '(persp-counsel-switch-buffer :wk "switch buffer")
+	"b k" '(kill-this-buffer :wk "kill this buffer")
+	"b r" '(revert-buffer :wk "revert buffer"))
+	
+	(mr-x/leader-def
+	"v" '(:ignore t :wk "vterm")
+	"v v" '(multi-vterm :wk "multi-vterm")
+	"v n" '(multi-vterm-next :wk "multi-vterm-next")
+	"v p" '(multi-vterm-prev :wk "multi-vterm-prev")
+	"v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")))
 
-  (defun mr-x/org-agenda-day ()
-    (interactive)
-    (org-agenda nil "a"))
+;; add multi-vterm-project in projectile prolly
 
-  (defun mr-x/org-agenda-custom ()
-    (interactive)
-    (org-agenda nil "c"))
+
+	(defun mr-x/org-agenda-day ()
+	  (interactive)
+	  (org-agenda nil "a"))
+
+	(defun mr-x/org-agenda-custom ()
+	  (interactive)
+	  (org-agenda nil "c"))
 
 (winner-mode 1)
 
@@ -386,6 +435,22 @@
   (setq org-agenda-start-with-log-mode t)
   (setq org-log-done 'time)
   (setq org-log-into-drawer t)
+
+  ;; testing
+
+  (setq org-M-RET-may-split-line '((default . nil)))
+  (setq org-list-automatic-rules '((t . t)))
+
+  ;; doesn't work lol thanks oai
+
+;;   (defun my/org-meta-return-auto-checkbox (&rest _)
+;; "Extend `M-RET` to insert a checkbox automatically."
+;; (when (org-at-item-checkbox-p)
+;;   (insert "[ ] ")))
+
+;;   (advice-add 'org-meta-return :after #'my/org-meta-return-auto-checkbox)
+
+
 
 
   (setq org-highlight-latex-and-related '(latex))
