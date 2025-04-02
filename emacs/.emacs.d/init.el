@@ -588,8 +588,14 @@
 					 "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
 	    ("c" "Custom Projects & Agenda"
 	     ((agenda ""
-			    ((org-agenda-overriding-header "Agenda")
-			     (org-agenda-prefix-format "   %-2i ")))
+		      ((org-agenda-overriding-header "Agenda")
+		       (org-agenda-prefix-format
+			'((agenda . "  %?-12t% s")
+			  (timeline . "  % s")
+			  (todo . "  ")
+			  (tags . "  ")
+			  (search . "  ")))
+		       (org-agenda-log-mode-items '(closed clock))))
 	      (todo "NEXT"
 		    ((org-agenda-overriding-header
 		      (concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
@@ -763,7 +769,12 @@
 
  (defun my/org-roam-refresh-agenda-list ()
    (interactive)
-   (setq org-agenda-files (my/org-roam-list-notes-by-tag "Project")))
+   (setq org-agenda-files
+	 (append
+	  (my/org-roam-list-notes-by-tag "Project")
+	  (directory-files-recursively
+	   (expand-file-name org-roam-dailies-directory org-roam-directory)
+	   "\\.org$"))))
 
  (my/org-roam-refresh-agenda-list))
 
