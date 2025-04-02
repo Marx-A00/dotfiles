@@ -738,6 +738,7 @@
   "~/roaming/notes/20250317082044-vibe_coding_video.org"
 					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
 					   "~/roaming/notes/20250309222443-virtual_museum.org"
+					   "~/roaming/notes/20250402092144-track01_s_w.org"
 					   "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
 	       nil)))
       (setq org-agenda-format-date (lambda (date)

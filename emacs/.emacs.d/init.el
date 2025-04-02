@@ -416,6 +416,7 @@
 
       (visual-line-mode 1)
       (auto-fill-mode 0)
+	    (setq org-hide-leading-stars t)
       (setq org-agenda-include-diary t)
       (setq org-fold-core-style 'overlays)
       (setq org-agenda-span 'day)
@@ -587,7 +588,8 @@
 					 "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
 	    ("c" "Custom Projects & Agenda"
 	     ((agenda ""
-		      ((org-agenda-overriding-header "Agenda")))
+			    ((org-agenda-overriding-header "Agenda")
+			     (org-agenda-prefix-format "   %-2i ")))
 	      (todo "NEXT"
 		    ((org-agenda-overriding-header
 		      (concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
@@ -600,6 +602,7 @@
 "~/roaming/notes/20250317082044-vibe_coding_video.org"
 					 "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
 					 "~/roaming/notes/20250309222443-virtual_museum.org"
+					 "~/roaming/notes/20250402092144-track01_s_w.org"
 					 "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
 	     nil)))
     (setq org-agenda-format-date (lambda (date)
@@ -668,14 +671,14 @@
   (add-to-list 'org-structure-template-alist '("l" . "export latex"))
 
    ;; Automatically tangle our Emacs.org config file when we save it
-   (defun efs/org-babel-tangle-config ()
+   (defun mr-x/org-babel-tangle-config ()
      (when (string-equal (buffer-file-name)
 			  (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
        ;; Dynamic scoping to the rescue
        (let ((org-confirm-babel-evaluate nil))
 	  (org-babel-tangle))))
 
-   (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
+   (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'mr-x/org-babel-tangle-config)))
 
    (setq-default prettify-symbols-alist '(("#+BEGIN_SRC" . "†")
 					 ("#+END_SRC" . "†")
