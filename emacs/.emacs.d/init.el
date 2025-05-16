@@ -606,6 +606,7 @@
 					 "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
 					 "~/roaming/notes/20250220152855-personal_website.org"
 "~/roaming/notes/20250317082044-vibe_coding_video.org"
+"~/roaming/notes/20250402103112-kountdown.org"
 					 "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
 					 "~/roaming/notes/20250309222443-virtual_museum.org"
 					 "~/roaming/notes/20250402092144-track01_s_w.org"
@@ -918,3 +919,18 @@
   (setq web-mode-code-indent-offset 2))
 
 (add-hook 'web-mode-hook  'my-web-mode-hook)
+
+(use-package ledger-mode
+  :ensure t
+  :mode ("\\.dat\\'"
+	 "\\.ledger\\'")
+  :bind (:map ledger-mode-map
+	      ("C-x C-s" . my/ledger-save))
+  :preface
+  (defun my/ledger-save ()
+    "Automatically clean the ledger buffer at each save."
+    (interactive)
+    (save-excursion
+      (when (buffer-modified-p)
+	(with-demoted-errors (ledger-mode-clean-buffer))
+	(save-buffer)))))
