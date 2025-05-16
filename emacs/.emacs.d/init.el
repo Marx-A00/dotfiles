@@ -416,6 +416,7 @@
 
       (visual-line-mode 1)
       (auto-fill-mode 0)
+	    (setq org-hide-leading-stars t)
       (setq org-agenda-include-diary t)
       (setq org-fold-core-style 'overlays)
       (setq org-agenda-span 'day)
@@ -587,7 +588,14 @@
 					 "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
 	    ("c" "Custom Projects & Agenda"
 	     ((agenda ""
-		      ((org-agenda-overriding-header "Agenda")))
+		      ((org-agenda-overriding-header "Agenda")
+		       (org-agenda-prefix-format
+			'((agenda . "  %?-12t% s")
+			  (timeline . "  % s")
+			  (todo . "  ")
+			  (tags . "  ")
+			  (search . "  ")))
+		       (org-agenda-log-mode-items '(closed clock))))
 	      (todo "NEXT"
 		    ((org-agenda-overriding-header
 		      (concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
@@ -598,8 +606,10 @@
 					 "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
 					 "~/roaming/notes/20250220152855-personal_website.org"
 "~/roaming/notes/20250317082044-vibe_coding_video.org"
+"~/roaming/notes/20250402103112-kountdown.org"
 					 "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
 					 "~/roaming/notes/20250309222443-virtual_museum.org"
+					 "~/roaming/notes/20250402092144-track01_s_w.org"
 					 "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
 	     nil)))
     (setq org-agenda-format-date (lambda (date)
@@ -668,14 +678,14 @@
   (add-to-list 'org-structure-template-alist '("l" . "export latex"))
 
    ;; Automatically tangle our Emacs.org config file when we save it
-   (defun efs/org-babel-tangle-config ()
+   (defun mr-x/org-babel-tangle-config ()
      (when (string-equal (buffer-file-name)
 			  (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
        ;; Dynamic scoping to the rescue
        (let ((org-confirm-babel-evaluate nil))
 	  (org-babel-tangle))))
 
-   (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
+   (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'mr-x/org-babel-tangle-config)))
 
    (setq-default prettify-symbols-alist '(("#+BEGIN_SRC" . "†")
 					 ("#+END_SRC" . "†")
@@ -760,7 +770,12 @@
 
  (defun my/org-roam-refresh-agenda-list ()
    (interactive)
-   (setq org-agenda-files (my/org-roam-list-notes-by-tag "Project")))
+   (setq org-agenda-files
+	 (append
+	  (my/org-roam-list-notes-by-tag "Project")
+	  (directory-files-recursively
+	   (expand-file-name org-roam-dailies-directory org-roam-directory)
+	   "\\.org$"))))
 
  (my/org-roam-refresh-agenda-list))
 
@@ -904,3 +919,18 @@
   (setq web-mode-code-indent-offset 2))
 
 (add-hook 'web-mode-hook  'my-web-mode-hook)
+
+(use-package ledger-mode
+  :ensure t
+  :mode ("\\.dat\\'"
+	 "\\.ledger\\'")
+  :bind (:map ledger-mode-map
+	      ("C-x C-s" . my/ledger-save))
+  :preface
+  (defun my/ledger-save ()
+    "Automatically clean the ledger buffer at each save."
+    (interactive)
+    (save-excursion
+      (when (buffer-modified-p)
+	(with-demoted-errors (ledger-mode-clean-buffer))
+	(save-buffer)))))
