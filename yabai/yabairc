@@ -1,3 +1,4 @@
+# -*- mode: sh -*-
 # for this to work you must configure sudo such that
 # it will be able to run the command without password
 

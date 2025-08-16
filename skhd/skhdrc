@@ -1,3 +1,5 @@
+# -*- mode: sh -*-
+
 # Test binding - press cmd+x to verify skhd is working
 # cmd - x : osascript -e 'display notification "skhd test successful"'
 
@@ -16,17 +18,26 @@ ctrl + alt - right : yabai -m window --resize right:20:0
 ctrl + alt - up    : yabai -m window --resize top:0:-20
 ctrl + alt - down  : yabai -m window --resize bottom:0:20
 
+cmd - 1 : yabai -m space --focus 1
+
 alt - t : yabai -m window --toggle float
 
 alt - f : yabai -m window --toggle zoom-fullscreen
 
 # move window to specific monitor by label
 
-
+# Laptop display
 alt - 1 : yabai -m window --display 1; yabai -m window --focus
+
+# Vertical Monitor
 alt - 2 : yabai -m window --display 2; yabai -m window --focus
+
+# Main Left Monitor
 alt - 3 : yabai -m window --display 3; yabai -m window --focus
+
+# Main Right Monitor
 alt - 4 : yabai -m window --display 4; yabai -m window --focus
+
 
 alt + shift - b : yabai -m space --balance
 alt + shift - r : yabai --restart-service
