@@ -249,7 +249,7 @@
       "a" 'mr-x/org-agenda-custom
       ;; "m" 'mu4e
       "f" 'link-hint-open-link
-      ;; "p" 'projectile-command-map
+      "p" 'projectile-command-map
       "h" 'winner-undo
       "l" 'winner-redo
       ;; "s" 'mr-x/toggle-shortcuts
@@ -318,7 +318,6 @@
 
 
 )
-
 
   (defun mr-x/org-agenda-day ()
     (interactive)
@@ -925,6 +924,30 @@
   :commands (magit-status magit-get-current-branch)
   :custom
   (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+
+(use-package projectile
+  :ensure t
+  :init
+  (projectile-mode +1)
+  :config
+  ;; Set the completion system to ivy since you're using it
+  (setq projectile-completion-system 'ivy)
+  ;; Configure project search paths
+  (setq projectile-project-search-path '("~/roaming" "~/work"))
+  ;; Set default action when switching projects
+  (setq projectile-switch-project-action #'projectile-dired)
+  ;; Use the hybrid indexing method for better performance
+  (setq projectile-indexing-method 'hybrid)
+  ;; Enable caching for better performance
+  (setq projectile-enable-caching t)
+  :bind (:map projectile-mode-map
+              ("C-c p" . projectile-command-map)))
+
+(use-package counsel-projectile
+  :ensure t
+  :after (projectile counsel)
+  :config 
+  (counsel-projectile-mode 1))
 
 (use-package ox-hugo
   :ensure t
