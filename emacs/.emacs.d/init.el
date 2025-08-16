@@ -5,33 +5,33 @@
 (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
 (defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
 (defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-			      :ref nil :depth 1
-			      :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-			      :build (:not elpaca--activate-package)))
+				:ref nil :depth 1
+				:files (:defaults "elpaca-test.el" (:exclude "extensions"))
+				:build (:not elpaca--activate-package)))
 (let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
-       (build (expand-file-name "elpaca/" elpaca-builds-directory))
-       (order (cdr elpaca-order))
-       (default-directory repo))
+	 (build (expand-file-name "elpaca/" elpaca-builds-directory))
+	 (order (cdr elpaca-order))
+	 (default-directory repo))
   (add-to-list 'load-path (if (file-exists-p build) build repo))
   (unless (file-exists-p repo)
     (make-directory repo t)
     (when (< emacs-major-version 28) (require 'subr-x))
     (condition-case-unless-debug err
-	(if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-		  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
-						  ,@(when-let* ((depth (plist-get order :depth)))
-						      (list (format "--depth=%d" depth) "--no-single-branch"))
-						  ,(plist-get order :repo) ,repo))))
-		  ((zerop (call-process "git" nil buffer t "checkout"
-					(or (plist-get order :ref) "--"))))
-		  (emacs (concat invocation-directory invocation-name))
-		  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-					"--eval" "(byte-recompile-directory \".\" 0 'force)")))
-		  ((require 'elpaca))
-		  ((elpaca-generate-autoloads "elpaca" repo)))
-	    (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-	  (error "%s" (with-current-buffer buffer (buffer-string))))
-      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
+	  (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
+		    ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
+						    ,@(when-let* ((depth (plist-get order :depth)))
+							(list (format "--depth=%d" depth) "--no-single-branch"))
+						    ,(plist-get order :repo) ,repo))))
+		    ((zerop (call-process "git" nil buffer t "checkout"
+					  (or (plist-get order :ref) "--"))))
+		    (emacs (concat invocation-directory invocation-name))
+		    ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+					  "--eval" "(byte-recompile-directory \".\" 0 'force)")))
+		    ((require 'elpaca))
+		    ((elpaca-generate-autoloads "elpaca" repo)))
+	      (progn (message "%s" (buffer-string)) (kill-buffer buffer))
+	    (error "%s" (with-current-buffer buffer (buffer-string))))
+	((error) (warn "%s" err) (delete-directory repo 'recursive))))
   (unless (require 'elpaca-autoloads nil t)
     (require 'elpaca)
     (elpaca-generate-autoloads "elpaca" repo)
@@ -45,6 +45,13 @@
 (elpaca elpaca-use-package
   ;; Enable Elpaca support for use-package's :ensure keyword.
   (elpaca-use-package-mode))
+
+(use-package transient
+  :ensure t
+  :demand t
+  :init
+  ;; Remove built-in transient from load-path to force using the newer version
+  (setq load-path (delete (expand-file-name "transient" (locate-library "transient")) load-path)))
 
 (pcase system-type
   ('gnu/linux "It's Linux!")
@@ -63,10 +70,10 @@
 
 (if (daemonp)
     (add-hook 'after-make-frame-functions
-	      (lambda (frame)
-		(setq doom-modeline-icon t)
-		(with-selected-frame frame
-		  (mr-x/set-font-faces))))
+		(lambda (frame)
+		  (setq doom-modeline-icon t)
+		  (with-selected-frame frame
+		    (mr-x/set-font-faces))))
   (mr-x/set-font-faces))
 
 (use-package exec-path-from-shell
@@ -86,44 +93,44 @@
   :ensure t)
 
   (use-package multi-vterm
-      :ensure t
-      :after evil
-      :config
+	  :ensure t
+	  :after evil
+	  :config
 
-      (add-hook 'vterm-mode-hook
-		      (lambda ()
-		      (setq-local evil-insert-state-cursor 'box)
-		      (evil-insert-state)))
-      (define-key vterm-mode-map [return]                      #'vterm-send-return)
+	  (add-hook 'vterm-mode-hook
+			  (lambda ()
+			  (setq-local evil-insert-state-cursor 'box)
+			  (evil-insert-state)))
+	  (define-key vterm-mode-map [return]                      #'vterm-send-return)
 
-      (setq vterm-keymap-exceptions nil)
-      ;; dedicated terminal height of 30%
-      (setq multi-vterm-dedicated-window-height-percent 40)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
-      (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
-      (evil-define-key 'normal vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-      (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
-      (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
-      (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
-      (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
-      (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
-      (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume))
+	  (setq vterm-keymap-exceptions nil)
+	  ;; dedicated terminal height of 30%
+	  (setq multi-vterm-dedicated-window-height-percent 40)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
+	  (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
+	  (evil-define-key 'normal vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+	  (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
+	  (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
+	  (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
+	  (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
+	  (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
+	  (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume))
 
 
   ;; Optional: set the shell explicitly if needed
@@ -148,7 +155,7 @@
 (use-package doom-themes
   :ensure t
   :config
-  (load-theme 'doom-sourcerer))
+  (load-theme 'doom-gruvbox))
 
 (use-package doom-modeline
   :ensure t
@@ -165,10 +172,10 @@
 (add-hook 'text-mode-hook #'mr-x/general-setup)
 (add-hook 'prog-mode-hook #'mr-x/general-setup)
 
-					; opacity
-(set-frame-parameter (selected-frame) 'alpha '(80 50))
+					  ; opacity
+(set-frame-parameter (selected-frame) 'alpha '(100 50))
 (add-to-list 'default-frame-alist '(alpha-background . 20))
-					; keybindings section
+					  ; keybindings section
 (global-set-key (kbd "C-<escape>") #'universal-argument)
 (global-set-key (kbd "C-c d") 'diff-buffer-with-file)
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
@@ -197,7 +204,7 @@
 
 (defun mr-x/org-mode-visual-fill ()
   (setq visual-fill-column-width 100
-	visual-fill-column-center-text t)
+	  visual-fill-column-center-text t)
   (visual-fill-column-mode 1))
 
 (use-package visual-fill-column
@@ -217,73 +224,109 @@
 # Clear your mind young one.")
 
 (use-package general
-      :ensure t
-      :demand t
-      :config
-      ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
-      (general-evil-setup t)
+    :ensure t
+    :demand t
+    :config
+    ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
+    (general-evil-setup t)
 
-      ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
-      ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
-      ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
-      ;; will only have an effect for general.el key definers. The advice can later be removed with
-      ;; (general-auto-unbind-keys t).
-      (general-auto-unbind-keys))
+    ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
+    ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
+    ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
+    ;; will only have an effect for general.el key definers. The advice can later be removed with
+    ;; (general-auto-unbind-keys t).
+    (general-auto-unbind-keys))
 
-      (with-eval-after-load 'general
-	(general-create-definer mr-x/leader-def
-	  :states '(normal visual motion emacs insert)
-	  :keymaps 'override
-	  :prefix "SPC"
-	  :global-prefix "C-SPC"))
+  (with-eval-after-load 'general
+    (general-create-definer mr-x/leader-def
+      :states '(normal visual motion emacs insert)
+      :keymaps 'override
+      :prefix "SPC"
+      :global-prefix "C-SPC"))
 
-      (with-eval-after-load 'general
-	(mr-x/leader-def
-	  "a" 'mr-x/org-agenda-custom
-	  ;; "m" 'mu4e
-	  "f" 'link-hint-open-link
-	  ;; "p" 'projectile-command-map
-	  "h" 'winner-undo
-	  "l" 'winner-redo
-	  ;; "s" 'mr-x/toggle-shortcuts
-	  ;; "S" 'mr-x/scratch
-	  ;; "v" 'multi-vterm
-	  "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
-	  "1" (lambda () (interactive) (persp-switch-by-number 1))
-	  "2" (lambda () (interactive) (persp-switch-by-number 2))
-	  "3" (lambda () (interactive) (persp-switch-by-number 3))
-	  "4" (lambda () (interactive) (persp-switch-by-number 4))
-	  "5" (lambda () (interactive) (persp-switch-by-number 5)))
+  (with-eval-after-load 'general
+    (mr-x/leader-def
+      "a" 'mr-x/org-agenda-custom
+      ;; "m" 'mu4e
+      "f" 'link-hint-open-link
+      ;; "p" 'projectile-command-map
+      "h" 'winner-undo
+      "l" 'winner-redo
+      ;; "s" 'mr-x/toggle-shortcuts
+      ;; "S" 'mr-x/scratch
+      ;; "v" 'multi-vterm
+      "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
+      "1" (lambda () (interactive) (persp-switch-by-number 1))
+      "2" (lambda () (interactive) (persp-switch-by-number 2))
+      "3" (lambda () (interactive) (persp-switch-by-number 3))
+      "4" (lambda () (interactive) (persp-switch-by-number 4))
+      "5" (lambda () (interactive) (persp-switch-by-number 5)))
 
-	(mr-x/leader-def
-	  "d" '(:ignore t :wk "Dired")
-	  "d d" '(dired :wk "Open Dired")
-	  "d j" '(dired-jump :wk "Dired jump to current")
-	  "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
+    (mr-x/leader-def
+      "d" '(:ignore t :wk "Dired")
+      "d d" '(dired :wk "Open Dired")
+      "d j" '(dired-jump :wk "Dired jump to current")
+      "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
 
-	(mr-x/leader-def
-	"b" '(:ignore t :wk "buffer")
-	"b b" '(persp-counsel-switch-buffer :wk "switch buffer")
-	"b k" '(kill-this-buffer :wk "kill this buffer")
-	"b r" '(revert-buffer :wk "revert buffer"))
-	
-	(mr-x/leader-def
-	"v" '(:ignore t :wk "vterm")
-	"v v" '(multi-vterm :wk "multi-vterm")
-	"v n" '(multi-vterm-next :wk "multi-vterm-next")
-	"v p" '(multi-vterm-prev :wk "multi-vterm-prev")
-	"v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")))
+    (mr-x/leader-def
+      "b" '(:ignore t :wk "buffer")
+      "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
+      "b k" '(kill-this-buffer :wk "kill this buffer")
+      "b r" '(revert-buffer :wk "revert buffer"))
+    
+    (mr-x/leader-def
+      "v" '(:ignore t :wk "vterm")
+      "v v" '(multi-vterm :wk "multi-vterm")
+      "v n" '(multi-vterm-next :wk "multi-vterm-next")
+      "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
+      "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle"))
 
-;; add multi-vterm-project in projectile prolly
+    (mr-x/leader-def
+      "c" '(:ignore t :wk "Claude Code")
+      "c c" '(claude-code :wk "Start Claude")
+      "c m" '(claude-code-transient :wk "Claude menu (transient)")
+      "c s" '(claude-code-send-command :wk "Send command")
+      "c r" '(claude-code-send-region :wk "Send region/buffer")
+      "c t" '(claude-code-toggle :wk "Toggle Claude window")
+      "c b" '(claude-code-switch-to-buffer :wk "Switch to Claude buffer")
+      "c k" '(claude-code-kill :wk "Kill Claude")
+      "c d" '(claude-code-start-in-directory :wk "Start in directory")
+      "c x" '(claude-code-send-command-with-context :wk "Send with context")
+      "c e" '(claude-code-fix-error-at-point :wk "Fix error at point")
+      "c o" '(claude-code-send-buffer-file :wk "Send buffer file")
+      "c f" '(claude-code-fork :wk "Fork conversation")
+      "c /" '(claude-code-slash-commands :wk "Slash commands")
+      "c z" '(claude-code-toggle-read-only-mode :wk "Toggle read-only")
+      "c M" '(claude-code-cycle-mode :wk "Cycle mode")
+      "c y" '(claude-code-send-return :wk "Send return/yes")
+      "c n" '(claude-code-send-escape :wk "Send escape/no")
+      "c 1" '(claude-code-send-1 :wk "Send '1'")
+      "c 2" '(claude-code-send-2 :wk "Send '2'")
+      "c 3" '(claude-code-send-3 :wk "Send '3'"))
+
+    (mr-x/leader-def
+      "g" '(:ignore t :wk "git")
+      "g g" '(magit-status :wk "magit status")
+      "g d" '(magit-diff-unstaged :wk "diff unstaged")
+      "g c" '(magit-branch-or-checkout :wk "branch or checkout")
+      "g l" '(magit-log-current :wk "log current")
+      "g L" '(magit-log-oneline :wk "log oneline")
+      "g b" '(magit-blame :wk "blame")
+      "g p" '(magit-push-current :wk "push current")
+      "g P" '(magit-pull-branch :wk "pull branch")
+      "g f" '(magit-fetch :wk "fetch"))
 
 
-	(defun mr-x/org-agenda-day ()
-	  (interactive)
-	  (org-agenda nil "a"))
+)
 
-	(defun mr-x/org-agenda-custom ()
-	  (interactive)
-	  (org-agenda nil "c"))
+
+  (defun mr-x/org-agenda-day ()
+    (interactive)
+    (org-agenda nil "a"))
+
+  (defun mr-x/org-agenda-custom ()
+    (interactive)
+    (org-agenda nil "c"))
 
 (winner-mode 1)
 
@@ -344,9 +387,9 @@
     "l" 'dired-find-file)
 
   (add-hook 'dired-mode-hook
-	(lambda ()
-	  (dired-omit-mode 1)
-	  (dired-hide-details-mode 1))))
+	  (lambda ()
+	    (dired-omit-mode 1)
+	    (dired-hide-details-mode 1))))
 
 (use-package dired-x
   :ensure nil 
@@ -371,18 +414,18 @@
 (use-package ivy
   :ensure t
   :bind (("C-s" . swiper)
-	   :map ivy-minibuffer-map
-	   ("TAB" . ivy-alt-done)
-	   ("C-l" . ivy-alt-done)
-	   ("C-j" . ivy-next-line)
-	   ("C-k" . ivy-previous-line)
-	   :map ivy-switch-buffer-map
-	   ("C-k" . ivy-previous-line)
-	   ("C-l" . ivy-done)
-	   ("C-d" . ivy-switch-buffer-kill)
-	   :map ivy-reverse-i-search-map
-	   ("C-k" . ivy-previous-line)
-	   ("C-d" . ivy-reverse-i-search-kill))
+	     :map ivy-minibuffer-map
+	     ("TAB" . ivy-alt-done)
+	     ("C-l" . ivy-alt-done)
+	     ("C-j" . ivy-next-line)
+	     ("C-k" . ivy-previous-line)
+	     :map ivy-switch-buffer-map
+	     ("C-k" . ivy-previous-line)
+	     ("C-l" . ivy-done)
+	     ("C-d" . ivy-switch-buffer-kill)
+	     :map ivy-reverse-i-search-map
+	     ("C-k" . ivy-previous-line)
+	     ("C-d" . ivy-reverse-i-search-kill))
   :config
   (ivy-mode 1)
   (setq ivy-use-virtual-buffers nil)
@@ -408,44 +451,44 @@
 ;; org (kinda not really)
 
     (use-package toc-org
-      :ensure t
-      :commands toc-org-enable
-      :hook (org-mode . toc-org-mode))
+	:ensure t
+	:commands toc-org-enable
+	:hook (org-mode . toc-org-mode))
 
     (defun mr-x/org-mode-setup()
 
-      (visual-line-mode 1)
-      (auto-fill-mode 0)
-	    (setq org-hide-leading-stars t)
-      (setq org-agenda-include-diary t)
-      (setq org-fold-core-style 'overlays)
-      (setq org-agenda-span 'day)
-      (setq evil-auto-indent nil))
+	(visual-line-mode 1)
+	(auto-fill-mode 0)
+	      (setq org-hide-leading-stars t)
+	(setq org-agenda-include-diary t)
+	(setq org-fold-core-style 'overlays)
+	(setq org-agenda-span 'day)
+	(setq evil-auto-indent nil))
 
     (setq org-agenda-files
-	  '("~/roaming/agenda.org"
-	    "~/roaming/habits.org"
-	    "~/jira"))
+	    '("~/roaming/agenda.org"
+	      "~/roaming/habits.org"
+	      "~/jira"))
     (setq org-clock-persist t)
     (org-clock-persistence-insinuate)
 
     (use-package org
-      :hook (org-mode . mr-x/org-mode-setup)
-      :config
-      (setq org-hide-emphasis-markers t)
-      (setq org-agenda-start-with-log-mode t)
-      (setq org-log-done 'time)
-      (setq org-log-into-drawer t)
+	:hook (org-mode . mr-x/org-mode-setup)
+	:config
+	(setq org-hide-emphasis-markers t)
+	(setq org-agenda-start-with-log-mode t)
+	(setq org-log-done 'time)
+	(setq org-log-into-drawer t)
 
-      ;; testing
+	;; testing
 
-      (setq org-M-RET-may-split-line '((default . nil)))
-      (setq org-list-automatic-rules 
-	    '((checkbox . t)
-	     (indent . nil)
-	     (ordered . nil)))
+	(setq org-M-RET-may-split-line '((default . nil)))
+	(setq org-list-automatic-rules 
+	      '((checkbox . t)
+	       (indent . nil)
+	       (ordered . nil)))
 
-      ;; doesn't work lol thanks oai
+	;; doesn't work lol thanks oai
 
     ;;   (defun my/org-meta-return-auto-checkbox (&rest _)
     ;; "Extend `M-RET` to insert a checkbox automatically."
@@ -457,172 +500,172 @@
 
 
 
-      (setq org-highlight-latex-and-related '(latex))
+	(setq org-highlight-latex-and-related '(latex))
 
-					    ; org- habit setup
+					      ; org- habit setup
 
-      (require 'org-habit)
-      (add-to-list 'org-modules 'org-habit)
-      (setq org-habit-graph-column 60)
+	(require 'org-habit)
+	(add-to-list 'org-modules 'org-habit)
+	(setq org-habit-graph-column 60)
 
-      (setq org-todo-keywords
-	    '((sequence
-	       "TODO(t)"
-	       "NEXT(n)"
-	       "|"
-	       "DONE(d!)")
-	      (sequence
-	       "BACKLOG(b)"
-	       "PLAN(p)"
-	       "READY(r)"
-	       "IN-PROGRESS(i)"
-	       "REVIEW(v)"
-	       "WATCHING(w@/!)"
-	       "HOLD(h)"
-	       "|"
-	       "COMPLETED(c)"
-	       "CANC(k@)")))
+	(setq org-todo-keywords
+	      '((sequence
+		 "TODO(t)"
+		 "NEXT(n)"
+		 "|"
+		 "DONE(d!)")
+		(sequence
+		 "BACKLOG(b)"
+		 "PLAN(p)"
+		 "READY(r)"
+		 "IN-PROGRESS(i)"
+		 "REVIEW(v)"
+		 "WATCHING(w@/!)"
+		 "HOLD(h)"
+		 "|"
+		 "COMPLETED(c)"
+		 "CANC(k@)")))
 
-      (setq org-todo-keyword-faces
-	    '(("TODO" . "#FF1800")
-	      ("NEXT" . "#FF1800")
-	      ("PLAN" . "#F67F2F")
-	      ("DONE" . "#62656A")
-	      ("HOLD" . "#62656A")
-	      ("WAIT" . "#B7CBA8")
-	      ("IN-PROGRESS" . "#b7cba8") 
-	      ("BACKLOG" . "#62656A")))
+	(setq org-todo-keyword-faces
+	      '(("TODO" . "#FF1800")
+		("NEXT" . "#FF1800")
+		("PLAN" . "#F67F2F")
+		("DONE" . "#62656A")
+		("HOLD" . "#62656A")
+		("WAIT" . "#B7CBA8")
+		("IN-PROGRESS" . "#b7cba8") 
+		("BACKLOG" . "#62656A")))
 
-      (custom-set-faces
-       '(org-level-1 ((t (:foreground "#ff743f")))))
+	(custom-set-faces
+	 '(org-level-1 ((t (:foreground "#ff743f")))))
 
-      (custom-set-faces
-       '(org-level-2 ((t (:foreground "#67bc44")))))
+	(custom-set-faces
+	 '(org-level-2 ((t (:foreground "#67bc44")))))
 
-      (custom-set-faces
-       '(org-level-3 ((t (:foreground "#67c0de"))))))
+	(custom-set-faces
+	 '(org-level-3 ((t (:foreground "#67c0de"))))))
 
     (use-package org-superstar
-      :ensure t
-      :hook (org-mode . org-superstar-mode)
-      :config
-      (setq org-superstar-headline-bullets-list
-	    '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
-      (setq org-ellipsis " ‧"))
+	:ensure t
+	:hook (org-mode . org-superstar-mode)
+	:config
+	(setq org-superstar-headline-bullets-list
+	      '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
+	(setq org-ellipsis " ‧"))
 
 
     ;; org agenda
     (setq org-agenda-skip-scheduled-if-done t
-	  org-agenda-skip-deadline-if-done t
-	  org-agenda-include-deadlines t
-	  org-agenda-block-separator #x2501
-	  org-agenda-compact-blocks t
-	  org-agenda-start-with-log-mode t)
+	    org-agenda-skip-deadline-if-done t
+	    org-agenda-include-deadlines t
+	    org-agenda-block-separator #x2501
+	    org-agenda-compact-blocks t
+	    org-agenda-start-with-log-mode t)
 
     (setq org-agenda-clockreport-parameter-plist
-	  (quote (:link t :maxlevel 5 :fileskip0 t :compact t :narrow 80)))
+	    (quote (:link t :maxlevel 5 :fileskip0 t :compact t :narrow 80)))
     (setq org-agenda-deadline-faces
-	  '((1.0001 . org-warning)              ; due yesterday or before
-	    (0.0    . org-upcoming-deadline)))  ; due today or later
+	    '((1.0001 . org-warning)              ; due yesterday or before
+	      (0.0    . org-upcoming-deadline)))  ; due today or later
 
     (defun org-habit-streak-count ()
-      (goto-char (point-min))
-      (while (not (eobp))
-	;;on habit line?
-	(when (get-text-property (point) 'org-habit-p)
-	  (let ((streak 0)
-		(counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
-		)
-	    (move-to-column counter)
-	    ;;until end of line
-	    (while (= (char-after (point)) org-habit-completed-glyph)
-	      (setq streak (+ streak 1))
-	      (setq counter (- counter 1))
-	      (backward-char 1))
-	    (end-of-line)
-	    (insert (number-to-string streak))))
-	(forward-line 1)))
+	(goto-char (point-min))
+	(while (not (eobp))
+	  ;;on habit line?
+	  (when (get-text-property (point) 'org-habit-p)
+	    (let ((streak 0)
+		  (counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
+		  )
+	      (move-to-column counter)
+	      ;;until end of line
+	      (while (= (char-after (point)) org-habit-completed-glyph)
+		(setq streak (+ streak 1))
+		(setq counter (- counter 1))
+		(backward-char 1))
+	      (end-of-line)
+	      (insert (number-to-string streak))))
+	  (forward-line 1)))
 
     (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
 
     (defun my/style-org-agenda()
-      (setq org-agenda-window-setup 'only-window)
-      (set-face-attribute 'org-agenda-date nil :height 1.1)
-      (set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
-      (set-face-attribute 'org-agenda-date-today nil
-			  :foreground "#897d6c"   
-			  :background nil        
-			  :weight 'bold
-			  :underline nil)           ;; Make it bold
-      (set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
+	(setq org-agenda-window-setup 'only-window)
+	(set-face-attribute 'org-agenda-date nil :height 1.1)
+	(set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
+	(set-face-attribute 'org-agenda-date-today nil
+			    :foreground "#897d6c"   
+			    :background nil        
+			    :weight 'bold
+			    :underline nil)           ;; Make it bold
+	(set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
 
     (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
 
 
 
     (setq org-agenda-breadcrumbs-separator " ❱ "
-	  org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
-	  org-agenda-time-grid '((daily today)
-				 (800 1000 1200 1400 1600 1800 2000)
-				 "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
-	  org-agenda-prefix-format '((agenda . "%i %-12:c [%e] %?-12t%b% s")
-				     (todo . " %i %-12:c [%e] ")
-				     (tags . " %i %-12:c")
-				     (search . " %i %-12:c")))
+	    org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
+	    org-agenda-time-grid '((daily today)
+				   (800 1000 1200 1400 1600 1800 2000)
+				   "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
+	    org-agenda-prefix-format '((agenda . "%i %-12:c [%e] %?-12t%b% s")
+				       (todo . " %i %-12:c [%e] ")
+				       (tags . " %i %-12:c")
+				       (search . " %i %-12:c")))
 
 
 
 
     (setq org-agenda-custom-commands
-	  '(("p" "Projects Agenda"
-	     ((todo "NEXT"
-		    ((org-agenda-overriding-header
-		      (concat "Projects\n" (make-string (window-width) 9472) "\n\n"))
-		     (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
-					 "~/roaming/notes/20250212103431-customize_org_agenda.org"
-					 "~/roaming/notes/20240507202146-openpair.org"
-					 "~/roaming/notes/20250107142334-rec.org"
-					 "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
-					 "~/roaming/notes/20250220152855-personal_website.org"
-					 "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
-					 "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
-	    ("c" "Custom Projects & Agenda"
-	     ((agenda ""
-		      ((org-agenda-overriding-header "Agenda")
-		       (org-agenda-prefix-format
-			'((agenda . "  %?-12t% s")
-			  (timeline . "  % s")
-			  (todo . "  ")
-			  (tags . "  ")
-			  (search . "  ")))
-		       (org-agenda-log-mode-items '(closed clock))))
-	      (todo "NEXT"
-		    ((org-agenda-overriding-header
-		      (concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
-		     (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
-					 "~/roaming/notes/20250212103431-customize_org_agenda.org"
-					 "~/roaming/notes/20240507202146-openpair.org"
-					 "~/roaming/notes/20250107142334-rec.org"
-					 "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
-					 "~/roaming/notes/20250220152855-personal_website.org"
+	    '(("p" "Projects Agenda"
+	       ((todo "NEXT"
+		      ((org-agenda-overriding-header
+			(concat "Projects\n" (make-string (window-width) 9472) "\n\n"))
+		       (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
+					   "~/roaming/notes/20250212103431-customize_org_agenda.org"
+					   "~/roaming/notes/20240507202146-openpair.org"
+					   "~/roaming/notes/20250107142334-rec.org"
+					   "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
+					   "~/roaming/notes/20250220152855-personal_website.org"
+					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+					   "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
+	      ("c" "Custom Projects & Agenda"
+	       ((agenda ""
+			((org-agenda-overriding-header "Agenda")
+			 (org-agenda-prefix-format
+			  '((agenda . "  %?-12t% s")
+			    (timeline . "  % s")
+			    (todo . "  ")
+			    (tags . "  ")
+			    (search . "  ")))
+			 (org-agenda-log-mode-items '(closed clock))))
+		(todo "NEXT"
+		      ((org-agenda-overriding-header
+			(concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
+		       (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
+					   "~/roaming/notes/20250212103431-customize_org_agenda.org"
+					   "~/roaming/notes/20240507202146-openpair.org"
+					   "~/roaming/notes/20250107142334-rec.org"
+					   "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
+					   "~/roaming/notes/20250220152855-personal_website.org"
 "~/roaming/notes/20250317082044-vibe_coding_video.org"
 "~/roaming/notes/20250402103112-kountdown.org"
-					 "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
-					 "~/roaming/notes/20250309222443-virtual_museum.org"
-					 "~/roaming/notes/20250402092144-track01_s_w.org"
-					 "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
-	     nil)))
+					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+					   "~/roaming/notes/20250309222443-virtual_museum.org"
+					   "~/roaming/notes/20250402092144-track01_s_w.org"
+					   "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
+	       nil)))
     (setq org-agenda-format-date (lambda (date)
-				   (concat"\n"(make-string(window-width)9472)
-					  "\n"(org-agenda-format-date-aligned date))))
+				     (concat"\n"(make-string(window-width)9472)
+					    "\n"(org-agenda-format-date-aligned date))))
     (setq org-cycle-separator-lines 2)
 
     (add-hook 'org-agenda-finalize-hook
-	      (lambda ()
-		(setq visual-fill-column-width 100) 
-		(setq visual-fill-column-center-text t)
-		(visual-fill-column-mode t)
-		(display-line-numbers-mode 1)))
+		(lambda ()
+		  (setq visual-fill-column-width 100) 
+		  (setq visual-fill-column-center-text t)
+		  (visual-fill-column-mode t)
+		  (display-line-numbers-mode 1)))
 
 
 
@@ -633,23 +676,23 @@
   "Find and highlight the task in the 'Projects' section with the lowest 'GOAL #' number."
   (when (derived-mode-p 'org-agenda-mode)
     (save-excursion
-      (goto-char (point-min))
-      (let (lowest-goal lowest-pos)
-	;; Search for "Projects" section
-	(when (re-search-forward "^Projects" nil t)
-	  ;; Iterate over tasks under "Projects"
-	  (while (re-search-forward "GOAL #\\([0-9]+\\)" nil t)
-	    (let* ((goal-num (string-to-number (match-string 1)))
-		   (line-start (line-beginning-position))
-		   (line-end (line-end-position)))
-	      ;; Track the lowest goal number and its position
-	      (when (or (not lowest-goal) (< goal-num lowest-goal))
-		(setq lowest-goal goal-num)
-		(setq lowest-pos (cons line-start line-end))))))
-	;; Apply highlighting to the first occurrence of the lowest goal
-	(when lowest-pos
-	  (let ((ov (make-overlay (car lowest-pos) (cdr lowest-pos))))
-	    (overlay-put ov 'face '(:background "dark red" :foreground "white" :weight bold))))))))
+	(goto-char (point-min))
+	(let (lowest-goal lowest-pos)
+	  ;; Search for "Projects" section
+	  (when (re-search-forward "^Projects" nil t)
+	    ;; Iterate over tasks under "Projects"
+	    (while (re-search-forward "GOAL #\\([0-9]+\\)" nil t)
+	      (let* ((goal-num (string-to-number (match-string 1)))
+		     (line-start (line-beginning-position))
+		     (line-end (line-end-position)))
+		;; Track the lowest goal number and its position
+		(when (or (not lowest-goal) (< goal-num lowest-goal))
+		  (setq lowest-goal goal-num)
+		  (setq lowest-pos (cons line-start line-end))))))
+	  ;; Apply highlighting to the first occurrence of the lowest goal
+	  (when lowest-pos
+	    (let ((ov (make-overlay (car lowest-pos) (cdr lowest-pos))))
+	      (overlay-put ov 'face '(:background "dark red" :foreground "white" :weight bold))))))))
 
 
 (add-hook 'org-agenda-finalize-hook #'my-highlight-lowest-goal)
@@ -658,17 +701,17 @@
     :ensure t
     (:wait t))
 
-      (org-babel-do-load-languages
-       'org-babel-load-languages
-       '((emacs-lisp . t)
-	   (js . t)
-	   (typescript . t)
-	   (sqlite . t)
-	   (sql . t)
-	   (latex . t)
-	   (python . t)))
+	(org-babel-do-load-languages
+	 'org-babel-load-languages
+	 '((emacs-lisp . t)
+	     (js . t)
+	     (typescript . t)
+	     (sqlite . t)
+	     (sql . t)
+	     (latex . t)
+	     (python . t)))
 
-	   (setq org-babel-python-command "python3")
+	     (setq org-babel-python-command "python3")
   (require 'org-tempo)
   (add-to-list 'org-structure-template-alist '("ts" . "src typescript"))
   (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
@@ -680,21 +723,21 @@
    ;; Automatically tangle our Emacs.org config file when we save it
    (defun mr-x/org-babel-tangle-config ()
      (when (string-equal (buffer-file-name)
-			  (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
-       ;; Dynamic scoping to the rescue
-       (let ((org-confirm-babel-evaluate nil))
-	  (org-babel-tangle))))
+			    (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
+	 ;; Dynamic scoping to the rescue
+	 (let ((org-confirm-babel-evaluate nil))
+	    (org-babel-tangle))))
 
    (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'mr-x/org-babel-tangle-config)))
 
    (setq-default prettify-symbols-alist '(("#+BEGIN_SRC" . "†")
-					 ("#+END_SRC" . "†")
-					 ("#+begin_src" . "†")
-					 ("#+end_src" . "†")
-					 ("#+BEGIN_LaTeX" . "†")
-					 ("#+END_LaTeX" . "†")
-					 (">=" . "≥")
-					 ("=>" . "⇨")))
+					   ("#+END_SRC" . "†")
+					   ("#+begin_src" . "†")
+					   ("#+end_src" . "†")
+					   ("#+BEGIN_LaTeX" . "†")
+					   ("#+END_LaTeX" . "†")
+					   (">=" . "≥")
+					   ("=>" . "⇨")))
 (setq prettify-symbols-unprettify-at-point 'right-edge)
 (add-hook 'org-mode-hook 'prettify-symbols-mode)
 
@@ -729,16 +772,16 @@
    ;; 	:if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
 
    :bind (("C-c n f" . org-roam-node-find)
-	   ("C-c n i" . org-roam-node-insert)
-	   ("C-c n I" . org-roam-node-insert-immediate)
-					  ; ("C-c n p" . my/org-roam-find-project)
-					  ;("C-c n t" . my/org-roam-capture-task)
-					  ; ("C-c n b" . my/org-roam-capture-inbox)
-	   :map org-mode-map
-	   ("C-M-i"   . completion-at-point)
-	   :map org-roam-dailies-map
-	   ("Y" . org-roam-dailies-capture-yesterday)
-	   ("T" . org-roam-dailies-capture-tomorrow))
+	     ("C-c n i" . org-roam-node-insert)
+	     ("C-c n I" . org-roam-node-insert-immediate)
+					    ; ("C-c n p" . my/org-roam-find-project)
+					    ;("C-c n t" . my/org-roam-capture-task)
+					    ; ("C-c n b" . my/org-roam-capture-inbox)
+	     :map org-mode-map
+	     ("C-M-i"   . completion-at-point)
+	     :map org-roam-dailies-map
+	     ("Y" . org-roam-dailies-capture-yesterday)
+	     ("T" . org-roam-dailies-capture-tomorrow))
    :bind-keymap
    ("C-c n d" . org-roam-dailies-map)
    :config
@@ -752,8 +795,8 @@
  (defun org-roam-node-insert-immediate (arg &rest args)
    (interactive "P")
    (let ((args (cons arg args))
-	  (org-roam-capture-templates (list (append (car org-roam-capture-templates)
-						    '(:immediate-finish t)))))
+	    (org-roam-capture-templates (list (append (car org-roam-capture-templates)
+						      '(:immediate-finish t)))))
      (apply #'org-roam-node-insert args)))
 
 (with-eval-after-load 'org-roam
@@ -764,31 +807,31 @@
 
  (defun my/org-roam-list-notes-by-tag (tag-name)
    (mapcar #'org-roam-node-file
-	    (seq-filter
-	     (my/org-roam-filter-by-tag tag-name)
-	     (org-roam-node-list))))
+	      (seq-filter
+	       (my/org-roam-filter-by-tag tag-name)
+	       (org-roam-node-list))))
 
  (defun my/org-roam-refresh-agenda-list ()
    (interactive)
    (setq org-agenda-files
-	 (append
-	  (my/org-roam-list-notes-by-tag "Project")
-	  (directory-files-recursively
-	   (expand-file-name org-roam-dailies-directory org-roam-directory)
-	   "\\.org$"))))
+	   (append
+	    (my/org-roam-list-notes-by-tag "Project")
+	    (directory-files-recursively
+	     (expand-file-name org-roam-dailies-directory org-roam-directory)
+	     "\\.org$"))))
 
  (my/org-roam-refresh-agenda-list))
 
  (defun my/org-roam-project-finalize-hook ()
    "Adds the captured project file to `org-agenda-files' if the
-	   capture was not aborted."
+	     capture was not aborted."
    ;; Remove the hook since it was added temporarily
    (remove-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
 
    ;; Add project file to the agenda list if the capture was confirmed
    (unless org-note-abort
      (with-current-buffer (org-capture-get :buffer)
-	(add-to-list 'org-agenda-files (buffer-file-name)))))
+	  (add-to-list 'org-agenda-files (buffer-file-name)))))
 
 
  (defun my/org-roam-find-project ()
@@ -804,9 +847,9 @@
     nil
     :templates
     '(("p" "project" plain
-	"* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
-	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
-	:unnarrowed t))))
+	  "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
+	  :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
+	  :unnarrowed t))))
 
  (global-set-key (kbd "C-c n p") #'my/org-roam-find-project)
 
@@ -814,8 +857,8 @@
  (defun my/org-roam-capture-inbox ()
    (interactive)
    (org-roam-capture- :node (org-roam-node-create)
-		       :templates '(("i" "inbox" plain "* %?"
-				     :if-new (file+head "Inbox.org" "#+title: Inbox\n")))))
+			 :templates '(("i" "inbox" plain "* %?"
+				       :if-new (file+head "Inbox.org" "#+title: Inbox\n")))))
 
  (global-set-key (kbd "C-c n b") #'my/org-roam-capture-inbox)
 
@@ -827,12 +870,12 @@
 
    ;; Capture the new task, creating the project file if necessary
    (org-roam-capture- :node (org-roam-node-read
-			      nil
-			      (my/org-roam-filter-by-tag "Project"))
-		       :templates '(("p" "project" plain "** TODO %?"
-				     :if-new (file+head+olp "%<%Y%m%d%H%M%S>-${slug}.org"
-							    "#+title: ${title}\n#+category: ${title}\n#+filetags: Project"
-							    ("Tasks"))))))
+				nil
+				(my/org-roam-filter-by-tag "Project"))
+			 :templates '(("p" "project" plain "** TODO %?"
+				       :if-new (file+head+olp "%<%Y%m%d%H%M%S>-${slug}.org"
+							      "#+title: ${title}\n#+category: ${title}\n#+filetags: Project"
+							      ("Tasks"))))))
 
  (global-set-key (kbd "C-c n t") #'my/org-roam-capture-task)
 
@@ -841,32 +884,32 @@
  (defun my/org-roam-copy-todo-to-today ()
    (interactive)
    (let ((org-refile-keep t) ;; Set this to nil to delete the original!
-	  (org-roam-dailies-capture-templates
-	   '(("t" "tasks" entry "%?"
-	      :if-new (file+head+olp "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n" ("Tasks")))))
-	  (org-after-refile-insert-hook #'save-buffer)
-	  today-file
-	  pos)
+	    (org-roam-dailies-capture-templates
+	     '(("t" "tasks" entry "%?"
+		:if-new (file+head+olp "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n" ("Tasks")))))
+	    (org-after-refile-insert-hook #'save-buffer)
+	    today-file
+	    pos)
 
      ;; Check if the task is a habit by checking the STYLE property
      (unless (string= (org-entry-get nil "STYLE") "habit")
-	(save-window-excursion
-	  (org-roam-dailies--capture (current-time) t)
-	  (setq today-file (buffer-file-name))
-	  (setq pos (point)))
+	  (save-window-excursion
+	    (org-roam-dailies--capture (current-time) t)
+	    (setq today-file (buffer-file-name))
+	    (setq pos (point)))
 
-	;; Only refile if the target file is different than the current file
-	(unless (equal (file-truename today-file)
-		       (file-truename (buffer-file-name)))
-	  (org-refile nil nil (list "Tasks" today-file nil pos))))))
+	  ;; Only refile if the target file is different than the current file
+	  (unless (equal (file-truename today-file)
+			 (file-truename (buffer-file-name)))
+	    (org-refile nil nil (list "Tasks" today-file nil pos))))))
 
 
 
  (add-to-list 'org-after-todo-state-change-hook
-	       (lambda ()
-		 (when (or (equal org-state "DONE")
-			   (equal org-state "CANC"))
-		   (my/org-roam-copy-todo-to-today))))
+		 (lambda ()
+		   (when (or (equal org-state "DONE")
+			     (equal org-state "CANC"))
+		     (my/org-roam-copy-todo-to-today))))
 
 (use-package org-roam-ui
   :ensure t
@@ -876,6 +919,12 @@
   org-roam-ui-follow t
   org-roam-ui-update-on-save t
   org-roam-ui-open-on-start t))
+
+(use-package magit
+  :ensure t
+  :commands (magit-status magit-get-current-branch)
+  :custom
+  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
 
 (use-package ox-hugo
   :ensure t
@@ -891,26 +940,26 @@
 (electric-indent-mode -1)
 
 (use-package typescript-mode
-      :ensure t
-      :mode "\\.ts\\'"
-      :config
-      (setq typescript-indent-level 2))
+	:ensure t
+	:mode "\\.ts\\'"
+	:config
+	(setq typescript-indent-level 2))
 
     (use-package web-mode
-      :ensure t
-      :config
-      (add-to-list 'auto-mode-alist '("\\.phtml\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.php\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.[agj]sp\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.as[cp]x\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.erb\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.mustache\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.djhtml\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.html?\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.scss\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.css\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
-      (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode)))
+	:ensure t
+	:config
+	(add-to-list 'auto-mode-alist '("\\.phtml\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.php\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.[agj]sp\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.as[cp]x\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.erb\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.mustache\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.djhtml\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.html?\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.scss\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.css\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
+	(add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode)))
 
 (defun my-web-mode-hook ()
   "Hooks for Web mode."
@@ -920,17 +969,36 @@
 
 (add-hook 'web-mode-hook  'my-web-mode-hook)
 
+(use-package claude-code
+  :ensure (:host github :repo "stevemolitor/claude-code.el")
+  :after general
+  :config
+  ;; Use vterm as the terminal backend (since you already have it)
+  (setq claude-code-terminal-backend 'vterm)
+  
+  ;; Enable claude-code-mode
+  (claude-code-mode 1)
+  
+  ;; Key binding for the command map - using a different prefix since you use C-c c for org-capture
+  :bind-keymap
+  ("C-c C-l" . claude-code-command-map)  ; or choose your preferred prefix
+  
+  ;; Optional: Set up repeat map for mode cycling
+  :bind
+  (:repeat-map my-claude-code-repeat-map 
+               ("M" . claude-code-cycle-mode)))
+
 (use-package ledger-mode
   :ensure t
   :mode ("\\.dat\\'"
-	 "\\.ledger\\'")
+	   "\\.ledger\\'")
   :bind (:map ledger-mode-map
-	      ("C-x C-s" . my/ledger-save))
+		("C-x C-s" . my/ledger-save))
   :preface
   (defun my/ledger-save ()
     "Automatically clean the ledger buffer at each save."
     (interactive)
     (save-excursion
-      (when (buffer-modified-p)
-	(with-demoted-errors (ledger-mode-clean-buffer))
-	(save-buffer)))))
+	(when (buffer-modified-p)
+	  (with-demoted-errors (ledger-mode-clean-buffer))
+	  (save-buffer)))))
