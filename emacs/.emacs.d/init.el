@@ -325,6 +325,7 @@
       ;; "m" 'mu4e
       "f" 'link-hint-open-link
       "p" 'projectile-command-map
+      "w" '(:keymap evil-window-map :wk "window")
       "h" 'winner-undo
       "l" 'winner-redo
       ;; "s" 'mr-x/toggle-shortcuts
