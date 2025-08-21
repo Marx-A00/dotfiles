@@ -152,47 +152,61 @@
 
 
     (use-package vterm
-      :ensure t)
+      :ensure t
+      :config
+      ;; Prevent evil-collection from messing with vterm keys
+      (with-eval-after-load 'evil-collection
+        (setq evil-collection-vterm-bind-escape-in-insert nil)
+        (delete 'vterm evil-collection-mode-list)))
 
-      (use-package multi-vterm
-	  :ensure t
-	  :after evil
-	  :config
-
-	  (add-hook 'vterm-mode-hook
-			  (lambda ()
-			  (setq-local evil-insert-state-cursor 'box)
-			  (evil-insert-state)))
-	  (define-key vterm-mode-map [return]                      #'vterm-send-return)
-
-	  (setq vterm-keymap-exceptions nil)
-	  ;; dedicated terminal height of 30%
-	  (setq multi-vterm-dedicated-window-height-percent 40)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
-	  (evil-define-key 'normal vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-	  (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
-	  (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
-	  (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
-	  (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
-	  (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
-	  (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume))
+    (use-package multi-vterm
+      :ensure t
+      :after (evil vterm)
+      :config
+      ;; Set dedicated terminal height
+      (setq multi-vterm-dedicated-window-height-percent 40)
+      
+      ;; Setup vterm with evil properly
+      (add-hook 'vterm-mode-hook
+                (lambda ()
+                  (setq-local evil-insert-state-cursor 'box)
+                  (evil-insert-state)))
+      
+      ;; Basic vterm configuration
+      (setq vterm-keymap-exceptions nil)
+      
+      ;; Define keys after vterm-mode-map exists
+      (with-eval-after-load 'vterm
+        (define-key vterm-mode-map [return] #'vterm-send-return)
+        
+        ;; Pass through common terminal keys in insert mode
+        (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
+        (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
+        
+        ;; Normal mode keys
+        (evil-define-key 'normal vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+        (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
+        (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
+        (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
+        (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
+        (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
+        (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)))
 
 
       ;; Optional: set the shell explicitly if needed
@@ -419,7 +433,7 @@
       ;; "m" 'mu4e
       "f" 'link-hint-open-link
       "p" 'projectile-command-map
-      "w" '(:keymap evil-window-map :wk "window")
+      "w" '(:keymap evil-window-map :package evil :wk "window")
       "h" 'winner-undo
       "l" 'winner-redo
       ;; "s" 'mr-x/toggle-shortcuts
@@ -1214,6 +1228,94 @@
 
 #+end_src
 ** Languages
+
+*** Tree-sitter Auto
+#+begin_src emacs-lisp
+  ;; Automatically install and use tree-sitter grammars
+  (use-package treesit-auto
+    :ensure t
+    :custom
+    (treesit-auto-install 'prompt)  ;; Ask before installing grammars
+    :config
+    (treesit-auto-add-to-auto-mode-alist 'all)
+    (global-treesit-auto-mode))
+#+end_src
+
+*** LSP Mode with Corfu
+#+begin_src emacs-lisp
+  ;; Corfu for in-buffer completion
+  (use-package corfu
+    :ensure t
+    :custom
+    (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+    (corfu-auto t)                 ;; Enable auto completion
+    (corfu-auto-prefix 2)          ;; Minimum length of prefix
+    (corfu-auto-delay 0.2)         ;; Delay before auto completion
+    (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+    (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+    (corfu-preview-current nil)    ;; Disable current candidate preview
+    (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+    :init
+    (global-corfu-mode))
+
+  ;; Extensions for Corfu
+  (use-package corfu-terminal
+    :ensure t
+    :after corfu
+    :config
+    (unless (display-graphic-p)
+      (corfu-terminal-mode +1)))
+
+  ;; LSP Mode for Language Server Protocol support
+  (use-package lsp-mode
+    :ensure t
+    :commands (lsp lsp-deferred)
+    :hook ((typescript-ts-mode . lsp-deferred)
+           (tsx-ts-mode . lsp-deferred)
+           (js-ts-mode . lsp-deferred)
+           (web-mode . lsp-deferred))
+    :init
+    (setq lsp-keymap-prefix "C-c l")
+    :config
+    ;; Performance tuning
+    (setq gc-cons-threshold 100000000)
+    (setq read-process-output-max (* 1024 1024)) ;; 1mb
+    (setq lsp-idle-delay 0.500)
+    
+    ;; UI settings
+    (setq lsp-lens-enable nil)              ;; No code lens
+    (setq lsp-headerline-breadcrumb-enable nil)  ;; No breadcrumbs
+    (setq lsp-modeline-code-actions-enable nil)
+    (setq lsp-modeline-diagnostics-enable t)
+    (setq lsp-signature-auto-activate t)
+    (setq lsp-signature-render-documentation nil)
+    (setq lsp-eldoc-enable-hover t)
+    (setq lsp-completion-provider :none)  ;; Let Corfu handle completion
+    (setq lsp-enable-snippet t))
+
+  ;; LSP UI for better LSP experience
+  (use-package lsp-ui
+    :ensure t
+    :commands lsp-ui-mode
+    :hook (lsp-mode . lsp-ui-mode)
+    :config
+    (setq lsp-ui-sideline-enable nil)       ;; No sideline
+    (setq lsp-ui-doc-enable t)              ;; Keep documentation
+    (setq lsp-ui-doc-show-with-cursor nil)  ;; Don't show automatically
+    (setq lsp-ui-doc-show-with-mouse t)     ;; Show on mouse hover
+    (setq lsp-ui-doc-position 'at-point)
+    (setq lsp-ui-peek-enable t))
+
+  ;; Optional: Kind icon for completion candidates
+  (use-package kind-icon
+    :ensure t
+    :after corfu
+    :custom
+    (kind-icon-default-face 'corfu-default)
+    :config
+    (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
+#+end_src
+
 *** Elisp
 
 #+begin_src emacs-lisp
@@ -1229,35 +1331,70 @@
 *** Typescript/Javascript
 
 #+begin_src emacs-lisp
-      (use-package typescript-mode
-	:ensure t
-	:mode "\\.ts\\'"
-	:config
-	(setq typescript-indent-level 2))
+  ;; Modern TypeScript setup with tree-sitter and LSP
+  
+  ;; Use built-in tree-sitter modes for TypeScript/TSX (Emacs 29+)
+  ;; These provide better syntax highlighting and structural editing
+  (use-package typescript-ts-mode
+    :mode (("\\.ts\\'" . typescript-ts-mode)
+           ("\\.tsx\\'" . tsx-ts-mode))
+    :config
+    (setq typescript-indent-level 2))
 
-      (use-package web-mode
-	:ensure t
-	:config
-	(add-to-list 'auto-mode-alist '("\\.phtml\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.php\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.[agj]sp\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.as[cp]x\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.erb\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.mustache\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.djhtml\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.html?\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.scss\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.css\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode)))
+  ;; Add LSP support for TypeScript
+  (add-hook 'typescript-ts-mode-hook #'lsp-deferred)
+  (add-hook 'tsx-ts-mode-hook #'lsp-deferred)
+  (add-hook 'js-ts-mode-hook #'lsp-deferred)
+  
+  ;; Configure LSP for TypeScript
+  (with-eval-after-load 'lsp-mode
+    ;; TypeScript/JavaScript specific settings
+    (setq lsp-typescript-preferences-import-module-specifier "relative"
+          lsp-typescript-preferences-quote-style "single"
+          lsp-typescript-format-enable t
+          lsp-javascript-format-enable t
+          lsp-typescript-tsserver-log-verbosity "off"
+          lsp-javascript-display-return-type-hints t
+          lsp-typescript-display-return-type-hints t))
 
-  (defun my-web-mode-hook ()
-    "Hooks for Web mode."
-    (setq web-mode-markup-indent-offset 2)
-    (setq web-mode-css-indent-offset 2)
-    (setq web-mode-code-indent-offset 2))
+  ;; Optional: Prettier formatting for TypeScript/JavaScript
+  (use-package prettier
+    :ensure t
+    :hook ((typescript-ts-mode . prettier-mode)
+           (tsx-ts-mode . prettier-mode)
+           (js-ts-mode . prettier-mode)
+           (json-ts-mode . prettier-mode)
+           (css-mode . prettier-mode))
+    :config
+    (setq prettier-enabled-parsers '(typescript tsx javascript json css scss)))
 
-  (add-hook 'web-mode-hook  'my-web-mode-hook)
+  ;; Web-mode for legacy support and template files
+  (use-package web-mode
+    :ensure t
+    :mode (("\\.html?\\'" . web-mode)
+           ("\\.phtml\\'" . web-mode)
+           ("\\.php\\'" . web-mode)
+           ("\\.[agj]sp\\'" . web-mode)
+           ("\\.as[cp]x\\'" . web-mode)
+           ("\\.erb\\'" . web-mode)
+           ("\\.mustache\\'" . web-mode)
+           ("\\.djhtml\\'" . web-mode)
+           ("\\.vue\\'" . web-mode))
+    :config
+    (setq web-mode-markup-indent-offset 2
+          web-mode-css-indent-offset 2
+          web-mode-code-indent-offset 2
+          web-mode-enable-auto-pairing t
+          web-mode-enable-css-colorization t))
+
+  ;; Optional: Tailwind CSS LSP support
+  (use-package lsp-tailwindcss
+    :ensure t
+    :init
+    (setq lsp-tailwindcss-add-on-mode t)
+    :config
+    (add-to-list 'lsp-tailwindcss-major-modes 'tsx-ts-mode)
+    (add-to-list 'lsp-tailwindcss-major-modes 'typescript-ts-mode))
 
 #+end_src
 
