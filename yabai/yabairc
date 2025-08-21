@@ -31,9 +31,9 @@ yabai -m config right_padding 10
 yabai -m config mouse_follows_focus on
 yabai -m config focus_follows_mouse autoraise
 yabai -m config window_placement second_child
-yabai -m config window_opacity on
+yabai -m config window_opacity off
 yabai -m config active_window_opacity 1.0
-yabai -m config normal_window_opacity 0.95
+yabai -m config normal_window_opacity 1.0
 
 # borders
 yabai -m config window_border on
@@ -44,3 +44,16 @@ yabai -m config insert_feedback_color 0xffd75f5f
 
 # rules (example: make System Preferences float)
 yabai -m rule --add app="^System Settings$" manage=off
+
+# Emacs-specific rules for better compatibility
+# Clear any existing Emacs rules first
+yabai -m rule --remove app="^Emacs$" 2>/dev/null || true
+
+# Force Emacs to be managed (most important rule)
+yabai -m rule --add app="Emacs" manage=on
+
+# Disable native fullscreen for Emacs
+yabai -m rule --add app="Emacs" native-fullscreen=off
+
+# Add signal to force tile Emacs windows when created
+yabai -m signal --add event=window_created app="^Emacs$" action="yabai -m window \$YABAI_WINDOW_ID --toggle float; yabai -m window \$YABAI_WINDOW_ID --toggle float"
