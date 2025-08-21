@@ -14,6 +14,7 @@ ORANGE=0xFFCC7B6E
 PINK=0xFFD7448A
 RED=0xFFCE3A5B
 GREEN=0xFF638989
+GRUVBOX_GREEN=0xFFb8bb26
 
 # main bar & defaults
 sketchybar --bar height=54        \
@@ -43,12 +44,19 @@ do
   sketchybar --add space space.$sid left \
              --set space.$sid associated_space=$sid \
                               icon=${SPACE_ICONS[i]} \
+                              icon.color=0xFFFFFFFF \
                               icon.highlight_color=0xFFFFFFFF \
                               icon.align=center \
                               icon.width=30 \
+                              icon.background.height=24 \
+                              icon.background.corner_radius=12 \
+                              icon.background.color=0x00000000 \
                               label.drawing=off \
+                              script='./plugins/space.sh' \
                               click_script="yabai -m space --focus $sid"
 done
+
+sketchybar --subscribe space.* space_change
 
 # create new space button
 sketchybar --add item new_space left                        \
@@ -67,15 +75,15 @@ sketchybar --add bracket spaces '/space\..*/' new_space                \
                                 blur_radius=2                          \
                                 background.height=30                    
 
-# add space highlighter dot
-sketchybar --add item highlight_space left                      \
-           --set      highlight_space width=22                  \
-                                      background.color=$PINK    \
-                                      background.height=22      \
-                                      background.corner_radius=11 \
-                                      script='./plugins/highlight_space.sh'
-
-sketchybar --subscribe highlight_space space_change
+# Old floating dot approach - commented out in favor of icon.highlight
+# sketchybar --add item highlight_space left                      \
+#            --set      highlight_space width=22                  \
+#                                       background.color=$PINK    \
+#                                       background.height=22      \
+#                                       background.corner_radius=11 \
+#                                       script='./plugins/highlight_space.sh'
+# 
+# sketchybar --subscribe highlight_space space_change
 
 # overlay numbers above space highlighter dot
 #: <<'COMMENT_OUT_SPACE_EX_LOOP'
