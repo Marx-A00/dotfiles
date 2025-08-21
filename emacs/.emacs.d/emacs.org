@@ -315,6 +315,41 @@
 
   (use-package highlight
     :ensure t)
+
+  ;; Shackle for window management
+  (use-package shackle
+    :ensure t
+    :config
+    (setq shackle-rules
+          '(;; Claude Code windows
+            ("\\*claude:.*\\*"
+             :regexp t
+             :align left
+             :size 0.46
+             :select t
+             :popup t)
+            ;; Help windows
+            ("\\*Help\\*"
+             :align below
+             :size 0.3
+             :select t)
+            ;; Compilation
+            ("\\*compilation\\*"
+             :align below
+             :size 0.3
+             :select nil)
+            ;; Magit
+            (magit-status-mode
+             :align below
+             :size 0.5
+             :select t)
+            ;; vterm
+            ("\\*vterm.*\\*"
+             :regexp t
+             :align below
+             :size 0.4
+             :select t)))
+    (shackle-mode 1))
 #+end_src
 *** Scratch Buffer Setup
 #+begin_src emacs-lisp
