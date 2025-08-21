@@ -36,7 +36,7 @@
 ** Elpaca
 #+begin_src emacs-lisp
 
-  (defvar elpaca-installer-version 0.8)
+  (defvar elpaca-installer-version 0.11)
   (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
   (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
   (defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
@@ -74,9 +74,6 @@
       (load "./elpaca-autoloads")))
   (add-hook 'after-init-hook #'elpaca-process-queues)
   (elpaca `(,@elpaca-order))
-
-  ;; Disable package.el
-  (setq package-enable-at-startup nil)
 
   (elpaca elpaca-use-package
     ;; Enable Elpaca support for use-package's :ensure keyword.
@@ -220,49 +217,60 @@
 
 #+begin_src emacs-lisp
 
-  (use-package all-the-icons
-    :ensure t
-    :if (display-graphic-p))
+    (use-package all-the-icons
+      :ensure t
+      :if (display-graphic-p))
 
-  (use-package doom-themes
-    :ensure t
-    :config
-    (load-theme 'doom-gruvbox))
+    (use-package doom-themes
+      :ensure t
+      :config
+      (load-theme 'doom-gruvbox))
 
-  (use-package doom-modeline
-    :ensure t
-    :init (doom-modeline-mode 1)
-    (setq doom-modeline-modal-modern-icon nil))
-
-
-  (set-face-attribute 'default nil :font "Iosevka" :height 280)
-
-  (defun mr-x/general-setup ()
-    (display-line-numbers-mode 1)
-    (set-frame-parameter (selected-frame) 'alpha '(80 50)))
-
-  (add-hook 'text-mode-hook #'mr-x/general-setup)
-  (add-hook 'prog-mode-hook #'mr-x/general-setup)
-
-					  ; opacity
-  (set-frame-parameter (selected-frame) 'alpha '(100 50))
-  (add-to-list 'default-frame-alist '(alpha-background . 20))
-					  ; keybindings section
-  (global-set-key (kbd "C-<escape>") #'universal-argument)
-  (global-set-key (kbd "C-c d") 'diff-buffer-with-file)
-  (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
-  (global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
-  (global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
-  (global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
+    (use-package doom-modeline
+      :ensure t
+      :init (doom-modeline-mode 1)
+      (setq doom-modeline-modal-modern-icon nil))
 
 
+    (set-face-attribute 'default nil :font "Iosevka" :height 280)
 
-  (setq inhibit-startup-message t) ; Disable the startup message
-  (scroll-bar-mode -1) ; Disable the visible scrollbar
-  (tool-bar-mode -1)   ; Disable the toolbar
-  (tooltip-mode -1)    ; Disable tooltips
-  (menu-bar-mode -1)   ; Disable the menu bar
-  (set-fringe-mode 10) ; Give some breathing room
+    (defun mr-x/general-setup ()
+      (display-line-numbers-mode 1)
+      (set-frame-parameter (selected-frame) 'alpha '(80 50)))
+
+    (add-hook 'text-mode-hook #'mr-x/general-setup)
+    (add-hook 'prog-mode-hook #'mr-x/general-setup)
+
+  					  ; opacity
+    (set-frame-parameter (selected-frame) 'alpha '(100 50))
+    (add-to-list 'default-frame-alist '(alpha-background . 20))
+  					  ; keybindings section
+    (global-set-key (kbd "C-<escape>") #'universal-argument)
+    (global-set-key (kbd "C-c d") 'diff-buffer-with-file)
+    (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
+    (global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
+    (global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
+    (global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
+
+
+
+
+
+    (setq inhibit-startup-message t) ; Disable the startup message
+    (scroll-bar-mode -1) ; Disable the visible scrollbar
+    (tool-bar-mode -1)   ; Disable the toolbar
+    (tooltip-mode -1)    ; Disable tooltips
+    (menu-bar-mode -1)   ; Disable the menu bar
+    (set-fringe-mode 10) ; Give some breathing room
+
+  ;; Disable native fullscreen behavior
+  (setq ns-use-native-fullscreen nil)
+
+  ;; Make new frames tile properly instead of floating
+  (setq ns-pop-up-frames nil)
+
+  ;; Prevent Emacs from resizing frames
+  (setq frame-resize-pixelwise t)
 
 
 #+end_src
@@ -300,6 +308,10 @@
   (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
   (setq visible-bell t)
   (fset 'yes-or-no-p 'y-or-n-p)
+  
+  ;; Auto-revert mode to automatically refresh buffers when files change on disk
+  (global-auto-revert-mode 1)
+  (setq global-auto-revert-non-file-buffers t)
 
   (use-package highlight
     :ensure t)
