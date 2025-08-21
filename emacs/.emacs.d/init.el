@@ -224,8 +224,47 @@
 (setq visible-bell t)
 (fset 'yes-or-no-p 'y-or-n-p)
 
+;; Auto-revert mode to automatically refresh buffers when files change on disk
+(global-auto-revert-mode 1)
+(setq global-auto-revert-non-file-buffers t)
+
 (use-package highlight
   :ensure t)
+
+;; Shackle for window management
+(use-package shackle
+  :ensure t
+  :config
+  (setq shackle-rules
+        '(;; Claude Code windows
+          ("\\*claude:.*\\*"
+           :regexp t
+           :align left
+           :size 0.46
+           :select t
+           :popup t)
+          ;; Help windows
+          ("\\*Help\\*"
+           :align below
+           :size 0.3
+           :select t)
+          ;; Compilation
+          ("\\*compilation\\*"
+           :align below
+           :size 0.3
+           :select nil)
+          ;; Magit
+          (magit-status-mode
+           :align below
+           :size 0.5
+           :select t)
+          ;; vterm
+          ("\\*vterm.*\\*"
+           :regexp t
+           :align below
+           :size 0.4
+           :select t)))
+  (shackle-mode 1))
 
 (setq initial-major-mode 'org-mode)
 (setq initial-scratch-message "\
