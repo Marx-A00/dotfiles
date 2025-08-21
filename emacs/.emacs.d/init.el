@@ -266,6 +266,34 @@
            :select t)))
   (shackle-mode 1))
 
+;; Popper for popup buffer management
+(use-package popper
+  :ensure t
+  :bind (("C-`"   . popper-toggle)
+         ("M-`"   . popper-cycle)
+         ("C-M-`" . popper-toggle-type))
+  :init
+  (setq popper-reference-buffers
+        '("\\*Messages\\*"
+          "\\*Warnings\\*"
+          "\\*Compile-Log\\*"
+          "\\*Backtrace\\*"
+          "\\*evil-registers\\*"
+          "\\*Apropos\\*"
+          "\\*scratch\\*"
+          "\\*helpful.*\\*"
+          ("\\*vterm.*\\*" . hide)  ;; vterm buffers are popups and auto-hide
+          help-mode
+          helpful-mode
+          compilation-mode))
+  :config
+  ;; Match vterm buffers by name
+  (setq popper-display-control t)  ;; Let popper control popup placement
+  ;; Default display at bottom with 40% height
+  (setq popper-display-function #'popper-select-popup-at-bottom)
+  (popper-mode +1)
+  (popper-echo-mode +1))  ;; Show popup names in echo area
+
 (setq initial-major-mode 'org-mode)
 (setq initial-scratch-message "\
 # Clear your mind young one.")
