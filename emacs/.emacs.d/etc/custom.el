@@ -5,7 +5,8 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(custom-safe-themes
-   '("48042425e84cd92184837e01d0b4fe9f912d875c43021c3bcb7eeb51f1be5710"
+   '("f1e8339b04aef8f145dd4782d03499d9d716fdc0361319411ac2efc603249326"
+     "48042425e84cd92184837e01d0b4fe9f912d875c43021c3bcb7eeb51f1be5710"
      "0d2c5679b6d087686dcfd4d7e57ed8e8aedcccc7f1a478cd69704c02e4ee36fe"
      default))
  '(org-agenda-files
@@ -254,6 +255,7 @@
      "/Users/marcosandrade/roaming/notes/journal/2025-08-12.org"
      "/Users/marcosandrade/roaming/notes/journal/2025-08-13.org"
      "/Users/marcosandrade/roaming/notes/journal/2025-08-15.org"
+     "/Users/marcosandrade/roaming/notes/journal/2025-08-18.org"
      "/Users/marcosandrade/roaming/notes/journal/movies-to-watch.org"
      "/Users/marcosandrade/roaming/notes/journal/random.org")))
 (custom-set-faces
