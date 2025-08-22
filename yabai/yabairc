@@ -15,8 +15,22 @@ yabai -m signal --add event=dock_did_restart action="sleep 3 && sudo yabai --loa
 #yabai -m config display 56FEF42D-88B7-46E3-9C9B-7746A0929EB7 label vert
 
 # general settings
-yabai -m config layout bsp
+# Note: We don't set a global layout anymore - each space can have its own
+# yabai -m config layout bsp  # Commented out for per-space layouts
 yabai -m config window_gap 10
+
+# Optional: Set default layouts per space on startup
+# This handles both multi-monitor and laptop-only scenarios
+# Uncomment and modify based on your preferences:
+#
+# for i in $(yabai -m query --spaces | jq '.[].index'); do
+#   yabai -m config --space $i layout bsp  # Set all to bsp by default
+# done
+#
+# Or set specific spaces to specific layouts:
+# yabai -m config --space 1 layout bsp     # Laptop display space 1
+# yabai -m config --space 2 layout float   # Laptop display space 2
+# yabai -m config --space 3 layout bsp     # External monitor space
 
 # default padding for external displays
 # yabai -m config top_padding 60
@@ -57,3 +71,11 @@ yabai -m rule --add app="Emacs" native-fullscreen=off
 
 # Add signal to force tile Emacs windows when created
 yabai -m signal --add event=window_created app="^Emacs$" action="yabai -m window \$YABAI_WINDOW_ID --toggle float; yabai -m window \$YABAI_WINDOW_ID --toggle float"
+
+# Signal to update sketchybar when space changes
+yabai -m signal --add event=space_changed action="sketchybar --trigger space_change"
+
+# Signals to recreate layout indicators when displays change
+yabai -m signal --add event=display_added action="bash $HOME/.dotfiles/sketchybar/plugins/yabai-layout-setup.sh"
+yabai -m signal --add event=display_removed action="bash $HOME/.dotfiles/sketchybar/plugins/yabai-layout-setup.sh"
+yabai -m signal --add event=display_changed action="bash $HOME/.dotfiles/sketchybar/plugins/yabai-layout-setup.sh"
