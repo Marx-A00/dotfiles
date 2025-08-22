@@ -142,11 +142,8 @@ sketchybar --subscribe title title_change
 
 
 # ~~ right items ~~
-# yabai layout
-sketchybar --add item yabai_layout left \
-           --set yabai_layout \
-             script='./plugins/yabai-layout.sh'
-sketchybar --subscribe yabai_layout layout_change
+# yabai layout - dynamically created for each connected display
+bash ./plugins/yabai-layout-setup.sh
 
 # # time
 # sketchybar --add item time right                                    \
