@@ -9,6 +9,7 @@
      "48042425e84cd92184837e01d0b4fe9f912d875c43021c3bcb7eeb51f1be5710"
      "0d2c5679b6d087686dcfd4d7e57ed8e8aedcccc7f1a478cd69704c02e4ee36fe"
      default))
+ '(doom-modeline-check-simple-format t nil nil "Customized with use-package doom-modeline")
  '(org-agenda-files
    '("/Users/marcosandrade/roaming/notes/20241009082100-health.org"
      "/Users/marcosandrade/roaming/notes/20240516202336-cleaning.org"
@@ -256,6 +257,7 @@
      "/Users/marcosandrade/roaming/notes/journal/2025-08-13.org"
      "/Users/marcosandrade/roaming/notes/journal/2025-08-15.org"
      "/Users/marcosandrade/roaming/notes/journal/2025-08-18.org"
+     "/Users/marcosandrade/roaming/notes/journal/2025-08-22.org"
      "/Users/marcosandrade/roaming/notes/journal/movies-to-watch.org"
      "/Users/marcosandrade/roaming/notes/journal/random.org")))
 (custom-set-faces

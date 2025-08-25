@@ -171,7 +171,38 @@
   (use-package doom-modeline
     :ensure t
     :init (doom-modeline-mode 1)
-    (setq doom-modeline-modal-modern-icon nil))
+    :custom
+    ;; Make modeline smaller and cleaner
+    (doom-modeline-height 25)  ; Smaller height (default is 25)
+    (doom-modeline-bar-width 3)  ; Thinner bar
+    
+    ;; Remove encoding to save space
+    (doom-modeline-buffer-encoding nil)  ; Remove encoding indicator
+    
+    ;; Other space-saving options
+    (doom-modeline-indent-info nil)  ; Remove indentation info
+    (doom-modeline-minor-modes nil)  ; Hide minor modes (they take lots of space)
+    (doom-modeline-buffer-file-name-style 'truncate-upto-root)  ; Shorter file paths
+    
+    ;; Keep useful stuff
+    (doom-modeline-major-mode-icon t)  ; Keep major mode icon
+    (doom-modeline-major-mode-color-icon t)  ; Colorful icons
+    (doom-modeline-buffer-state-icon t)  ; Modified/saved state
+    (doom-modeline-buffer-modification-icon t)  ; Show if modified
+    (doom-modeline-lsp t)  ; Keep LSP indicator
+    (doom-modeline-github nil)  ; Remove github notifications (saves space)
+    (doom-modeline-persp-name nil)  ; Remove perspective name if not using
+    (doom-modeline-modal-modern-icon nil)  ; Your existing setting
+    
+    ;; Performance
+    (doom-modeline-checker-simple-format t)  ; Simpler error format
+    (doom-modeline-env-version nil)  ; Don't show environment version
+    (doom-modeline-unicode-fallback t))  ; Use unicode when icons unavailable
+    
+    :config
+    ;; Commented out to prevent modeline shrinking when frame loses focus
+    ;; (set-face-attribute 'mode-line nil :height 0.9)
+    ;; (set-face-attribute 'mode-line-inactive nil :height 0.9))
 
 
   (set-face-attribute 'default nil :font "Iosevka" :height 280)
@@ -911,6 +942,7 @@
 
  (my/org-roam-refresh-agenda-list))
 
+
  (defun my/org-roam-project-finalize-hook ()
    "Adds the captured project file to `org-agenda-files' if the
 	     capture was not aborted."
@@ -1045,6 +1077,15 @@
 
 (use-package simple-httpd
   :ensure t)
+
+;; Automatically install and use tree-sitter grammars
+(use-package treesit-auto
+  :ensure t
+  :custom
+  (treesit-auto-install 'prompt)  ;; Ask before installing grammars
+  :config
+  (treesit-auto-add-to-auto-mode-alist 'all)
+  (global-treesit-auto-mode))
 
 ;; Corfu for in-buffer completion
 (use-package corfu
