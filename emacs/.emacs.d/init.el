@@ -61,7 +61,7 @@
 
 (defun mr-x/set-font-faces ()
   (message "Setting faces!")
-  (set-face-attribute 'default nil :font "Iosevka" :height 280))
+  (set-face-attribute 'default nil :font "JuliaMono" :height 240))
 
   ;; Set the fixed pitch face
 
@@ -205,7 +205,7 @@
     ;; (set-face-attribute 'mode-line-inactive nil :height 0.9))
 
 
-  (set-face-attribute 'default nil :font "Iosevka" :height 280)
+  ;; (set-face-attribute 'default nil :font "JuliaMono" :height 280)
 
   (defun mr-x/general-setup ()
     (display-line-numbers-mode 1)
@@ -224,6 +224,8 @@
   (global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
   (global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
   (global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
+
+
 
 
 
@@ -387,6 +389,7 @@
       "d" '(:ignore t :wk "Dired")
       "d d" '(dired :wk "Open Dired")
       "d j" '(dired-jump :wk "Dired jump to current")
+      "d h" '((lambda () (interactive) (dired "~/")) :wk "Dired home")
       "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
 
     (mr-x/leader-def

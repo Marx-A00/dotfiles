@@ -27,16 +27,16 @@ alt - f : yabai -m window --toggle zoom-fullscreen
 # move window to specific monitor by label
 
 # Laptop display
-alt - 1 : yabai -m window --display 1; yabai -m window --focus
+alt - 1 : yabai -m window --display 1; yabai -m display --focus 1
 
 # Vertical Monitor
-alt - 2 : yabai -m window --display 2; yabai -m window --focus
+alt - 2 : yabai -m window --display 2; yabai -m display --focus 2
 
 # Main Left Monitor
-alt - 3 : yabai -m window --display 3; yabai -m window --focus
+alt - 3 : yabai -m window --display 3; yabai -m display --focus 3
 
 # Main Right Monitor
-alt - 4 : yabai -m window --display 4; yabai -m window --focus
+alt - 4 : yabai -m window --display 4; yabai -m display --focus 4
 
 
 alt + shift - b : yabai -m space --balance
