@@ -12,11 +12,8 @@ emacs/.emacs.d/elpa/
 emacs/.emacs.d/tree-sitter/
 emacs/.emacs.d/var/
 emacs/.emacs.d/etc/
+emacs/.emacs.d/docs/
 .claude/
-CLAUDE.md
-emacs/.emacs.d/YABAI_FIX.org
-emacs/.emacs.d/claude-code-compose-PRD.md
-emacs/.emacs.d/posframe-styling-guide.org
 sketchybar/sketchybar-app-font/
 ebak/
 sketchybar/plugins/weather.env.sh

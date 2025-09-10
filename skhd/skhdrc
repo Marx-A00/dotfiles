@@ -3,6 +3,14 @@
 # Test binding - press cmd+x to verify skhd is working
 # cmd - x : osascript -e 'display notification "skhd test successful"'
 
+# Native yabai scratchpad bindings
+cmd + shift - space : ~/.dotfiles/scripts/scratchpad-emacs.sh scratch
+cmd + shift - o : ~/.dotfiles/scripts/scratchpad-emacs.sh scratch-org
+
+# Additional scratchpad toggles
+# "pageup" : open -a "Messages"
+# "pagedown" : open -a "Discord"
+
 alt - h : yabai -m window --focus west
 alt - j : yabai -m window --focus south
 alt - k : yabai -m window --focus north
@@ -38,9 +46,21 @@ alt - 3 : yabai -m window --display 3; yabai -m display --focus 3
 # Main Right Monitor
 alt - 4 : yabai -m window --display 4; yabai -m display --focus 4
 
+# Focus only - no window movement
+ctrl - 1 : yabai -m display --focus 1
+ctrl - 2 : yabai -m display --focus 2
+ctrl - 3 : yabai -m display --focus 3
+ctrl - 4 : yabai -m display --focus 4
+
 
 alt + shift - b : yabai -m space --balance
 alt + shift - r : yabai --restart-service
 
 ctrl - space : ~/.dotfiles/yabai/scripts/toggle_layout.sh
+
+# Send focused window to a new space and follow it
+cmd + ctrl - 0x18 : yabai -m space --create && \
+                    index="$(yabai -m query --spaces --display | jq 'map(select(."is-native-fullscreen" == false))[-1].index')" && \
+                    yabai -m window --space "${index}" && \
+                    yabai -m space --focus "${index}"
 
