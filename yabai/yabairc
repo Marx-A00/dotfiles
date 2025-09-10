@@ -69,8 +69,16 @@ yabai -m rule --add app="Emacs" manage=on
 # Disable native fullscreen for Emacs
 yabai -m rule --add app="Emacs" native-fullscreen=off
 
-# Add signal to force tile Emacs windows when created
-yabai -m signal --add event=window_created app="^Emacs$" action="yabai -m window \$YABAI_WINDOW_ID --toggle float; yabai -m window \$YABAI_WINDOW_ID --toggle float"
+# Scratchpad rules - these windows will automatically float and get scratchpad IDs
+yabai -m rule --add app="Emacs" title="SCRATCHPAD" scratchpad="scratch" grid="6:6:1:1:4:4" manage=off
+yabai -m rule --add app="Emacs" title="SCRATCHPAD-ORG" scratchpad="scratch-org" grid="6:6:1:2:4:3" manage=off
+
+# Additional scratchpad apps
+yabai -m rule --add app="Messages" scratchpad="imessage" grid="6:6:1:1:4:4" manage=off
+yabai -m rule --add app="Discord" scratchpad="discord" grid="6:6:0:0:3:6" manage=off
+
+# Add signal to force tile Emacs windows when created (but not scratchpads)
+yabai -m signal --add event=window_created app="^Emacs$" action="if [[ \$(yabai -m query --windows --window \$YABAI_WINDOW_ID | jq -r '.scratchpad') == '' ]]; then yabai -m window \$YABAI_WINDOW_ID --toggle float; yabai -m window \$YABAI_WINDOW_ID --toggle float; fi"
 
 # Signal to update sketchybar when space changes
 yabai -m signal --add event=space_changed action="sketchybar --trigger space_change"
