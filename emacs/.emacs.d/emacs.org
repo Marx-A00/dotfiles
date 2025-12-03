@@ -646,7 +646,8 @@
   (use-package exec-path-from-shell
     :ensure t
     :config
-    (when (memq window-system '(mac ns x))
+    ;; Run on macOS or when running as daemon (window-system is nil in daemon)
+    (when (or (daemonp) (memq window-system '(mac ns x)))
       (exec-path-from-shell-initialize)))
 
 #+end_src
