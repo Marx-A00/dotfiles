@@ -43,6 +43,501 @@
   ;; Enable Elpaca support for use-package's :ensure keyword.
   (elpaca-use-package-mode))
 
+;; Load org early to avoid version conflicts
+;; (elpaca org :wait t)
+
+;; FIXME: Org mode version mismatch fix (currently commented out for testing)
+;; Uncomment if .org files open in fundamental-mode instead of org-mode
+;;
+;; ;; Ensure .org files always open in org-mode (fixes version mismatch issues)
+;; (add-to-list 'auto-mode-alist '("\\.org\\'" . org-mode))
+;; 
+;; ;; Function to fix any .org files stuck in fundamental-mode
+;; (defun mr-x/fix-org-mode-buffers ()
+;;   "Fix any .org files that opened in fundamental-mode"
+;;   (interactive)
+;;   (dolist (buffer (buffer-list))
+;;     (when (and (buffer-file-name buffer)
+;;                (string-match "\\.org$" (buffer-file-name buffer))
+;;                (not (eq (with-current-buffer buffer major-mode) 'org-mode)))
+;;       (with-current-buffer buffer
+;;         (org-mode)))))
+
+(use-package org
+      :ensure t
+      :demand t
+	:hook (org-mode . mr-x/org-mode-setup)
+	:config
+	;; Move org-agenda-files here
+	(setq org-agenda-files '("~/roaming/agenda.org"))
+	
+	;; Move clock persistence here  
+	(setq org-clock-persist t)
+	(org-clock-persistence-insinuate)
+	
+	;; Define setup function here
+	(defun mr-x/org-mode-setup()
+	  (visual-line-mode 1)
+	  (auto-fill-mode 0)
+	  (setq org-hide-leading-stars t)
+	  (setq org-agenda-include-diary t)
+	  (setq org-fold-core-style 'overlays)
+	  (setq org-agenda-span 'day)
+	  (setq evil-auto-indent nil))
+	
+	;; Rest of org config
+	(setq org-hide-emphasis-markers t)
+	(setq org-agenda-start-with-log-mode t)
+	(setq org-log-done 'time)
+	(setq org-log-into-drawer t)
+
+	;; testing
+
+	(setq org-M-RET-may-split-line '((default . nil)))
+	(setq org-list-automatic-rules 
+	      '((checkbox . t)
+	       (indent . nil)
+	       (ordered . nil)))
+
+	;; doesn't work lol thanks oai
+
+    ;;   (defun my/org-meta-return-auto-checkbox (&rest _)
+    ;; "Extend `M-RET` to insert a checkbox automatically."
+    ;; (when (org-at-item-checkbox-p)
+    ;;   (insert "[ ] ")))
+
+    ;;   (advice-add 'org-meta-return :after #'my/org-meta-return-auto-checkbox)
+
+
+
+
+	(setq org-highlight-latex-and-related '(latex))
+
+					      ; org- habit setup
+
+	(require 'org-habit)
+	(add-to-list 'org-modules 'org-habit)
+	(setq org-habit-graph-column 60)
+
+	(setq org-todo-keywords
+	      '((sequence
+		 "TODO(t)"
+		 "NEXT(n)"
+		 "|"
+		 "DONE(d!)")
+		(sequence
+		 "BACKLOG(b)"
+		 "PLAN(p)"
+		 "READY(r)"
+		 "IN-PROGRESS(i)"
+		 "REVIEW(v)"
+		 "WATCHING(w@/!)"
+		 "HOLD(h)"
+		 "|"
+		 "COMPLETED(c)"
+		 "CANC(k@)")))
+
+	(setq org-todo-keyword-faces
+	      '(("TODO" . "#FF1800")
+		("NEXT" . "#FF1800")
+		("PLAN" . "#F67F2F")
+		("DONE" . "#62656A")
+		("HOLD" . "#62656A")
+		("WAIT" . "#B7CBA8")
+		("IN-PROGRESS" . "#b7cba8") 
+		("BACKLOG" . "#62656A")))
+
+	(custom-set-faces
+	 '(org-level-1 ((t (:foreground "#ff743f")))))
+
+	(custom-set-faces
+	 '(org-level-2 ((t (:foreground "#67bc44")))))
+
+	(custom-set-faces
+	 '(org-level-3 ((t (:foreground "#67c0de"))))))
+
+    (use-package org-superstar
+	:ensure t
+	:hook (org-mode . org-superstar-mode)
+	:config
+	(setq org-superstar-headline-bullets-list
+	      '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
+	(setq org-ellipsis " ‧"))
+
+
+    ;; org agenda
+    (setq org-agenda-skip-scheduled-if-done t
+	    org-agenda-skip-deadline-if-done t
+	    org-agenda-include-deadlines t
+	    org-agenda-block-separator #x2501
+	    org-agenda-compact-blocks t
+	    org-agenda-start-with-log-mode t)
+
+    (setq org-agenda-clockreport-parameter-plist
+	    (quote (:link t :maxlevel 5 :fileskip0 t :compact t :narrow 80)))
+    (setq org-agenda-deadline-faces
+	    '((1.0001 . org-warning)              ; due yesterday or before
+	      (0.0    . org-upcoming-deadline)))  ; due today or later
+
+    (defun org-habit-streak-count ()
+	(goto-char (point-min))
+	(while (not (eobp))
+	  ;;on habit line?
+	  (when (get-text-property (point) 'org-habit-p)
+	    (let ((streak 0)
+		  (counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
+		  )
+	      (move-to-column counter)
+	      ;;until end of line
+	      (while (= (char-after (point)) org-habit-completed-glyph)
+		(setq streak (+ streak 1))
+		(setq counter (- counter 1))
+		(backward-char 1))
+	      (end-of-line)
+	      (insert (number-to-string streak))))
+	  (forward-line 1)))
+
+    (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
+
+    (defun my/style-org-agenda()
+	(setq org-agenda-window-setup 'only-window)
+	(set-face-attribute 'org-agenda-date nil :height 1.1)
+	(set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
+	(set-face-attribute 'org-agenda-date-today nil
+			    :foreground "#897d6c"   
+			    :background nil        
+			    :weight 'bold
+			    :underline nil)           ;; Make it bold
+	(set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
+
+    (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
+
+
+
+    (setq org-agenda-breadcrumbs-separator " ❱ "
+	    org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
+	    org-agenda-time-grid '((daily today)
+				   (800 1000 1200 1400 1600 1800 2000)
+				   "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
+	    org-agenda-prefix-format '((agenda . "%i %-12:c [%e] %?-12t%b% s")
+				       (todo . " %i %-12:c [%e] ")
+				       (tags . " %i %-12:c")
+				       (search . " %i %-12:c")))
+
+
+
+
+    (setq org-agenda-custom-commands
+	    '(("p" "Projects Agenda"
+	       ((todo "NEXT"
+		      ((org-agenda-overriding-header
+			(concat "Projects\n" (make-string (window-width) 9472) "\n\n"))
+		       (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
+					   "~/roaming/notes/20250212103431-customize_org_agenda.org"
+					   "~/roaming/notes/20250701091830-omi_live.org"
+
+					   "~/roaming/notes/20240507202146-openpair.org"
+					   "~/roaming/notes/20250107142334-rec.org"
+					   "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
+					   "~/roaming/notes/20250220152855-personal_website.org"
+					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+					   "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
+	      ("c" "Custom Projects & Agenda"
+	       ((agenda ""
+			((org-agenda-overriding-header "Agenda")
+			 (org-agenda-prefix-format
+			  '((agenda . "  %?-12t% s")
+			    (timeline . "  % s")
+			    (todo . "  ")
+			    (tags . "  ")
+			    (search . "  ")))
+			 (org-agenda-log-mode-items '(closed clock))))
+		(todo "NEXT"
+		      ((org-agenda-overriding-header
+			(concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
+		       (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
+					   "~/roaming/notes/20250701091830-omi_live.org"
+					   "~/roaming/notes/20250212103431-customize_org_agenda.org"
+					   "~/roaming/notes/20240507202146-openpair.org"
+					   "~/roaming/notes/20250107142334-rec.org"
+					   "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
+					   "~/roaming/notes/20250220152855-personal_website.org"
+"~/roaming/notes/20250317082044-vibe_coding_video.org"
+"~/roaming/notes/20250402103112-kountdown.org"
+					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+					   "~/roaming/notes/20250309222443-virtual_museum.org"
+					   "~/roaming/notes/20250402092144-track01_s_w.org"
+					   "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
+	       nil)))
+    (setq org-agenda-format-date (lambda (date)
+				     (concat"\n"(make-string(window-width)9472)
+					    "\n"(org-agenda-format-date-aligned date))))
+    (setq org-cycle-separator-lines 2)
+
+    (add-hook 'org-agenda-finalize-hook
+		(lambda ()
+		  (setq visual-fill-column-width 100) 
+		  (setq visual-fill-column-center-text t)
+		  (visual-fill-column-mode t)
+		  (display-line-numbers-mode 1)))
+
+
+
+
+
+
+(defun my-highlight-lowest-goal ()
+  "Find and highlight the task in the 'Projects' section with the lowest 'GOAL #' number."
+  (when (derived-mode-p 'org-agenda-mode)
+    (save-excursion
+	(goto-char (point-min))
+	(let (lowest-goal lowest-pos)
+	  ;; Search for "Projects" section
+	  (when (re-search-forward "^Projects" nil t)
+	    ;; Iterate over tasks under "Projects"
+	    (while (re-search-forward "GOAL #\\([0-9]+\\)" nil t)
+	      (let* ((goal-num (string-to-number (match-string 1)))
+		     (line-start (line-beginning-position))
+		     (line-end (line-end-position)))
+		;; Track the lowest goal number and its position
+		(when (or (not lowest-goal) (< goal-num lowest-goal))
+		  (setq lowest-goal goal-num)
+		  (setq lowest-pos (cons line-start line-end))))))
+	  ;; Apply highlighting to the first occurrence of the lowest goal
+	  (when lowest-pos
+	    (let ((ov (make-overlay (car lowest-pos) (cdr lowest-pos))))
+	      (overlay-put ov 'face '(:background "dark red" :foreground "white" :weight bold))))))))
+
+
+(add-hook 'org-agenda-finalize-hook #'my-highlight-lowest-goal)
+
+;; toc-org for table of contents generation
+(use-package toc-org
+  :ensure t
+  :commands toc-org-enable
+  :hook (org-mode . toc-org-mode))
+
+(use-package ob-typescript
+    :ensure t
+    (:wait t))
+
+	(org-babel-do-load-languages
+	 'org-babel-load-languages
+	 '((emacs-lisp . t)
+	     (js . t)
+	     (typescript . t)
+	     (sqlite . t)
+	     (sql . t)
+	     (latex . t)
+	     (python . t)))
+
+	     (setq org-babel-python-command "python3")
+  (require 'org-tempo)
+  (add-to-list 'org-structure-template-alist '("ts" . "src typescript"))
+  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+  (add-to-list 'org-structure-template-alist '("py" . "src python"))
+  (add-to-list 'org-structure-template-alist '("C" . "comment"))
+  (add-to-list 'org-structure-template-alist '("js" . "src javascript"))
+  (add-to-list 'org-structure-template-alist '("l" . "export latex"))
+
+   ;; Automatically tangle our Emacs.org config file when we save it
+   (defun mr-x/org-babel-tangle-config ()
+     (when (string-equal (buffer-file-name)
+			    (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
+	 ;; Dynamic scoping to the rescue
+	 (let ((org-confirm-babel-evaluate nil))
+	    (org-babel-tangle))))
+
+   (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'mr-x/org-babel-tangle-config)))
+
+   (setq-default prettify-symbols-alist '(("#+BEGIN_SRC" . "†")
+					   ("#+END_SRC" . "†")
+					   ("#+begin_src" . "†")
+					   ("#+end_src" . "†")
+					   ("#+BEGIN_LaTeX" . "†")
+					   ("#+END_LaTeX" . "†")
+					   (">=" . "≥")
+					   ("=>" . "⇨")))
+(setq prettify-symbols-unprettify-at-point 'right-edge)
+(add-hook 'org-mode-hook 'prettify-symbols-mode)
+
+(use-package org-roam
+   :ensure t
+   :demand t
+   :custom
+   (org-roam-directory "~/roaming/notes/")
+   (org-roam-completion-everywhere t)
+   ;; (org-roam-capture-templates
+   ;;  '(("d" "default" plain
+   ;; 	"%?"
+   ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n+date: %U\n")
+   ;; 	:unnarrowed t)
+   ;;    ("w" "workout" plain
+   ;; 	"%?"
+   ;; 	:if-new (file+head "workouts/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+   ;; 	:unnarrowed t)
+   ;;    ("l" "programming language" plain
+   ;; 	"* Characteristics\n\n- Family: %?\n- Inspired by: \n\n* Reference:\n\n"
+   ;; 	:if-new (file+head "code-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+   ;; 	:unnarrowed t)
+   ;;    ("b" "book notes" plain
+   ;; 	(file "~/roaming/Templates/BookNoteTemplate.org")
+   ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+   ;; 	:unnarrowed t)
+   ;;    ("p" "project" plain "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
+   ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
+   ;; 	:unnarrowed t)))
+   ;; (org-roam-dailies-capture-templates
+   ;;  '(("d" "default" entry "* %<%I:%M %p>: %?"
+   ;; 	:if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
+
+   :bind (("C-c n f" . org-roam-node-find)
+	     ("C-c n i" . org-roam-node-insert)
+	     ("C-c n I" . org-roam-node-insert-immediate)
+					    ; ("C-c n p" . my/org-roam-find-project)
+					    ;("C-c n t" . my/org-roam-capture-task)
+					    ; ("C-c n b" . my/org-roam-capture-inbox)
+	     :map org-mode-map
+	     ("C-M-i"   . completion-at-point)
+	     :map org-roam-dailies-map
+	     ("Y" . org-roam-dailies-capture-yesterday)
+	     ("T" . org-roam-dailies-capture-tomorrow))
+   :bind-keymap
+   ("C-c n d" . org-roam-dailies-map)
+   :config
+   (require 'org-roam-dailies)
+
+   (org-roam-db-autosync-mode))
+
+(setq org-roam-dailies-directory "journal/")
+
+
+ ;; Bind this to C-c n I
+ (defun org-roam-node-insert-immediate (arg &rest args)
+   (interactive "P")
+   (let ((args (cons arg args))
+	    (org-roam-capture-templates (list (append (car org-roam-capture-templates)
+						      '(:immediate-finish t)))))
+     (apply #'org-roam-node-insert args)))
+
+(with-eval-after-load 'org-roam
+  (require 'org-roam-node)
+
+ (defun my/org-roam-filter-by-tag (tag-name)
+   (lambda (node)
+     (member tag-name (org-roam-node-tags node))))
+
+ (defun my/org-roam-list-notes-by-tag (tag-name)
+   (mapcar #'org-roam-node-file
+	      (seq-filter
+	       (my/org-roam-filter-by-tag tag-name)
+	       (org-roam-node-list))))
+
+ (defun my/org-roam-refresh-agenda-list ()
+   (interactive)
+   (setq org-agenda-files (my/org-roam-list-notes-by-tag "Project")))
+
+ (my/org-roam-refresh-agenda-list))
+
+
+ (defun my/org-roam-project-finalize-hook ()
+   "Adds the captured project file to `org-agenda-files' if the
+	     capture was not aborted."
+   ;; Remove the hook since it was added temporarily
+   (remove-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+
+   ;; Add project file to the agenda list if the capture was confirmed
+   (unless org-note-abort
+     (with-current-buffer (org-capture-get :buffer)
+	  (add-to-list 'org-agenda-files (buffer-file-name)))))
+
+
+ (defun my/org-roam-find-project ()
+   (interactive)
+   ;; Add the project file to the agenda after capture is finished
+   (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+
+   ;; Select a project file to open, creating it if necessary
+   (org-roam-node-find
+    nil
+    nil
+    (my/org-roam-filter-by-tag "Project")
+    nil
+    :templates
+    '(("p" "project" plain
+	  "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
+	  :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
+	  :unnarrowed t))))
+
+ (global-set-key (kbd "C-c n p") #'my/org-roam-find-project)
+
+
+ (defun my/org-roam-capture-inbox ()
+   (interactive)
+   (org-roam-capture- :node (org-roam-node-create)
+			 :templates '(("i" "inbox" plain "* %?"
+				       :if-new (file+head "Inbox.org" "#+title: Inbox\n")))))
+
+ (global-set-key (kbd "C-c n b") #'my/org-roam-capture-inbox)
+
+
+ (defun my/org-roam-capture-task ()
+   (interactive)
+   ;; Add the project file to the agenda after capture is finished
+   (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+
+   ;; Capture the new task, creating the project file if necessary
+   (org-roam-capture- :node (org-roam-node-read
+				nil
+				(my/org-roam-filter-by-tag "Project"))
+			 :templates '(("p" "project" plain "** TODO %?"
+				       :if-new (file+head+olp "%<%Y%m%d%H%M%S>-${slug}.org"
+							      "#+title: ${title}\n#+category: ${title}\n#+filetags: Project"
+							      ("Tasks"))))))
+
+ (global-set-key (kbd "C-c n t") #'my/org-roam-capture-task)
+
+
+
+ (defun my/org-roam-copy-todo-to-today ()
+   (interactive)
+   (let ((org-refile-keep t) ;; Set this to nil to delete the original!
+	    (org-roam-dailies-capture-templates
+	     '(("t" "tasks" entry "%?"
+		:if-new (file+head+olp "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n" ("Tasks")))))
+	    (org-after-refile-insert-hook #'save-buffer)
+	    today-file
+	    pos)
+
+     ;; Check if the task is a habit by checking the STYLE property
+     (unless (string= (org-entry-get nil "STYLE") "habit")
+	  (save-window-excursion
+	    (org-roam-dailies--capture (current-time) t)
+	    (setq today-file (buffer-file-name))
+	    (setq pos (point)))
+
+	  ;; Only refile if the target file is different than the current file
+	  (unless (equal (file-truename today-file)
+			 (file-truename (buffer-file-name)))
+	    (org-refile nil nil (list "Tasks" today-file nil pos))))))
+
+
+
+ (add-to-list 'org-after-todo-state-change-hook
+		 (lambda ()
+		   (when (or (equal org-state "DONE")
+			     (equal org-state "CANC"))
+		     (my/org-roam-copy-todo-to-today))))
+
+(use-package org-roam-ui
+  :ensure t
+  :after org-roam
+  :config
+  (setq org-roam-ui-sync-theme t
+  org-roam-ui-follow t
+  org-roam-ui-update-on-save t
+  org-roam-ui-open-on-start t))
+
 (use-package transient
   :ensure t
   :demand t
@@ -253,7 +748,7 @@
 ("C-x C-b" . persp-counsel-switch-buffer)         ; or use a nicer switcher, see below
 ("C-x C-i" . persp-ibuffer)
 :custom
-(persp-mode-prefix-key (kbd "C-x M-x"))  ; pick your own prefix key here
+(persp-mode-prefix-key (kbd "C-x M-x"))  ; keep original prefix for compatibility
 :init
 (persp-mode))
 
@@ -440,6 +935,9 @@
       "g P" '(magit-pull-branch :wk "pull branch")
       "g f" '(magit-fetch :wk "fetch"))
 
+    (mr-x/leader-def
+      "x" '(:keymap perspective-map :wk "perspective"))
+
 
 )
 
@@ -512,13 +1010,19 @@
   (add-hook 'dired-mode-hook
 	  (lambda ()
 	    (dired-omit-mode 1)
-	    (dired-hide-details-mode 1))))
+	    (dired-hide-details-mode 1)
+	    (display-line-numbers-mode 1))))
 
 (use-package dired-x
   :ensure nil 
   :after dired
   :config
   (setq dired-omit-files (rx (seq bol "."))))
+
+(add-hook 'dired-mode-hook
+	    (lambda () (setq-local dired-omit-verbose t)))
+(setq dired-omit-verbose nil)
+
 
 
   (use-package all-the-icons-dired
@@ -571,484 +1075,14 @@
 (global-set-key (kbd "M-x") 'counsel-M-x)
 (global-set-key (kbd "C-x C-f") 'counsel-find-file)
 
-;; org (kinda not really)
-
-    (use-package toc-org
-	:ensure t
-	:commands toc-org-enable
-	:hook (org-mode . toc-org-mode))
-
-    (defun mr-x/org-mode-setup()
-
-	(visual-line-mode 1)
-	(auto-fill-mode 0)
-	      (setq org-hide-leading-stars t)
-	(setq org-agenda-include-diary t)
-	(setq org-fold-core-style 'overlays)
-	(setq org-agenda-span 'day)
-	(setq evil-auto-indent nil))
-
-    (setq org-agenda-files
-	    '("~/roaming/agenda.org"
-	      "~/roaming/habits.org"
-	      "~/jira"))
-    (setq org-clock-persist t)
-    (org-clock-persistence-insinuate)
-
-    (use-package org
-	:hook (org-mode . mr-x/org-mode-setup)
-	:config
-	(setq org-hide-emphasis-markers t)
-	(setq org-agenda-start-with-log-mode t)
-	(setq org-log-done 'time)
-	(setq org-log-into-drawer t)
-
-	;; testing
-
-	(setq org-M-RET-may-split-line '((default . nil)))
-	(setq org-list-automatic-rules 
-	      '((checkbox . t)
-	       (indent . nil)
-	       (ordered . nil)))
-
-	;; doesn't work lol thanks oai
-
-    ;;   (defun my/org-meta-return-auto-checkbox (&rest _)
-    ;; "Extend `M-RET` to insert a checkbox automatically."
-    ;; (when (org-at-item-checkbox-p)
-    ;;   (insert "[ ] ")))
-
-    ;;   (advice-add 'org-meta-return :after #'my/org-meta-return-auto-checkbox)
-
-
-
-
-	(setq org-highlight-latex-and-related '(latex))
-
-					      ; org- habit setup
-
-	(require 'org-habit)
-	(add-to-list 'org-modules 'org-habit)
-	(setq org-habit-graph-column 60)
-
-	(setq org-todo-keywords
-	      '((sequence
-		 "TODO(t)"
-		 "NEXT(n)"
-		 "|"
-		 "DONE(d!)")
-		(sequence
-		 "BACKLOG(b)"
-		 "PLAN(p)"
-		 "READY(r)"
-		 "IN-PROGRESS(i)"
-		 "REVIEW(v)"
-		 "WATCHING(w@/!)"
-		 "HOLD(h)"
-		 "|"
-		 "COMPLETED(c)"
-		 "CANC(k@)")))
-
-	(setq org-todo-keyword-faces
-	      '(("TODO" . "#FF1800")
-		("NEXT" . "#FF1800")
-		("PLAN" . "#F67F2F")
-		("DONE" . "#62656A")
-		("HOLD" . "#62656A")
-		("WAIT" . "#B7CBA8")
-		("IN-PROGRESS" . "#b7cba8") 
-		("BACKLOG" . "#62656A")))
-
-	(custom-set-faces
-	 '(org-level-1 ((t (:foreground "#ff743f")))))
-
-	(custom-set-faces
-	 '(org-level-2 ((t (:foreground "#67bc44")))))
-
-	(custom-set-faces
-	 '(org-level-3 ((t (:foreground "#67c0de"))))))
-
-    (use-package org-superstar
-	:ensure t
-	:hook (org-mode . org-superstar-mode)
-	:config
-	(setq org-superstar-headline-bullets-list
-	      '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
-	(setq org-ellipsis " ‧"))
-
-
-    ;; org agenda
-    (setq org-agenda-skip-scheduled-if-done t
-	    org-agenda-skip-deadline-if-done t
-	    org-agenda-include-deadlines t
-	    org-agenda-block-separator #x2501
-	    org-agenda-compact-blocks t
-	    org-agenda-start-with-log-mode t)
-
-    (setq org-agenda-clockreport-parameter-plist
-	    (quote (:link t :maxlevel 5 :fileskip0 t :compact t :narrow 80)))
-    (setq org-agenda-deadline-faces
-	    '((1.0001 . org-warning)              ; due yesterday or before
-	      (0.0    . org-upcoming-deadline)))  ; due today or later
-
-    (defun org-habit-streak-count ()
-	(goto-char (point-min))
-	(while (not (eobp))
-	  ;;on habit line?
-	  (when (get-text-property (point) 'org-habit-p)
-	    (let ((streak 0)
-		  (counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
-		  )
-	      (move-to-column counter)
-	      ;;until end of line
-	      (while (= (char-after (point)) org-habit-completed-glyph)
-		(setq streak (+ streak 1))
-		(setq counter (- counter 1))
-		(backward-char 1))
-	      (end-of-line)
-	      (insert (number-to-string streak))))
-	  (forward-line 1)))
-
-    (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
-
-    (defun my/style-org-agenda()
-	(setq org-agenda-window-setup 'only-window)
-	(set-face-attribute 'org-agenda-date nil :height 1.1)
-	(set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
-	(set-face-attribute 'org-agenda-date-today nil
-			    :foreground "#897d6c"   
-			    :background nil        
-			    :weight 'bold
-			    :underline nil)           ;; Make it bold
-	(set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
-
-    (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
-
-
-
-    (setq org-agenda-breadcrumbs-separator " ❱ "
-	    org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
-	    org-agenda-time-grid '((daily today)
-				   (800 1000 1200 1400 1600 1800 2000)
-				   "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
-	    org-agenda-prefix-format '((agenda . "%i %-12:c [%e] %?-12t%b% s")
-				       (todo . " %i %-12:c [%e] ")
-				       (tags . " %i %-12:c")
-				       (search . " %i %-12:c")))
-
-
-
-
-    (setq org-agenda-custom-commands
-	    '(("p" "Projects Agenda"
-	       ((todo "NEXT"
-		      ((org-agenda-overriding-header
-			(concat "Projects\n" (make-string (window-width) 9472) "\n\n"))
-		       (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
-					   "~/roaming/notes/20250212103431-customize_org_agenda.org"
-					   "~/roaming/notes/20240507202146-openpair.org"
-					   "~/roaming/notes/20250107142334-rec.org"
-					   "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
-					   "~/roaming/notes/20250220152855-personal_website.org"
-					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
-					   "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
-	      ("c" "Custom Projects & Agenda"
-	       ((agenda ""
-			((org-agenda-overriding-header "Agenda")
-			 (org-agenda-prefix-format
-			  '((agenda . "  %?-12t% s")
-			    (timeline . "  % s")
-			    (todo . "  ")
-			    (tags . "  ")
-			    (search . "  ")))
-			 (org-agenda-log-mode-items '(closed clock))))
-		(todo "NEXT"
-		      ((org-agenda-overriding-header
-			(concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
-		       (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
-					   "~/roaming/notes/20250212103431-customize_org_agenda.org"
-					   "~/roaming/notes/20240507202146-openpair.org"
-					   "~/roaming/notes/20250107142334-rec.org"
-					   "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
-					   "~/roaming/notes/20250220152855-personal_website.org"
-"~/roaming/notes/20250317082044-vibe_coding_video.org"
-"~/roaming/notes/20250402103112-kountdown.org"
-					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
-					   "~/roaming/notes/20250309222443-virtual_museum.org"
-					   "~/roaming/notes/20250402092144-track01_s_w.org"
-					   "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
-	       nil)))
-    (setq org-agenda-format-date (lambda (date)
-				     (concat"\n"(make-string(window-width)9472)
-					    "\n"(org-agenda-format-date-aligned date))))
-    (setq org-cycle-separator-lines 2)
-
-    (add-hook 'org-agenda-finalize-hook
-		(lambda ()
-		  (setq visual-fill-column-width 100) 
-		  (setq visual-fill-column-center-text t)
-		  (visual-fill-column-mode t)
-		  (display-line-numbers-mode 1)))
-
-
-
-
-
-
-(defun my-highlight-lowest-goal ()
-  "Find and highlight the task in the 'Projects' section with the lowest 'GOAL #' number."
-  (when (derived-mode-p 'org-agenda-mode)
-    (save-excursion
-	(goto-char (point-min))
-	(let (lowest-goal lowest-pos)
-	  ;; Search for "Projects" section
-	  (when (re-search-forward "^Projects" nil t)
-	    ;; Iterate over tasks under "Projects"
-	    (while (re-search-forward "GOAL #\\([0-9]+\\)" nil t)
-	      (let* ((goal-num (string-to-number (match-string 1)))
-		     (line-start (line-beginning-position))
-		     (line-end (line-end-position)))
-		;; Track the lowest goal number and its position
-		(when (or (not lowest-goal) (< goal-num lowest-goal))
-		  (setq lowest-goal goal-num)
-		  (setq lowest-pos (cons line-start line-end))))))
-	  ;; Apply highlighting to the first occurrence of the lowest goal
-	  (when lowest-pos
-	    (let ((ov (make-overlay (car lowest-pos) (cdr lowest-pos))))
-	      (overlay-put ov 'face '(:background "dark red" :foreground "white" :weight bold))))))))
-
-
-(add-hook 'org-agenda-finalize-hook #'my-highlight-lowest-goal)
-
-(use-package ob-typescript
-    :ensure t
-    (:wait t))
-
-	(org-babel-do-load-languages
-	 'org-babel-load-languages
-	 '((emacs-lisp . t)
-	     (js . t)
-	     (typescript . t)
-	     (sqlite . t)
-	     (sql . t)
-	     (latex . t)
-	     (python . t)))
-
-	     (setq org-babel-python-command "python3")
-  (require 'org-tempo)
-  (add-to-list 'org-structure-template-alist '("ts" . "src typescript"))
-  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
-  (add-to-list 'org-structure-template-alist '("py" . "src python"))
-  (add-to-list 'org-structure-template-alist '("C" . "comment"))
-  (add-to-list 'org-structure-template-alist '("js" . "src javascript"))
-  (add-to-list 'org-structure-template-alist '("l" . "export latex"))
-
-   ;; Automatically tangle our Emacs.org config file when we save it
-   (defun mr-x/org-babel-tangle-config ()
-     (when (string-equal (buffer-file-name)
-			    (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
-	 ;; Dynamic scoping to the rescue
-	 (let ((org-confirm-babel-evaluate nil))
-	    (org-babel-tangle))))
-
-   (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'mr-x/org-babel-tangle-config)))
-
-   (setq-default prettify-symbols-alist '(("#+BEGIN_SRC" . "†")
-					   ("#+END_SRC" . "†")
-					   ("#+begin_src" . "†")
-					   ("#+end_src" . "†")
-					   ("#+BEGIN_LaTeX" . "†")
-					   ("#+END_LaTeX" . "†")
-					   (">=" . "≥")
-					   ("=>" . "⇨")))
-(setq prettify-symbols-unprettify-at-point 'right-edge)
-(add-hook 'org-mode-hook 'prettify-symbols-mode)
-
-(use-package org-roam
-   :ensure t
-   :demand t
-   :custom
-   (org-roam-directory "~/roaming/notes/")
-   (org-roam-completion-everywhere t)
-   ;; (org-roam-capture-templates
-   ;;  '(("d" "default" plain
-   ;; 	"%?"
-   ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n+date: %U\n")
-   ;; 	:unnarrowed t)
-   ;;    ("w" "workout" plain
-   ;; 	"%?"
-   ;; 	:if-new (file+head "workouts/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-   ;; 	:unnarrowed t)
-   ;;    ("l" "programming language" plain
-   ;; 	"* Characteristics\n\n- Family: %?\n- Inspired by: \n\n* Reference:\n\n"
-   ;; 	:if-new (file+head "code-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-   ;; 	:unnarrowed t)
-   ;;    ("b" "book notes" plain
-   ;; 	(file "~/roaming/Templates/BookNoteTemplate.org")
-   ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-   ;; 	:unnarrowed t)
-   ;;    ("p" "project" plain "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
-   ;; 	:if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
-   ;; 	:unnarrowed t)))
-   ;; (org-roam-dailies-capture-templates
-   ;;  '(("d" "default" entry "* %<%I:%M %p>: %?"
-   ;; 	:if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
-
-   :bind (("C-c n f" . org-roam-node-find)
-	     ("C-c n i" . org-roam-node-insert)
-	     ("C-c n I" . org-roam-node-insert-immediate)
-					    ; ("C-c n p" . my/org-roam-find-project)
-					    ;("C-c n t" . my/org-roam-capture-task)
-					    ; ("C-c n b" . my/org-roam-capture-inbox)
-	     :map org-mode-map
-	     ("C-M-i"   . completion-at-point)
-	     :map org-roam-dailies-map
-	     ("Y" . org-roam-dailies-capture-yesterday)
-	     ("T" . org-roam-dailies-capture-tomorrow))
-   :bind-keymap
-   ("C-c n d" . org-roam-dailies-map)
-   :config
-   (require 'org-roam-dailies)
-
-   (org-roam-db-autosync-mode))
-(setq org-roam-dailies-directory "journal/")
-
-
- ;; Bind this to C-c n I
- (defun org-roam-node-insert-immediate (arg &rest args)
-   (interactive "P")
-   (let ((args (cons arg args))
-	    (org-roam-capture-templates (list (append (car org-roam-capture-templates)
-						      '(:immediate-finish t)))))
-     (apply #'org-roam-node-insert args)))
-
-(with-eval-after-load 'org-roam
-  (require 'org-roam-node)
- (defun my/org-roam-filter-by-tag (tag-name)
-   (lambda (node)
-     (member tag-name (org-roam-node-tags node))))
-
- (defun my/org-roam-list-notes-by-tag (tag-name)
-   (mapcar #'org-roam-node-file
-	      (seq-filter
-	       (my/org-roam-filter-by-tag tag-name)
-	       (org-roam-node-list))))
-
- (defun my/org-roam-refresh-agenda-list ()
-   (interactive)
-   (setq org-agenda-files
-	   (append
-	    (my/org-roam-list-notes-by-tag "Project")
-	    (directory-files-recursively
-	     (expand-file-name org-roam-dailies-directory org-roam-directory)
-	     "\\.org$"))))
-
- (my/org-roam-refresh-agenda-list))
-
-
- (defun my/org-roam-project-finalize-hook ()
-   "Adds the captured project file to `org-agenda-files' if the
-	     capture was not aborted."
-   ;; Remove the hook since it was added temporarily
-   (remove-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
-
-   ;; Add project file to the agenda list if the capture was confirmed
-   (unless org-note-abort
-     (with-current-buffer (org-capture-get :buffer)
-	  (add-to-list 'org-agenda-files (buffer-file-name)))))
-
-
- (defun my/org-roam-find-project ()
-   (interactive)
-   ;; Add the project file to the agenda after capture is finished
-   (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
-
-   ;; Select a project file to open, creating it if necessary
-   (org-roam-node-find
-    nil
-    nil
-    (my/org-roam-filter-by-tag "Project")
-    nil
-    :templates
-    '(("p" "project" plain
-	  "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
-	  :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+category: ${title}\n#+filetags: Project")
-	  :unnarrowed t))))
-
- (global-set-key (kbd "C-c n p") #'my/org-roam-find-project)
-
-
- (defun my/org-roam-capture-inbox ()
-   (interactive)
-   (org-roam-capture- :node (org-roam-node-create)
-			 :templates '(("i" "inbox" plain "* %?"
-				       :if-new (file+head "Inbox.org" "#+title: Inbox\n")))))
-
- (global-set-key (kbd "C-c n b") #'my/org-roam-capture-inbox)
-
-
- (defun my/org-roam-capture-task ()
-   (interactive)
-   ;; Add the project file to the agenda after capture is finished
-   (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
-
-   ;; Capture the new task, creating the project file if necessary
-   (org-roam-capture- :node (org-roam-node-read
-				nil
-				(my/org-roam-filter-by-tag "Project"))
-			 :templates '(("p" "project" plain "** TODO %?"
-				       :if-new (file+head+olp "%<%Y%m%d%H%M%S>-${slug}.org"
-							      "#+title: ${title}\n#+category: ${title}\n#+filetags: Project"
-							      ("Tasks"))))))
-
- (global-set-key (kbd "C-c n t") #'my/org-roam-capture-task)
-
-
-
- (defun my/org-roam-copy-todo-to-today ()
-   (interactive)
-   (let ((org-refile-keep t) ;; Set this to nil to delete the original!
-	    (org-roam-dailies-capture-templates
-	     '(("t" "tasks" entry "%?"
-		:if-new (file+head+olp "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n" ("Tasks")))))
-	    (org-after-refile-insert-hook #'save-buffer)
-	    today-file
-	    pos)
-
-     ;; Check if the task is a habit by checking the STYLE property
-     (unless (string= (org-entry-get nil "STYLE") "habit")
-	  (save-window-excursion
-	    (org-roam-dailies--capture (current-time) t)
-	    (setq today-file (buffer-file-name))
-	    (setq pos (point)))
-
-	  ;; Only refile if the target file is different than the current file
-	  (unless (equal (file-truename today-file)
-			 (file-truename (buffer-file-name)))
-	    (org-refile nil nil (list "Tasks" today-file nil pos))))))
-
-
-
- (add-to-list 'org-after-todo-state-change-hook
-		 (lambda ()
-		   (when (or (equal org-state "DONE")
-			     (equal org-state "CANC"))
-		     (my/org-roam-copy-todo-to-today))))
-
-(use-package org-roam-ui
-  :ensure t
-  :after org-roam
-  :config
-  (setq org-roam-ui-sync-theme t
-  org-roam-ui-follow t
-  org-roam-ui-update-on-save t
-  org-roam-ui-open-on-start t))
-
 (use-package magit
   :ensure t
   :commands (magit-status magit-get-current-branch)
   :custom
   (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+
+(setq ediff-split-window-function 'split-window-horizontally)
+(setq ediff-window-setup-function 'ediff-setup-windows-plain)
 
 (use-package projectile
   :ensure t
@@ -1233,6 +1267,47 @@
   (add-to-list 'lsp-tailwindcss-major-modes 'tsx-ts-mode)
   (add-to-list 'lsp-tailwindcss-major-modes 'typescript-ts-mode))
 
+(use-package monet
+  :ensure (:host github :repo "https://github.com/stevemolitor/monet")
+  :config
+  ;; Use ediff as the diff tool
+  (setq monet-diff-tool 'ediff)
+  
+  ;; Comment out Delta functions for now - will deal with later
+  ;; ;; Custom Delta-powered diff function for beautiful syntax highlighting
+  ;; (defun mr-x/monet-delta-diff (old-file-path new-file-path new-file-contents on-accept on-quit &optional session)
+  ;;   "Display diff using Delta for beautiful syntax highlighting."
+  ;;   ;; Write new content to the new file path
+  ;;   (with-temp-file new-file-path
+  ;;     (insert new-file-contents))
+  ;;   
+  ;;   ;; Just run the delta diff command and let Emacs handle the display
+  ;;   (let ((cmd (format "git diff --no-index %s %s | delta --paging=never"
+  ;;                      (shell-quote-argument old-file-path)
+  ;;                      (shell-quote-argument new-file-path))))
+  ;;     (async-shell-command cmd "*Monet Delta Diff*"))
+  ;;   
+  ;;   ;; Return simple context
+  ;;   (list :buffer-name "*Monet Delta Diff*"))
+
+  ;; 
+  ;; ;; Simple cleanup function
+  ;; (defun mr-x/monet-delta-diff-cleanup (context)
+  ;;   "Cleanup function for Delta diff."
+  ;;   (when context
+  ;;     (let ((diff-buffer (plist-get context :diff-buffer)))
+  ;;       (when (and diff-buffer (buffer-live-p diff-buffer))
+  ;;         (kill-buffer diff-buffer)))))
+
+  ;; 
+  ;; ;; Set Delta as the diff tool with proper cleanup
+  ;; (setq monet-diff-tool #'mr-x/monet-delta-diff)
+  ;; (setq monet-diff-cleanup-tool #'mr-x/monet-delta-diff-cleanup)
+  )
+
+
+
+
 (use-package claude-code
   :ensure (:host github :repo "stevemolitor/claude-code.el")
   :after general
@@ -1251,6 +1326,8 @@
   :bind
   (:repeat-map my-claude-code-repeat-map 
                ("M" . claude-code-cycle-mode)))
+
+(add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
 
 (use-package ledger-mode
   :ensure t
