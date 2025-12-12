@@ -31,6 +31,7 @@
   - [[#ai-overlord][AI Overlord]]
 - [[#nothing-personal][Nothing Personal]]
   - [[#ledger][Ledger]]
+  - [[#i-do-da-digital-dash][I Do Da Digital Dash]]
 
 * Setup
 
@@ -107,7 +108,7 @@
 
 
       (use-package org
-        :ensure t
+        :ensure nil
         :demand t
   	:hook (org-mode . mr-x/org-mode-setup)
   	:config
@@ -1567,4 +1568,10 @@
 	  (with-demoted-errors (ledger-mode-clean-buffer))
 	  (save-buffer)))))
 
+#+end_src
+
+** I Do Da Digital Dash 
+#+begin_src emacs-lisp
+  (use-package page-break-lines
+    :ensure t)
 #+end_src
