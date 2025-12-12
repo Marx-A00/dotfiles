@@ -44,27 +44,25 @@
   (elpaca-use-package-mode))
 
 ;; Load org early to avoid version conflicts
-;; (elpaca org :wait t)
+(elpaca org)
+(elpaca-wait)
 
-;; FIXME: Org mode version mismatch fix (currently commented out for testing)
-;; Uncomment if .org files open in fundamental-mode instead of org-mode
-;;
-;; ;; Ensure .org files always open in org-mode (fixes version mismatch issues)
-;; (add-to-list 'auto-mode-alist '("\\.org\\'" . org-mode))
-;; 
-;; ;; Function to fix any .org files stuck in fundamental-mode
-;; (defun mr-x/fix-org-mode-buffers ()
-;;   "Fix any .org files that opened in fundamental-mode"
-;;   (interactive)
-;;   (dolist (buffer (buffer-list))
-;;     (when (and (buffer-file-name buffer)
-;;                (string-match "\\.org$" (buffer-file-name buffer))
-;;                (not (eq (with-current-buffer buffer major-mode) 'org-mode)))
-;;       (with-current-buffer buffer
-;;         (org-mode)))))
+;; Ensure .org files always open in org-mode (fixes version mismatch issues)
+(add-to-list 'auto-mode-alist '("\\.org\\'" . org-mode))
+
+;; Function to fix any .org files stuck in fundamental-mode
+(defun mr-x/fix-org-mode-buffers ()
+  "Fix any .org files that opened in fundamental-mode"
+  (interactive)
+  (dolist (buffer (buffer-list))
+    (when (and (buffer-file-name buffer)
+               (string-match "\\.org$" (buffer-file-name buffer))
+               (not (eq (with-current-buffer buffer major-mode) 'org-mode)))
+      (with-current-buffer buffer
+        (org-mode)))))
 
 (use-package org
-      :ensure t
+      :ensure nil
       :demand t
 	:hook (org-mode . mr-x/org-mode-setup)
 	:config
@@ -571,7 +569,8 @@
 (use-package exec-path-from-shell
   :ensure t
   :config
-  (when (memq window-system '(mac ns x))
+  ;; Run on macOS or when running as daemon (window-system is nil in daemon)
+  (when (or (daemonp) (memq window-system '(mac ns x)))
     (exec-path-from-shell-initialize)))
 
 (use-package no-littering
@@ -1202,6 +1201,17 @@
 
 (electric-indent-mode -1)
 
+;; Flycheck for syntax checking
+(use-package flycheck
+  :ensure t
+  :hook ((emacs-lisp-mode . flycheck-mode)
+         (emacs-lisp-mode . (lambda ()
+                              ;; Disable checkdoc nagging about docstrings
+                              (setq-local flycheck-disabled-checkers '(emacs-lisp-checkdoc)))))
+  :config
+  (setq flycheck-indication-mode 'right-fringe)
+  (setq flycheck-emacs-lisp-load-path 'inherit))
+
 ;; Modern TypeScript setup with tree-sitter and LSP
 
 ;; Use built-in tree-sitter modes for TypeScript/TSX (Emacs 29+)
@@ -1343,3 +1353,6 @@
 	(when (buffer-modified-p)
 	  (with-demoted-errors (ledger-mode-clean-buffer))
 	  (save-buffer)))))
+
+(use-package page-break-lines
+  :ensure t)
