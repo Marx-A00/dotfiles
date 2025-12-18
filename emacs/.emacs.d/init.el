@@ -1114,6 +1114,13 @@
 (use-package simple-httpd
   :ensure t)
 
+(use-package pdf-tools
+  :ensure t
+  :mode ("\\.pdf\\'" . pdf-view-mode)
+  :config
+  (pdf-tools-install)
+  (evil-define-key 'normal pdf-view-mode-map (kbd "SPC") nil))  ;; compiles the epdfinfo server
+
 ;; Automatically install and use tree-sitter grammars
 (use-package treesit-auto
   :ensure t
@@ -1277,6 +1284,11 @@
   (add-to-list 'lsp-tailwindcss-major-modes 'tsx-ts-mode)
   (add-to-list 'lsp-tailwindcss-major-modes 'typescript-ts-mode))
 
+(use-package markdown-mode
+  :mode ("\\.md\\'" . markdown-mode)
+  :config
+  (setq markdown-command "pandoc -t html5"))
+
 (use-package monet
   :ensure (:host github :repo "https://github.com/stevemolitor/monet")
   :config
@@ -1338,6 +1350,23 @@
                ("M" . claude-code-cycle-mode)))
 
 (add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
+
+;; Adjust frame transparency when Claude buffer is visible
+(defun mr-x/adjust-frame-alpha-for-claude ()
+  "Make frame opaque when Claude buffer is visible, transparent otherwise."
+  (let ((claude-visible nil))
+    ;; Check all windows in the current frame
+    (walk-windows
+     (lambda (win)
+       (when (string-match-p "\\*claude" (buffer-name (window-buffer win)))
+         (setq claude-visible t)))
+     nil 'visible)
+    ;; Set alpha based on whether Claude is showing
+    (if claude-visible
+        (set-frame-parameter nil 'alpha '(100 100))   ;; opaque when Claude visible
+      (set-frame-parameter nil 'alpha '(80 50)))))    ;; transparent otherwise
+
+(add-hook 'window-configuration-change-hook #'mr-x/adjust-frame-alpha-for-claude)
 
 (use-package ledger-mode
   :ensure t
