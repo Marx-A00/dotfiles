@@ -670,78 +670,77 @@
 #+begin_src emacs-lisp
 
 
-    (use-package vterm
-      :ensure t
-      :config
-      ;; Prevent evil-collection from messing with vterm keys
-      (with-eval-after-load 'evil-collection
-        (setq evil-collection-vterm-bind-escape-in-insert nil)
-        (delete 'vterm evil-collection-mode-list)))
+  (use-package vterm
+    :ensure t
+    :config
+    ;; Prevent evil-collection from messing with vterm keys
+    (with-eval-after-load 'evil-collection
+      (setq evil-collection-vterm-bind-escape-in-insert nil)
+      (delete 'vterm evil-collection-mode-list)))
 
-    (use-package multi-vterm
-      :ensure t
-      :after (evil vterm)
-      :config
-      ;; Set dedicated terminal height
-      (setq multi-vterm-dedicated-window-height-percent 40)
+  (use-package multi-vterm
+    :ensure t
+    :after (evil vterm)
+    :config
+    ;; Set dedicated terminal height
+    (setq multi-vterm-dedicated-window-height-percent 40)
+    
+    ;; Setup vterm with evil properly
+    (add-hook 'vterm-mode-hook
+              (lambda ()
+                (setq-local evil-insert-state-cursor 'box)
+                (evil-insert-state)))
+    
+    ;; Basic vterm configuration
+    (setq vterm-keymap-exceptions nil)
+    
+    ;; Define keys after vterm-mode-map exists
+    (with-eval-after-load 'vterm
+      (define-key vterm-mode-map [return] #'vterm-send-return)
       
-      ;; Setup vterm with evil properly
-      (add-hook 'vterm-mode-hook
-                (lambda ()
-                  (setq-local evil-insert-state-cursor 'box)
-                  (evil-insert-state)))
+      ;; Pass through common terminal keys in insert mode
+      (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
       
-      ;; Basic vterm configuration
-      (setq vterm-keymap-exceptions nil)
-      
-      ;; Define keys after vterm-mode-map exists
-      (with-eval-after-load 'vterm
-        (define-key vterm-mode-map [return] #'vterm-send-return)
-        
-        ;; Pass through common terminal keys in insert mode
-        (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
-        (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
-        
-        ;; Normal mode keys
-        (evil-define-key 'normal vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-        (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
-        (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
-        (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
-        (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
-        (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
-        (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)))
+      ;; Normal mode keys
+      (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
+      (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
+      (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
+      (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
+      (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
+      (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)))
+ 
+
+    ;; Optional: set the shell explicitly if needed
+    ;; (setq vterm-shell "/bin/zsh")
 
 
-      ;; Optional: set the shell explicitly if needed
-      ;; (setq vterm-shell "/bin/zsh")
+  ;; (use-package multi-vterm
+  ;; 	 :config
+  ;; 	 (add-hook 'vterm-mode-hook
+  ;; 			 (lambda ()
+  ;; 			 (setq-local evil-insert-state-cursor 'box)
+  ;; 			 (evil-insert-state)))
 
+  ;; 	 (define-key vterm-mode-map [return]                      #'vterm-send-return)
 
-    ;; (use-package multi-vterm
-    ;; 	 :config
-    ;; 	 (add-hook 'vterm-mode-hook
-    ;; 			 (lambda ()
-    ;; 			 (setq-local evil-insert-state-cursor 'box)
-    ;; 			 (evil-insert-state)))
-
-    ;; 	 (define-key vterm-mode-map [return]                      #'vterm-send-return)
-
-    ;; 	 (setq vterm-keymap-exceptions nil))
+  ;; 	 (setq vterm-keymap-exceptions nil))
 
 
 
@@ -889,11 +888,11 @@
     :ensure t
     :config
     (setq shackle-rules
-          '(;; Claude Code windows
-            ("\\*claude:.*\\*"
+          '(;; Agent Shell windows (side panel like an IDE)
+            (".*Agent @.*"
              :regexp t
              :align left
-             :size 0.46
+             :size 0.30
              :select t
              :popup t)
             ;; Help windows
@@ -918,6 +917,7 @@
              :size 0.4
              :select t)))
     (shackle-mode 1))
+
 
   ;; Popper for popup buffer management
   (use-package popper
@@ -1021,27 +1021,31 @@
       "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle"))
 
     (mr-x/leader-def
-      "c" '(:ignore t :wk "Claude Code")
-      "c c" '(claude-code :wk "Start Claude")
-      "c m" '(claude-code-transient :wk "Claude menu (transient)")
-      "c s" '(claude-code-send-command :wk "Send command")
-      "c r" '(claude-code-send-region :wk "Send region/buffer")
-      "c t" '(claude-code-toggle :wk "Toggle Claude window")
-      "c b" '(claude-code-switch-to-buffer :wk "Switch to Claude buffer")
-      "c k" '(claude-code-kill :wk "Kill Claude")
-      "c d" '(claude-code-start-in-directory :wk "Start in directory")
-      "c x" '(claude-code-send-command-with-context :wk "Send with context")
-      "c e" '(claude-code-fix-error-at-point :wk "Fix error at point")
-      "c o" '(claude-code-send-buffer-file :wk "Send buffer file")
-      "c f" '(claude-code-fork :wk "Fork conversation")
-      "c /" '(claude-code-slash-commands :wk "Slash commands")
-      "c z" '(claude-code-toggle-read-only-mode :wk "Toggle read-only")
-      "c M" '(claude-code-cycle-mode :wk "Cycle mode")
-      "c y" '(claude-code-send-return :wk "Send return/yes")
-      "c n" '(claude-code-send-escape :wk "Send escape/no")
-      "c 1" '(claude-code-send-1 :wk "Send '1'")
-      "c 2" '(claude-code-send-2 :wk "Send '2'")
-      "c 3" '(claude-code-send-3 :wk "Send '3'"))
+      "c" '(:ignore t :wk "Agent Shell")
+      "c c" '(agent-shell :wk "Start Agent Shell")
+      "c n" '(agent-shell-new-shell :wk "New shell")
+      "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
+      "c p" '(agent-shell-prompt-compose :wk "Compose prompt")
+      "c r" '(agent-shell-send-region :wk "Send region")
+      "c f" '(agent-shell-send-file :wk "Send file")
+      "c F" '(agent-shell-send-other-file :wk "Send other file")
+      "c d" '(agent-shell-send-dwim :wk "Send DWIM (region/error)")
+      "c s" '(agent-shell-send-screenshot :wk "Send screenshot")
+      "c i" '(agent-shell-interrupt :wk "Interrupt")
+      "c o" '(agent-shell-other-buffer :wk "Other buffer (viewport/shell)")
+      "c m" '(agent-shell-set-session-mode :wk "Set mode")
+      "c M" '(agent-shell-cycle-session-mode :wk "Cycle mode")
+      "c ." '(agent-shell-set-session-model :wk "Set model")
+      "c T" '(agent-shell-open-transcript :wk "Open transcript")
+      "c q" '(agent-shell-queue-request :wk "Queue request")
+      "c l" '(:ignore t :wk "Logs")
+      "c l l" '(agent-shell-toggle-logging :wk "Toggle logging")
+      "c l v" '(agent-shell-view-traffic :wk "View traffic")
+      "c l a" '(agent-shell-view-acp-logs :wk "View ACP logs")
+      "c l r" '(agent-shell-reset-logs :wk "Reset logs"))
+
+
+
 
     (mr-x/leader-def
       "g" '(:ignore t :wk "git")
@@ -1304,6 +1308,10 @@
 
 ** I Want To Be A Reader
 #+begin_src emacs-lisp
+  ;; Remember last position in files (like a real bookmark)
+  (save-place-mode 1)
+
+
   (use-package pdf-tools
     :ensure t
     :mode ("\\.pdf\\'" . pdf-view-mode)
@@ -1311,10 +1319,51 @@
     (pdf-tools-install)
     (evil-define-key 'normal pdf-view-mode-map (kbd "SPC") nil))  ;; compiles the epdfinfo server
 
+  ;; Extend save-place to remember PDF page positions
+  (use-package saveplace-pdf-view
+    :ensure t
+    :after pdf-tools)
+
+  (use-package org-noter
+    :ensure (:host github :repo "org-noter/org-noter")
+    :after pdf-tools)
+
+
 
 #+end_src
 
 ** Languages
+
+*** Markdown
+#+begin_src emacs-lisp
+  (use-package markdown-mode
+    :ensure t
+    :mode ("\\.md\\'" . markdown-mode))
+
+  (use-package markdown-xwidget
+    :ensure (:host github
+             :repo "cfclrk/markdown-xwidget"
+             :files (:defaults "resources"))
+    :after markdown-mode
+    :bind (:map markdown-mode-map
+           ("C-c C-c x" . markdown-xwidget-preview-mode))
+    :custom
+    (markdown-xwidget-github-theme "dark")
+    (markdown-xwidget-code-block-theme "gruvbox-dark-medium")
+    :config
+    ;; Add custom CSS for larger text after preview mode enables
+    (defvar mr-x/markdown-custom-css
+      (expand-file-name "etc/markdown-custom.css" user-emacs-directory))
+    (advice-add 'markdown-xwidget-preview-mode--enable :after
+                (lambda ()
+                  (add-to-list 'markdown-css-paths mr-x/markdown-custom-css t))))
+
+
+
+
+
+
+#+end_src
 
 *** Tree-sitter Auto
 #+begin_src emacs-lisp
@@ -1496,13 +1545,6 @@
 
 #+end_src
 
-*** Markdown
-#+begin_src emacs-lisp
-  (use-package markdown-mode
-    :mode ("\\.md\\'" . markdown-mode)
-    :config
-    (setq markdown-command "pandoc -t html5"))
-#+end_src
 
 ** AI Overlord
 #+begin_src emacs-lisp
@@ -1539,14 +1581,58 @@
     ;;       (when (and diff-buffer (buffer-live-p diff-buffer))
     ;;         (kill-buffer diff-buffer)))))
 
-    ;; 
+    ;;
     ;; ;; Set Delta as the diff tool with proper cleanup
     ;; (setq monet-diff-tool #'mr-x/monet-delta-diff)
     ;; (setq monet-diff-cleanup-tool #'mr-x/monet-delta-diff-cleanup)
     )
 
+  ;;; Agent Shell - Native Emacs buffer for Claude Code
+  ;; ACP (Agent Client Protocol) implementation for Emacs
+  (use-package acp
+    :ensure (:host github :repo "xenodium/acp.el"))
 
+  ;; Shell infrastructure for agent-shell
+  (use-package shell-maker
+    :ensure t)
 
+  ;; Agent Shell itself
+  (use-package agent-shell
+    :ensure (:host github :repo "xenodium/agent-shell")
+    :after (acp shell-maker)
+    :config
+    ;; Enable syntax highlighting in code blocks
+    (setq agent-shell-highlight-blocks t)
+    ;; Use existing Claude CLI login
+    (setq agent-shell-anthropic-authentication
+          (agent-shell-anthropic-make-authentication :login t))
+    ;; Inherit environment (gets PATH, ANTHROPIC_API_KEY, etc.)
+    (setq agent-shell-anthropic-claude-environment
+          (agent-shell-make-environment-variables :inherit-env t))
+
+    ;; Fix agent-shell-toggle to find project shells when not in a shell buffer
+    ;; Upstream bug: agent-shell-toggle uses agent-shell--current-shell which
+    ;; only works when already in a shell/viewport buffer
+    (defun mr-x/agent-shell-toggle ()
+      "Toggle agent shell display (fixed to find project shells)."
+      (interactive)
+      (let ((shell-buffer (cond
+                           (agent-shell-prefer-viewport-interaction
+                            (agent-shell-viewport--buffer))
+                           ((derived-mode-p 'agent-shell-mode)
+                            (current-buffer))
+                           ((or (derived-mode-p 'agent-shell-viewport-view-mode)
+                                (derived-mode-p 'agent-shell-viewport-edit-mode))
+                            (agent-shell--current-shell))
+                           (t (seq-first (agent-shell-project-buffers))))))
+        (unless shell-buffer
+          (user-error "No agent shell buffers available for current project"))
+        (if-let ((window (get-buffer-window shell-buffer)))
+            (if (and (> (count-windows) 1)
+                     (not (bound-and-true-p transient--prefix)))
+                (delete-window window)
+              (switch-to-prev-buffer))
+          (agent-shell--display-buffer shell-buffer)))))
 
   (use-package claude-code
     :ensure (:host github :repo "stevemolitor/claude-code.el")
@@ -1569,22 +1655,28 @@
 
   (add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
 
-  ;; Adjust frame transparency when Claude buffer is visible
-  (defun mr-x/adjust-frame-alpha-for-claude ()
-    "Make frame opaque when Claude buffer is visible, transparent otherwise."
-    (let ((claude-visible nil))
+  ;; Adjust frame transparency for focused reading/viewing
+  (defun mr-x/adjust-frame-alpha-for-focus ()
+    "Make frame opaque when viewing focused content (Claude, PDF, markdown preview), transparent otherwise."
+    (let ((should-be-opaque nil))
       ;; Check all windows in the current frame
       (walk-windows
        (lambda (win)
-         (when (string-match-p "\\*claude" (buffer-name (window-buffer win)))
-           (setq claude-visible t)))
+         (let ((buf (window-buffer win)))
+           (when (or (string-match-p "\\*claude" (buffer-name buf))
+                     (with-current-buffer buf (eq major-mode 'pdf-view-mode))
+                     (with-current-buffer buf (eq major-mode 'xwidget-webkit-mode)))
+             (setq should-be-opaque t))))
        nil 'visible)
-      ;; Set alpha based on whether Claude is showing
-      (if claude-visible
-          (set-frame-parameter nil 'alpha '(100 100))   ;; opaque when Claude visible
+      ;; Set alpha based on whether Claude or book is showing
+      (if should-be-opaque
+          (set-frame-parameter nil 'alpha '(100 100))   ;; opaque when reading
         (set-frame-parameter nil 'alpha '(80 50)))))    ;; transparent otherwise
 
-  (add-hook 'window-configuration-change-hook #'mr-x/adjust-frame-alpha-for-claude)
+  (add-hook 'window-configuration-change-hook #'mr-x/adjust-frame-alpha-for-focus)
+
+
+
 
 
 
