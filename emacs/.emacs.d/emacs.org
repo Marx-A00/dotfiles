@@ -682,6 +682,8 @@
     :ensure t
     :after (evil vterm)
     :config
+    ;; Set buffer name prefix to "vterm"
+    (setq multi-vterm-buffer-name "vterm")
     ;; Set dedicated terminal height
     (setq multi-vterm-dedicated-window-height-percent 40)
     
@@ -725,6 +727,8 @@
       (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
       (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
       (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)))
+
+
  
 
     ;; Optional: set the shell explicitly if needed
@@ -883,42 +887,6 @@
   (use-package highlight
     :ensure t)
 
-  ;; Shackle for window management
-  (use-package shackle
-    :ensure t
-    :config
-    (setq shackle-rules
-          '(;; Agent Shell windows (side panel like an IDE)
-            (".*Agent @.*"
-             :regexp t
-             :align left
-             :size 0.30
-             :select t
-             :popup t)
-            ;; Help windows
-            ("\\*Help\\*"
-             :align below
-             :size 0.3
-             :select t)
-            ;; Compilation
-            ("\\*compilation\\*"
-             :align below
-             :size 0.3
-             :select nil)
-            ;; Magit
-            (magit-status-mode
-             :align below
-             :size 0.5
-             :select t)
-            ;; vterm
-            ("\\*vterm.*\\*"
-             :regexp t
-             :align below
-             :size 0.4
-             :select t)))
-    (shackle-mode 1))
-
-
   ;; Popper for popup buffer management
   (use-package popper
     :ensure t
@@ -934,18 +902,19 @@
             "\\*evil-registers\\*"
             "\\*Apropos\\*"
             "\\*scratch\\*"
+            "\\*Help\\*"
             "\\*helpful.*\\*"
-            ("\\*vterm.*\\*" . hide)  ;; vterm buffers are popups and auto-hide
+            "\\*vterm.*\\*"
+            "\\*compilation\\*"
             help-mode
             helpful-mode
-            compilation-mode))
+            compilation-mode
+            vterm-mode))
     :config
-    ;; Match vterm buffers by name
-    (setq popper-display-control t)  ;; Let popper control popup placement
-    ;; Default display at bottom with 40% height
+    (setq popper-display-control t)
     (setq popper-display-function #'popper-select-popup-at-bottom)
     (popper-mode +1)
-    (popper-echo-mode +1))  ;; Show popup names in echo area
+    (popper-echo-mode +1))
 #+end_src
 *** Scratch Buffer Setup
 #+begin_src emacs-lisp
@@ -1025,6 +994,10 @@
       "c c" '(agent-shell :wk "Start Agent Shell")
       "c n" '(agent-shell-new-shell :wk "New shell")
       "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
+      "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
+      "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
+      "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
+      "c j" '(agent-shell-attention-jump :wk "Jump to pending")
       "c p" '(agent-shell-prompt-compose :wk "Compose prompt")
       "c r" '(agent-shell-send-region :wk "Send region")
       "c f" '(agent-shell-send-file :wk "Send file")
@@ -1058,6 +1031,11 @@
       "g p" '(magit-push-current :wk "push current")
       "g P" '(magit-pull-branch :wk "pull branch")
       "g f" '(magit-fetch :wk "fetch"))
+
+    ;; Bind after agent-shell loads
+    (with-eval-after-load 'agent-shell
+      (mr-x/leader-def
+        "g m" '(mr-x/ai-commit-message :wk "AI commit message")))
 
     (mr-x/leader-def
       "x" '(:keymap perspective-map :wk "perspective"))
@@ -1255,7 +1233,13 @@
     :ensure t
     :commands (magit-status magit-get-current-branch)
     :custom
-    (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+    (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1)
+    :config
+    ;; Fix "Unknown terminal type" error when committing
+    (setenv "TERM" "dumb")
+    ;; Use with-editor for commit messages (Magit's built-in handling)
+    (require 'with-editor))
+
 
 #+end_src
 
@@ -1600,9 +1584,54 @@
   (use-package agent-shell
     :ensure (:host github :repo "xenodium/agent-shell")
     :after (acp shell-maker)
+    :hook ((agent-shell-mode . orgtbl-mode)  ;; Auto-align org tables
+           (agent-shell-mode . (lambda () (corfu-mode -1))))  ;; Disable corfu (no backend)
     :config
     ;; Enable syntax highlighting in code blocks
     (setq agent-shell-highlight-blocks t)
+    ;; Custom icons
+    (setq agent-shell-permission-icon "\uf259")
+    (setq agent-shell-thought-process-icon "\uf29d")
+
+    ;; Fix keybindings in agent-shell diff view (evil-mode conflicts)
+    ;; The diff view uses buttons - we need to make sure evil doesn't intercept keys
+    (defun mr-x/agent-shell-diff-mode-setup ()
+      "Setup keybindings for agent-shell diff buffers."
+      (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name))
+        ;; Use emacs state so all the button keys (y/n/a/p) work properly
+        (evil-emacs-state)
+        ;; Also set up keys in normal mode as backup
+        (evil-local-set-key 'normal (kbd "C-n") #'diff-hunk-next)
+        (evil-local-set-key 'normal (kbd "C-p") #'diff-hunk-prev)
+        (evil-local-set-key 'normal (kbd "j") #'diff-hunk-next)
+        (evil-local-set-key 'normal (kbd "k") #'diff-hunk-prev)
+        (evil-local-set-key 'normal (kbd "q") #'kill-current-buffer)
+        (evil-local-set-key 'normal (kbd "RET") #'push-button)
+        (evil-local-set-key 'normal (kbd "TAB") #'forward-button)
+        (evil-local-set-key 'normal (kbd "<backtab>") #'backward-button)))
+    (add-hook 'diff-mode-hook #'mr-x/agent-shell-diff-mode-setup)
+
+    (defun mr-x/focus-ai-window ()
+      "Focus the agent-shell window if visible, otherwise show a message."
+      (interactive)
+      (let ((ai-window nil))
+        (walk-windows
+         (lambda (w)
+           (when (and (not ai-window)
+                      (eq (buffer-local-value 'major-mode (window-buffer w))
+                          'agent-shell-mode))
+             (setq ai-window w))))
+        (if ai-window
+            (select-window ai-window)
+          (mr-x/agent-shell-toggle))))
+
+
+    ;; Auto-close diff buffer when permission is accepted/rejected
+    (advice-add 'agent-shell--send-permission-response :after
+                (lambda (&rest _)
+                  (dolist (buf (buffer-list))
+                    (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name buf))
+                      (kill-buffer buf)))))
     ;; Use existing Claude CLI login
     (setq agent-shell-anthropic-authentication
           (agent-shell-anthropic-make-authentication :login t))
@@ -1610,50 +1639,100 @@
     (setq agent-shell-anthropic-claude-environment
           (agent-shell-make-environment-variables :inherit-env t))
 
-    ;; Fix agent-shell-toggle to find project shells when not in a shell buffer
-    ;; Upstream bug: agent-shell-toggle uses agent-shell--current-shell which
-    ;; only works when already in a shell/viewport buffer
-    (defun mr-x/agent-shell-toggle ()
-      "Toggle agent shell display (fixed to find project shells)."
-      (interactive)
-      (let ((shell-buffer (cond
-                           (agent-shell-prefer-viewport-interaction
-                            (agent-shell-viewport--buffer))
-                           ((derived-mode-p 'agent-shell-mode)
-                            (current-buffer))
-                           ((or (derived-mode-p 'agent-shell-viewport-view-mode)
-                                (derived-mode-p 'agent-shell-viewport-edit-mode))
-                            (agent-shell--current-shell))
-                           (t (seq-first (agent-shell-project-buffers))))))
-        (unless shell-buffer
-          (user-error "No agent shell buffers available for current project"))
-        (if-let ((window (get-buffer-window shell-buffer)))
-            (if (and (> (count-windows) 1)
-                     (not (bound-and-true-p transient--prefix)))
-                (delete-window window)
-              (switch-to-prev-buffer))
-          (agent-shell--display-buffer shell-buffer)))))
+    ;; Custom prompt config
+    (setq agent-shell-preferred-agent-config
+          (agent-shell-make-agent-config
+           :mode-line-name "Claude"
+           :buffer-name "Claude"
+           :shell-prompt "λ "
+           :shell-prompt-regexp "λ "
+           :icon-name "anthropic.png"
+           :welcome-function #'agent-shell-anthropic--claude-code-welcome-message
+           :client-maker (lambda (buffer)
+                           (agent-shell-anthropic-make-claude-client :buffer buffer))
+           :default-model-id (lambda () agent-shell-anthropic-default-model-id))))
 
-  (use-package claude-code
-    :ensure (:host github :repo "stevemolitor/claude-code.el")
-    :after general
+
+  ;; Agent Shell Sidebar - Project-isolated sidebar for agent-shell
+  (use-package agent-shell-sidebar
+    :ensure (:host github :repo "cmacrae/agent-shell-sidebar")
+    :after agent-shell
     :config
-    ;; Use vterm as the terminal backend (since you already have it)
-    (setq claude-code-terminal-backend 'vterm)
-    
-    ;; Enable claude-code-mode
-    (claude-code-mode 1)
-    
-    ;; Key binding for the command map - using a different prefix since you use C-c c for org-capture
-    :bind-keymap
-    ("C-c C-l" . claude-code-command-map)  ; or choose your preferred prefix
-    
-    ;; Optional: Set up repeat map for mode cycling
-    :bind
-    (:repeat-map my-claude-code-repeat-map 
-                 ("M" . claude-code-cycle-mode)))
+    ;; Use the same config as agent-shell-preferred-agent-config
+    (setq agent-shell-sidebar-default-config agent-shell-preferred-agent-config)
+    ;; Position sidebar on the left (options: left, right)
+    (setq agent-shell-sidebar-side 'left)
+    (setq agent-shell-sidebar-locked nil)
+    ;; Width as percentage of frame
+    (setq agent-shell-sidebar-width "5%"))
 
-  (add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
+
+  ;; Agent Shell Attention - Mode-line indicator for pending agent buffers
+  (use-package agent-shell-attention
+    :ensure (:host github :repo "ultronozm/agent-shell-attention.el")
+    :after agent-shell
+    :config
+    ;; Define a custom face for the indicator
+    (defface agent-shell-attention-face
+      '((t :foreground "#fb4934" :weight bold))  ;; gruvbox red
+      "Face for agent-shell-attention mode-line indicator.")
+
+    ;; Override the render function to use our face
+    (defun mr-x/agent-shell-attention-render (pending _active)
+      "Render with custom face. PENDING is count, _ACTIVE ignored."
+      (when (or agent-shell-attention-show-zeros (not (zerop pending)))
+        (propertize (format agent-shell-attention-lighter pending)
+                    'face 'agent-shell-attention-face
+                    'mouse-face 'mode-line-highlight
+                    'local-map agent-shell-attention--mode-line-map)))
+
+    (setq agent-shell-attention-render-function #'mr-x/agent-shell-attention-render)
+
+    ;; macOS notifications via AppleScript
+    (defun mr-x/agent-shell-notify (_buffer title body)
+      "Send macOS notification via AppleScript."
+      (start-process "notify" nil "osascript"
+                     "-e" (format "display notification %S with title %S"
+                                  body title)))
+
+    (setq agent-shell-attention-notify-function #'mr-x/agent-shell-notify)
+    (agent-shell-attention-mode 1))
+
+
+  ;; Agent Shell Manager - Dashboard for managing multiple agent sessions
+  (use-package agent-shell-manager
+    :ensure (:host github :repo "jethrokuan/agent-shell-manager")
+    :after agent-shell
+    :config
+    ;; Position manager window (options: left, right, top, bottom, nil for no auto-display)
+    (setq agent-shell-manager-window-side 'bottom))
+
+
+
+  ;; (use-package claude-code
+  ;;   :ensure (:host github :repo "stevemolitor/claude-code.el")
+  ;;   :after general
+  ;;   :config
+  ;;   ;; Use vterm as the terminal backend (since you already have it)
+  ;;   (setq claude-code-terminal-backend 'vterm)
+    
+  ;;   ;; Enable claude-code-mode
+  ;;   (claude-code-mode 1)
+    
+  ;;   ;; Key binding for the command map - using a different prefix since you use C-c c for org-capture
+  ;;   :bind-keymap
+  ;;   ("C-c C-l" . claude-code-command-map)  ; or choose your preferred prefix
+    
+  ;;   ;; Optional: Set up repeat map for mode cycling
+  ;;   :bind
+  ;;   (:repeat-map my-claude-code-repeat-map 
+  ;;                ("M" . claude-code-cycle-mode)))
+
+  ;; (add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
+
+
+
+
 
   ;; Adjust frame transparency for focused reading/viewing
   (defun mr-x/adjust-frame-alpha-for-focus ()
@@ -1674,9 +1753,6 @@
         (set-frame-parameter nil 'alpha '(80 50)))))    ;; transparent otherwise
 
   (add-hook 'window-configuration-change-hook #'mr-x/adjust-frame-alpha-for-focus)
-
-
-
 
 
 
@@ -1708,3 +1784,6 @@
   (use-package page-break-lines
     :ensure t)
 #+end_src
+
+;; test edit - delete me after testing diff view keybindings
+
