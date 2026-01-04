@@ -1273,6 +1273,7 @@
 
 * Development
 ** Magit
+;; test commit - delete me
 #+begin_src emacs-lisp
 
   ;; with-editor must be configured BEFORE magit loads
