@@ -17,3 +17,6 @@ emacs/.emacs.d/docs/
 sketchybar/sketchybar-app-font/
 ebak/
 sketchybar/plugins/weather.env.sh
+.agent-shell/
+random.org
+docs/

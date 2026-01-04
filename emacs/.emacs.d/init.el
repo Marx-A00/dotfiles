@@ -584,6 +584,9 @@
   :ensure t
   :config
   ;; Prevent evil-collection from messing with vterm keys
+
+
+  (setq vterm-scroll-to-bottom-on-output nil)
   (with-eval-after-load 'evil-collection
     (setq evil-collection-vterm-bind-escape-in-insert nil)
     (delete 'vterm evil-collection-mode-list)))
@@ -778,10 +781,12 @@
 ;; Popper for popup buffer management
 (use-package popper
   :ensure t
-  :bind (("C-`"   . popper-toggle)
-         ("M-`"   . popper-cycle)
-         ("C-M-`" . popper-toggle-type))
+  :bind (("C-`"     . popper-toggle)
+         ("C-<tab>" . popper-cycle)
+         ("C-M-`"   . popper-toggle-type))
   :init
+  ;; Group popups by perspective
+  (setq popper-group-function #'popper-group-by-perspective)
   (setq popper-reference-buffers
         '("\\*Messages\\*"
           "\\*Warnings\\*"
@@ -866,7 +871,8 @@
       "v v" '(multi-vterm :wk "multi-vterm")
       "v n" '(multi-vterm-next :wk "multi-vterm-next")
       "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
-      "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle"))
+      "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
+      "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame"))
 
     (mr-x/leader-def
       "c" '(:ignore t :wk "Agent Shell")
@@ -877,7 +883,11 @@
       "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
       "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
       "c j" '(agent-shell-attention-jump :wk "Jump to pending")
-      "c p" '(agent-shell-prompt-compose :wk "Compose prompt")
+      "c p" '(:ignore t :wk "Prompts")
+      "c p p" '(agent-shell-prompt-compose :wk "Compose prompt")
+      "c p t" '(:ignore t :wk "Taskmaster")
+      "c p t n" '(mr-x/taskmaster-next-task :wk "Next task")
+      "c p t s" '(mr-x/taskmaster-summary :wk "Summary")
       "c r" '(agent-shell-send-region :wk "Send region")
       "c f" '(agent-shell-send-file :wk "Send file")
       "c F" '(agent-shell-send-other-file :wk "Send other file")
@@ -894,9 +904,11 @@
       "c l l" '(agent-shell-toggle-logging :wk "Toggle logging")
       "c l v" '(agent-shell-view-traffic :wk "View traffic")
       "c l a" '(agent-shell-view-acp-logs :wk "View ACP logs")
-      "c l r" '(agent-shell-reset-logs :wk "Reset logs"))
-
-
+      "c l r" '(agent-shell-reset-logs :wk "Reset logs")
+      "c 1" '(mr-x/agent-shell-allow :wk "Allow")
+      "c 2" '(mr-x/agent-shell-deny :wk "Deny")
+      "c 3" '(mr-x/agent-shell-allow-always :wk "Allow always")
+      "c 0" '(mr-x/agent-shell-view-diff :wk "View diff"))
 
 
     (mr-x/leader-def
@@ -931,6 +943,34 @@
     (org-agenda nil "c"))
 
 (winner-mode 1)
+
+(defun my/check-scratch-buffers-before-quit ()
+  "Check if any scratch buffers have content and offer to save them."
+  (let ((scratch-buffers (seq-filter
+                          (lambda (buf)
+                            (and (string-match-p "\\*scratch\\*" (buffer-name buf))
+                                 (with-current-buffer buf
+                                   (> (buffer-size) 0)
+                                   ;; Check if it's not just the default message
+                                   (not (string-match-p "^;; This buffer is for"
+                                                        (buffer-string))))))
+                          (buffer-list))))
+    (if scratch-buffers
+        (let ((response (read-char-choice
+                         (format "You have %d non-empty scratch buffer(s). [s]ave, [d]iscard, [c]ancel quit? "
+                                 (length scratch-buffers))
+                         '(?s ?d ?c))))
+          (cond
+           ((eq response ?s)
+            (dolist (buf scratch-buffers)
+              (with-current-buffer buf
+                (write-file (read-file-name (format "Save %s to: " (buffer-name buf))))))
+            t)  ;; allow quit
+           ((eq response ?d) t)  ;; discard and quit
+           ((eq response ?c) nil)))  ;; cancel quit
+      t)))  ;; no scratch buffers, allow quit
+
+(add-hook 'kill-emacs-query-functions #'my/check-scratch-buffers-before-quit)
 
 (use-package helpful
   :ensure t
@@ -1056,19 +1096,45 @@
 (global-set-key (kbd "M-x") 'counsel-M-x)
 (global-set-key (kbd "C-x C-f") 'counsel-find-file)
 
+;; with-editor must be configured BEFORE magit loads
+(use-package with-editor
+  :ensure t
+  :hook ((shell-mode . with-editor-export-editor)
+         (eshell-mode . with-editor-export-editor)
+         (term-exec . with-editor-export-editor)
+         (vterm-mode . with-editor-export-editor))
+  :config
+  ;; Fix for daemon mode - explicitly set the emacsclient path
+  (setq with-editor-emacsclient-executable
+        "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"))
+
 (use-package magit
   :ensure t
+  :after with-editor
   :commands (magit-status magit-get-current-branch)
   :custom
   (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1)
+  :init
+  ;; Fix for daemon mode - set EDITOR globally so git uses emacsclient
+  (setenv "EDITOR" "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"))
+
+;; Syntax highlighting in Magit diffs via delta
+(use-package magit-delta
+  :ensure t
+  :hook (magit-mode . magit-delta-mode)
   :config
-  ;; Fix "Unknown terminal type" error when committing
-  (setenv "TERM" "dumb")
-  ;; Use with-editor for commit messages (Magit's built-in handling)
-  (require 'with-editor))
+  (setq magit-delta-delta-args '("--syntax-theme" "gruvbox-dark")))
 
 (setq ediff-split-window-function 'split-window-horizontally)
 (setq ediff-window-setup-function 'ediff-setup-windows-plain)
+
+;; diff-ansi for beautiful delta-powered diffs
+(use-package diff-ansi
+  :ensure (:host codeberg :repo "ideasman42/emacs-diff-ansi")
+  :config
+  (setq diff-ansi-tool 'delta)
+  ;; Optional: extra delta args for side-by-side
+  (setq diff-ansi-tool-delta-args '("--side-by-side" "--width" "180")))
 
 (use-package projectile
   :ensure t
@@ -1093,6 +1159,22 @@
   :after (projectile counsel)
   :config 
   (counsel-projectile-mode 1))
+
+;; dedicated vterm for project
+    (defun mr-x/spawn-project-terminal-frame ()
+    "Spawn a new frame with a vterm in the current project directory.
+  Use SPC c r from this frame to send regions to your agent-shell."
+
+    (interactive)
+    (let* ((project-root (or (projectile-project-root) default-directory))
+  	 (frame (make-frame `((name . ,(format "Terminal: %s"
+  					       (file-name-nondirectory
+						(directory-file-name project-root))))))))
+      (select-frame-set-input-focus frame)
+      (let ((default-directory project-root))
+
+	(multi-vterm))
+      (delete-other-windows)))
 
 (use-package ox-hugo
   :ensure t
@@ -1307,225 +1389,516 @@
   (add-to-list 'lsp-tailwindcss-major-modes 'typescript-ts-mode))
 
 (use-package monet
-  :ensure (:host github :repo "https://github.com/stevemolitor/monet")
-  :config
-  ;; Use ediff as the diff tool
-  (setq monet-diff-tool 'ediff)
-  
-  ;; Comment out Delta functions for now - will deal with later
-  ;; ;; Custom Delta-powered diff function for beautiful syntax highlighting
-  ;; (defun mr-x/monet-delta-diff (old-file-path new-file-path new-file-contents on-accept on-quit &optional session)
-  ;;   "Display diff using Delta for beautiful syntax highlighting."
-  ;;   ;; Write new content to the new file path
-  ;;   (with-temp-file new-file-path
-  ;;     (insert new-file-contents))
-  ;;   
-  ;;   ;; Just run the delta diff command and let Emacs handle the display
-  ;;   (let ((cmd (format "git diff --no-index %s %s | delta --paging=never"
-  ;;                      (shell-quote-argument old-file-path)
-  ;;                      (shell-quote-argument new-file-path))))
-  ;;     (async-shell-command cmd "*Monet Delta Diff*"))
-  ;;   
-  ;;   ;; Return simple context
-  ;;   (list :buffer-name "*Monet Delta Diff*"))
+    :ensure (:host github :repo "https://github.com/stevemolitor/monet")
+    :config
+    ;; Use ediff as the diff tool
+    (setq monet-diff-tool 'ediff)
+    
+    ;; Comment out Delta functions for now - will deal with later
+    ;; ;; Custom Delta-powered diff function for beautiful syntax highlighting
+    ;; (defun mr-x/monet-delta-diff (old-file-path new-file-path new-file-contents on-accept on-quit &optional session)
+    ;;   "Display diff using Delta for beautiful syntax highlighting."
+    ;;   ;; Write new content to the new file path
+    ;;   (with-temp-file new-file-path
+    ;;     (insert new-file-contents))
+    ;;   
+    ;;   ;; Just run the delta diff command and let Emacs handle the display
+    ;;   (let ((cmd (format "git diff --no-index %s %s | delta --paging=never"
+    ;;                      (shell-quote-argument old-file-path)
+    ;;                      (shell-quote-argument new-file-path))))
+    ;;     (async-shell-command cmd "*Monet Delta Diff*"))
+    ;;   
+    ;;   ;; Return simple context
+    ;;   (list :buffer-name "*Monet Delta Diff*"))
 
-  ;; 
-  ;; ;; Simple cleanup function
-  ;; (defun mr-x/monet-delta-diff-cleanup (context)
-  ;;   "Cleanup function for Delta diff."
-  ;;   (when context
-  ;;     (let ((diff-buffer (plist-get context :diff-buffer)))
-  ;;       (when (and diff-buffer (buffer-live-p diff-buffer))
-  ;;         (kill-buffer diff-buffer)))))
+    ;; 
+    ;; ;; Simple cleanup function
+    ;; (defun mr-x/monet-delta-diff-cleanup (context)
+    ;;   "Cleanup function for Delta diff."
+    ;;   (when context
+    ;;     (let ((diff-buffer (plist-get context :diff-buffer)))
+    ;;       (when (and diff-buffer (buffer-live-p diff-buffer))
+    ;;         (kill-buffer diff-buffer)))))
 
-  ;;
-  ;; ;; Set Delta as the diff tool with proper cleanup
-  ;; (setq monet-diff-tool #'mr-x/monet-delta-diff)
-  ;; (setq monet-diff-cleanup-tool #'mr-x/monet-delta-diff-cleanup)
-  )
+    ;;
+    ;; ;; Set Delta as the diff tool with proper cleanup
+    ;; (setq monet-diff-tool #'mr-x/monet-delta-diff)
+    ;; (setq monet-diff-cleanup-tool #'mr-x/monet-delta-diff-cleanup)
+    )
 
-;;; Agent Shell - Native Emacs buffer for Claude Code
-;; ACP (Agent Client Protocol) implementation for Emacs
-(use-package acp
-  :ensure (:host github :repo "xenodium/acp.el"))
+  ;;; Agent Shell - Native Emacs buffer for Claude Code
+  ;; ACP (Agent Client Protocol) implementation for Emacs
+  (use-package acp
+    :ensure (:host github :repo "xenodium/acp.el"))
 
-;; Shell infrastructure for agent-shell
-(use-package shell-maker
-  :ensure t)
+  ;; Shell infrastructure for agent-shell
+  (use-package shell-maker
+    :ensure t)
 
-;; Agent Shell itself
-(use-package agent-shell
-  :ensure (:host github :repo "xenodium/agent-shell")
-  :after (acp shell-maker)
-  :hook ((agent-shell-mode . orgtbl-mode)  ;; Auto-align org tables
-         (agent-shell-mode . (lambda () (corfu-mode -1))))  ;; Disable corfu (no backend)
-  :config
-  ;; Enable syntax highlighting in code blocks
-  (setq agent-shell-highlight-blocks t)
-  ;; Custom icons
-  (setq agent-shell-permission-icon "\uf259")
-  (setq agent-shell-thought-process-icon "\uf29d")
+  (use-package agent-shell
+    :ensure (:host github :repo "xenodium/agent-shell")
+    :after (acp shell-maker)
+    :hook ((agent-shell-mode . orgtbl-mode)  ;; Auto-align org tables
+           (agent-shell-mode . display-line-numbers-mode)  ;; Show line numbers
+           (agent-shell-mode . (lambda () (corfu-mode -1)))  ;; Disable corfu (no backend)
+           (agent-shell-mode . (lambda ()
+                                 ;; Make sent input text green like strings
+                                 (face-remap-add-relative 'comint-highlight-input
+                                                          :foreground "#b8bb26")))
+           (agent-shell-mode . (lambda ()
+                                 ;; Make prompt symbol gruvbox yellow
+                                 (face-remap-add-relative 'comint-highlight-prompt
+                                                          :foreground "#fabd2f"))))
+    :config
+    ;; Rebind: S-<tab> cycles mode, C-<tab> is free for popper
+    (define-key agent-shell-mode-map (kbd "<backtab>") #'agent-shell-cycle-session-mode)
+    (define-key agent-shell-mode-map (kbd "C-<tab>") nil)
+    
+    ;; Enable syntax highlighting in code blocks
+    (setq agent-shell-highlight-blocks t)
 
-  ;; Fix keybindings in agent-shell diff view (evil-mode conflicts)
-  ;; The diff view uses buttons - we need to make sure evil doesn't intercept keys
-  (defun mr-x/agent-shell-diff-mode-setup ()
-    "Setup keybindings for agent-shell diff buffers."
-    (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name))
-      ;; Use emacs state so all the button keys (y/n/a/p) work properly
-      (evil-emacs-state)
-      ;; Also set up keys in normal mode as backup
-      (evil-local-set-key 'normal (kbd "C-n") #'diff-hunk-next)
-      (evil-local-set-key 'normal (kbd "C-p") #'diff-hunk-prev)
-      (evil-local-set-key 'normal (kbd "j") #'diff-hunk-next)
-      (evil-local-set-key 'normal (kbd "k") #'diff-hunk-prev)
-      (evil-local-set-key 'normal (kbd "q") #'kill-current-buffer)
-      (evil-local-set-key 'normal (kbd "RET") #'push-button)
-      (evil-local-set-key 'normal (kbd "TAB") #'forward-button)
-      (evil-local-set-key 'normal (kbd "<backtab>") #'backward-button)))
-  (add-hook 'diff-mode-hook #'mr-x/agent-shell-diff-mode-setup)
+    ;; Fix: Override indent-text to preserve text properties (for diff highlighting)
+    ;; The original function uses split-string/mapconcat which strips properties
+    (with-eval-after-load 'agent-shell-ui
+      (defun agent-shell-ui--indent-text (text &optional indent-string)
+        "Indent TEXT preserving text properties.
+Adds INDENT-STRING to the beginning of each non-empty line.
+INDENT-STRING defaults to two spaces."
+        (when text
+          (let ((indent (or indent-string "  "))
+                (result (copy-sequence text))
+                (offset 0))
+            ;; Insert indent at the beginning if non-empty
+            (unless (string-empty-p result)
+              (setq result (concat indent result))
+              (setq offset (length indent)))
+            ;; Find each newline and insert indent after it (if not followed by newline/end)
+            (let ((pos 0))
+              (while (setq pos (string-match "\n" result pos))
+                (setq pos (1+ pos))
+                (when (and (< pos (length result))
+                           (not (eq (aref result pos) ?\n)))
+                  (setq result (concat (substring result 0 pos)
+                                       indent
+                                       (substring result pos)))
+                  (setq pos (+ pos (length indent))))))
+            result))))
+    ;; Custom icons
+    (setq agent-shell-permission-icon "\uf259")
+    (setq agent-shell-thought-process-icon "\uf29d")
 
-  (defun mr-x/focus-ai-window ()
-    "Focus the agent-shell window if visible, otherwise show a message."
-    (interactive)
-    (let ((ai-window nil))
+    ;; Fix keybindings in agent-shell diff view (evil-mode conflicts)
+    ;; The diff view uses buttons - we need to make sure evil doesn't intercept keys
+    (defun mr-x/agent-shell-diff-mode-setup ()
+      "Setup keybindings for agent-shell diff buffers."
+      (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name))
+        ;; Use emacs state so all the button keys (y/n/a/p) work properly
+        (evil-emacs-state)
+        ;; Also set up keys in normal mode as backup
+        (evil-local-set-key 'normal (kbd "C-n") #'diff-hunk-next)
+        (evil-local-set-key 'normal (kbd "C-p") #'diff-hunk-prev)
+        (evil-local-set-key 'normal (kbd "j") #'diff-hunk-next)
+        (evil-local-set-key 'normal (kbd "k") #'diff-hunk-prev)
+        (evil-local-set-key 'normal (kbd "q") #'kill-current-buffer)
+        (evil-local-set-key 'normal (kbd "RET") #'push-button)
+        (evil-local-set-key 'normal (kbd "TAB") #'forward-button)
+        (evil-local-set-key 'normal (kbd "<backtab>") #'backward-button)))
+    (add-hook 'diff-mode-hook #'mr-x/agent-shell-diff-mode-setup)
+
+    (defun mr-x/focus-ai-window ()
+      "Focus the agent-shell window if visible, otherwise show a message."
+      (interactive)
+      (let ((ai-window nil))
+        (walk-windows
+         (lambda (w)
+           (when (and (not ai-window)
+                      (eq (buffer-local-value 'major-mode (window-buffer w))
+                          'agent-shell-mode))
+             (setq ai-window w))))
+        (if ai-window
+            (select-window ai-window)
+          (mr-x/agent-shell-toggle))))
+
+    (defun mr-x/taskmaster-next-task ()
+      "Ask agent-shell for the next taskmaster task."
+      (interactive)
+      (mr-x/focus-ai-window)
+      (goto-char (point-max))
+      (insert "What's the next task?")
+      (shell-maker-submit))
+
+    (defun mr-x/taskmaster-summary ()
+      "Ask for a summary of taskmaster tags and status."
+      (interactive)
+      (mr-x/focus-ai-window)
+      (goto-char (point-max))
+      (insert "Please provide a succinct summary of the current taskmaster tags and their corresponding status.")
+      (shell-maker-submit))
+
+    ;; ============================================
+    ;; Custom Permission System (no buttons needed)
+    ;; ============================================
+    
+    (defvar mr-x/pending-permissions nil
+      "Alist of pending permission requests.
+Each entry is (TOOL-CALL-ID . PLIST) where PLIST contains:
+  :request    - The full ACP request object
+  :client     - The ACP client
+  :state      - The agent-shell session state  
+  :options    - The permission options from ACP
+  :buffer     - The agent-shell buffer")
+
+    (defun mr-x/agent-shell-permission-handler (orig-fn &rest args)
+      "Advice around `agent-shell--on-request' to intercept permissions."
+      (let* ((state (cadr (member :state args)))
+             (request (cadr (member :request args))))
+        (let-alist request
+          (if (equal .method "session/request_permission")
+              (let ((tool-call-id .params.toolCall.toolCallId)
+                    (buffer (map-elt state :buffer)))
+                ;; Store the full context BEFORE calling original
+                (push (cons tool-call-id
+                            (list :request request
+                                  :client (map-elt state :client)
+                                  :state state
+                                  :options .params.options
+                                  :buffer buffer))
+                      mr-x/pending-permissions)
+                
+                ;; Let original handle the UI/state management
+                (apply orig-fn args)
+                
+                ;; Notify user after original is done
+                (message "Permission needed: %s [SPC c 1=allow 2=deny 3=always]" 
+                         .params.toolCall.title))
+            
+            ;; All other requests pass through normally
+            (apply orig-fn args)))))
+
+    (advice-add 'agent-shell--on-request :around #'mr-x/agent-shell-permission-handler)
+
+    (defun mr-x/respond-to-permission (kind)
+      "Respond to the most recent pending permission with KIND.
+KIND should be \"allow_once\", \"reject_once\", or \"allow_always\"."
+      (let* ((entry (car mr-x/pending-permissions))
+             (tool-call-id (car entry))
+             (data (cdr entry))
+             (request (plist-get data :request))
+             (client (plist-get data :client))
+             (state (plist-get data :state))
+             (options (plist-get data :options)))
+        (if-let* ((option (seq-find (lambda (o) 
+                                     (string= (alist-get 'kind o) kind)) 
+                                   options))
+                  (option-id (alist-get 'optionId option)))
+            (progn
+              ;; Send the response
+              (agent-shell--send-permission-response
+               :client client
+               :request-id (alist-get 'id request)
+               :option-id option-id
+               :state state
+               :tool-call-id tool-call-id)
+              
+              ;; Remove from pending list
+              (setq mr-x/pending-permissions (cdr mr-x/pending-permissions))
+              
+              ;; Handle reject specially (interrupt agent)
+              (when (string= kind "reject_once")
+                (with-current-buffer (plist-get data :buffer)
+                  (agent-shell-interrupt t)))
+              
+              (message "Permission %s" 
+                       (pcase kind
+                         ("allow_once" "allowed")
+                         ("reject_once" "denied")
+                         ("allow_always" "always allowed"))))
+          
+          (message "No pending permission requests"))))
+
+    (defun mr-x/agent-shell-allow ()
+      "Allow the current permission request."
+      (interactive)
+      (mr-x/respond-to-permission "allow_once"))
+
+    (defun mr-x/agent-shell-deny ()
+      "Deny the current permission request."
+      (interactive)
+      (mr-x/respond-to-permission "reject_once"))
+
+    (defun mr-x/agent-shell-allow-always ()
+      "Allow always the current permission request."
+      (interactive)
+      (mr-x/respond-to-permission "allow_always"))
+
+    (defun mr-x/fontify-diff-with-language (mode-fn)
+      "Apply MODE-FN syntax highlighting to diff hunks in current buffer.
+Highlights the actual code content, not just +/- markers."
+      (save-excursion
+        (goto-char (point-min))
+        (let ((inhibit-read-only t))
+          (while (not (eobp))
+            (let ((line-start (point))
+                  (line-end (line-end-position)))
+              ;; Only process +/- lines (actual code changes)
+              (when (and (< line-start line-end)
+                         (memq (char-after line-start) '(?+ ?-)))
+                (let* ((code-start (1+ line-start))  ; skip the +/- marker
+                       (code-text (buffer-substring-no-properties code-start line-end))
+                       (fontified-text (with-temp-buffer
+                                         (insert code-text)
+                                         (funcall mode-fn)
+                                         (font-lock-ensure)
+                                         (buffer-string))))
+                  ;; Apply the fontified properties to the original
+                  (when (> (length fontified-text) 0)
+                    (let ((pos 0))
+                      (while (< pos (length fontified-text))
+                        (let ((face (get-text-property pos 'face fontified-text)))
+                          (when face
+                            (add-face-text-property 
+                             (+ code-start pos) 
+                             (+ code-start pos 1)
+                             face t)))
+                        (setq pos (1+ pos))))))))
+            (forward-line 1)))))
+
+    (defun mr-x/agent-shell-view-diff ()
+      "View the diff for the current pending permission with syntax highlighting."
+      (interactive)
+      (if-let* ((entry (car mr-x/pending-permissions))
+                (tool-call-id (car entry))
+                (data (cdr entry))
+                (state (plist-get data :state))
+                (diff (map-nested-elt state `(:tool-calls ,tool-call-id :diff))))
+          (let* ((filename (map-elt diff :file))
+                 (mode-fn (assoc-default filename auto-mode-alist 'string-match)))
+            (agent-shell-diff
+             :old (map-elt diff :old)
+             :new (map-elt diff :new)
+             :title (file-name-nondirectory filename))
+            ;; Apply language-specific syntax highlighting to diff content
+            (with-current-buffer "*agent-shell-diff*"
+              (when (and mode-fn (fboundp mode-fn))
+                (mr-x/fontify-diff-with-language mode-fn)))
+            ;; Re-add our keybindings since we called agent-shell-diff without them
+            (with-current-buffer "*agent-shell-diff*"
+              (let ((map (make-sparse-keymap)))
+                (set-keymap-parent map (current-local-map))
+                (define-key map (kbd "n") 'diff-hunk-next)
+                (define-key map (kbd "p") 'diff-hunk-prev)
+                (define-key map (kbd "y") (lambda ()
+                                            (interactive)
+                                            (kill-current-buffer)
+                                            (mr-x/agent-shell-allow)))
+                (define-key map (kbd "!") (lambda ()
+                                            (interactive)
+                                            (kill-current-buffer)
+                                            (mr-x/agent-shell-allow-always)))
+                (define-key map (kbd "r") (lambda ()
+                                            (interactive)
+                                            (kill-current-buffer)
+                                            (mr-x/agent-shell-deny)))
+                (define-key map (kbd "q") 'kill-current-buffer)
+                (use-local-map map))
+              (setq header-line-format
+                    (concat "  "
+                            (propertize (file-name-nondirectory filename) 'face 'mode-line-emphasis)
+                            " "
+                            (propertize "n" 'face 'help-key-binding) " next "
+                            (propertize "p" 'face 'help-key-binding) " prev "
+                            (propertize "y" 'face 'help-key-binding) " accept "
+                            (propertize "!" 'face 'help-key-binding) " always "
+                            (propertize "r" 'face 'help-key-binding) " reject "
+                            (propertize "q" 'face 'help-key-binding) " exit"))))
+        (message "No diff available for current permission")))
+
+
+    ;; Auto-close diff buffer when permission is accepted/rejected
+    (advice-add 'agent-shell--send-permission-response :after
+                (lambda (&rest _)
+                  (dolist (buf (buffer-list))
+                    (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name buf))
+                      (kill-buffer buf)))))
+    ;; Use existing Claude CLI login
+    (setq agent-shell-anthropic-authentication
+          (agent-shell-anthropic-make-authentication :login t))
+    ;; Inherit environment (gets PATH, ANTHROPIC_API_KEY, etc.)
+    (setq agent-shell-anthropic-claude-environment
+          (agent-shell-make-environment-variables :inherit-env t))
+
+    ;; Custom prompt config
+    (setq agent-shell-preferred-agent-config
+          (agent-shell-make-agent-config
+           :mode-line-name "Claude"
+           :buffer-name "Claude"
+           :shell-prompt "λ "
+           :shell-prompt-regexp "λ "
+           :icon-name "anthropic.png"
+           :welcome-function #'agent-shell-anthropic--claude-code-welcome-message
+           :client-maker (lambda (buffer)
+                           (agent-shell-anthropic-make-claude-client :buffer buffer))
+           :default-model-id (lambda () agent-shell-anthropic-default-model-id))))
+
+  ;; Delta-powered syntax highlighting for agent-shell diffs
+  (with-eval-after-load 'agent-shell-diff
+    (require 'ansi-color)
+
+    ;; Dynamic var to pass filename for delta syntax detection
+    (defvar my/agent-shell-diff-filename nil
+      "Current filename being diffed, for delta syntax detection.")
+
+    ;; Use delta instead of plain diff, with proper file extension for syntax
+    (defun my/agent-shell-diff-with-delta (old new)
+      "Create diff with delta - returns raw output with ANSI codes."
+      (let* ((ext (if my/agent-shell-diff-filename
+                      (file-name-extension my/agent-shell-diff-filename)
+                    nil))
+             (suffix (if ext (concat "." ext) ""))
+             (old-file (make-temp-file "old" nil suffix))
+             (new-file (make-temp-file "new" nil suffix)))
+        (unwind-protect
+            (progn
+              (with-temp-file old-file (insert old))
+              (with-temp-file new-file (insert new))
+              (with-temp-buffer
+                (let ((process-environment (cons "FORCE_COLOR=1" process-environment)))
+                  (call-process "delta" nil t nil
+                                "--syntax-theme" "gruvbox-dark"
+                                "--paging" "never"
+                                "--color-only"
+                                old-file new-file))
+                (buffer-string)))
+          (delete-file old-file)
+          (delete-file new-file))))
+
+    ;; Capture filename from :title and apply ANSI colors after
+    (defun my/agent-shell-diff-apply-ansi (orig-fun &rest args)
+      "Run agent-shell-diff then apply ANSI colors to the result buffer."
+      ;; Extract filename from :title arg
+      (let ((my/agent-shell-diff-filename (plist-get args :title)))
+        ;; Replace diff-mode with a minimal version that doesn't clobber colors
+        ;; but runs the hook so evil-emacs-state and other setup happens
+        (cl-letf (((symbol-function 'diff-mode)
+                   (lambda ()
+                     (kill-all-local-variables)
+                     (setq major-mode 'diff-mode)
+                     (setq mode-name "Diff")
+                     ;; Don't run font-lock (preserves delta colors)
+                     (setq font-lock-defaults nil)
+                     ;; Run the hook so mr-x/agent-shell-diff-mode-setup fires
+                     (run-mode-hooks 'diff-mode-hook))))
+          (apply orig-fun args)))
+      ;; Now find the diff buffer and apply colors
+      (when-let ((buf (get-buffer "*agent-shell-diff*")))
+        (with-current-buffer buf
+          (let ((inhibit-read-only t))
+            (ansi-color-apply-on-region (point-min) (point-max))))))
+
+    (advice-add 'agent-shell-diff--make-diff :override #'my/agent-shell-diff-with-delta)
+    (advice-add 'agent-shell-diff :around #'my/agent-shell-diff-apply-ansi))
+
+
+  ;; Agent Shell Sidebar - Project-isolated sidebar for agent-shell
+  (use-package agent-shell-sidebar
+    :ensure (:host github :repo "cmacrae/agent-shell-sidebar")
+    :after agent-shell
+    :config
+    ;; Use the same config as agent-shell-preferred-agent-config
+    (setq agent-shell-sidebar-default-config agent-shell-preferred-agent-config)
+    ;; Position sidebar on the left (options: left, right)
+    (setq agent-shell-sidebar-side 'left)
+    (setq agent-shell-sidebar-locked nil)
+    ;; Width as percentage of frame
+    (setq agent-shell-sidebar-width "5%"))
+
+
+  ;; Agent Shell Attention - Mode-line indicator for pending agent buffers
+  (use-package agent-shell-attention
+    :ensure (:host github :repo "ultronozm/agent-shell-attention.el")
+    :after agent-shell
+    :config
+    ;; Define a custom face for the indicator
+    (defface agent-shell-attention-face
+      '((t :foreground "#fb4934" :weight bold))  ;; gruvbox red
+      "Face for agent-shell-attention mode-line indicator.")
+
+    ;; Override the render function to use our face
+    (defun mr-x/agent-shell-attention-render (pending _active)
+      "Render with custom face. PENDING is count, _ACTIVE ignored."
+      (when (or agent-shell-attention-show-zeros (not (zerop pending)))
+        (propertize (format agent-shell-attention-lighter pending)
+                    'face 'agent-shell-attention-face
+                    'mouse-face 'mode-line-highlight
+                    'local-map agent-shell-attention--mode-line-map)))
+
+    (setq agent-shell-attention-render-function #'mr-x/agent-shell-attention-render)
+
+    ;; macOS notifications via AppleScript
+    (defun mr-x/agent-shell-notify (_buffer title body)
+      "Send macOS notification via AppleScript."
+      (start-process "notify" nil "osascript"
+                     "-e" (format "display notification %S with title %S"
+                                  body title)))
+
+    (setq agent-shell-attention-notify-function #'mr-x/agent-shell-notify)
+    (agent-shell-attention-mode 1))
+
+
+  ;; Agent Shell Manager - Dashboard for managing multiple agent sessions
+  (use-package agent-shell-manager
+    :ensure (:host github :repo "jethrokuan/agent-shell-manager")
+    :after agent-shell
+    :config
+    ;; Position manager window (options: left, right, top, bottom, nil for no auto-display)
+    (setq agent-shell-manager-window-side 'bottom))
+
+
+
+  ;; (use-package claude-code
+  ;;   :ensure (:host github :repo "stevemolitor/claude-code.el")
+  ;;   :after general
+  ;;   :config
+  ;;   ;; Use vterm as the terminal backend (since you already have it)
+  ;;   (setq claude-code-terminal-backend 'vterm)
+    
+  ;;   ;; Enable claude-code-mode
+  ;;   (claude-code-mode 1)
+    
+  ;;   ;; Key binding for the command map - using a different prefix since you use C-c c for org-capture
+  ;;   :bind-keymap
+  ;;   ("C-c C-l" . claude-code-command-map)  ; or choose your preferred prefix
+    
+  ;;   ;; Optional: Set up repeat map for mode cycling
+  ;;   :bind
+  ;;   (:repeat-map my-claude-code-repeat-map 
+  ;;                ("M" . claude-code-cycle-mode)))
+
+  ;; (add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
+
+
+
+
+
+  ;; Adjust frame transparency for focused reading/viewing
+  (defun mr-x/adjust-frame-alpha-for-focus ()
+    "Make frame opaque when viewing focused content (Claude, PDF, markdown preview), transparent otherwise."
+    (let ((should-be-opaque nil))
+      ;; Check all windows in the current frame
       (walk-windows
-       (lambda (w)
-         (when (and (not ai-window)
-                    (eq (buffer-local-value 'major-mode (window-buffer w))
-                        'agent-shell-mode))
-           (setq ai-window w))))
-      (if ai-window
-          (select-window ai-window)
-        (mr-x/agent-shell-toggle))))
+       (lambda (win)
+         (let ((buf (window-buffer win)))
+           (when (or (string-match-p "\\*claude" (buffer-name buf))
+                     (with-current-buffer buf (eq major-mode 'pdf-view-mode))
+                     (with-current-buffer buf (eq major-mode 'xwidget-webkit-mode)))
+             (setq should-be-opaque t))))
+       nil 'visible)
+      ;; Set alpha based on whether Claude or book is showing
+      (if should-be-opaque
+          (set-frame-parameter nil 'alpha '(100 100))   ;; opaque when reading
+        (set-frame-parameter nil 'alpha '(80 50)))))    ;; transparent otherwise
 
-
-  ;; Auto-close diff buffer when permission is accepted/rejected
-  (advice-add 'agent-shell--send-permission-response :after
-              (lambda (&rest _)
-                (dolist (buf (buffer-list))
-                  (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name buf))
-                    (kill-buffer buf)))))
-  ;; Use existing Claude CLI login
-  (setq agent-shell-anthropic-authentication
-        (agent-shell-anthropic-make-authentication :login t))
-  ;; Inherit environment (gets PATH, ANTHROPIC_API_KEY, etc.)
-  (setq agent-shell-anthropic-claude-environment
-        (agent-shell-make-environment-variables :inherit-env t))
-
-  ;; Custom prompt config
-  (setq agent-shell-preferred-agent-config
-        (agent-shell-make-agent-config
-         :mode-line-name "Claude"
-         :buffer-name "Claude"
-         :shell-prompt "λ "
-         :shell-prompt-regexp "λ "
-         :icon-name "anthropic.png"
-         :welcome-function #'agent-shell-anthropic--claude-code-welcome-message
-         :client-maker (lambda (buffer)
-                         (agent-shell-anthropic-make-claude-client :buffer buffer))
-         :default-model-id (lambda () agent-shell-anthropic-default-model-id))))
-
-
-;; Agent Shell Sidebar - Project-isolated sidebar for agent-shell
-(use-package agent-shell-sidebar
-  :ensure (:host github :repo "cmacrae/agent-shell-sidebar")
-  :after agent-shell
-  :config
-  ;; Use the same config as agent-shell-preferred-agent-config
-  (setq agent-shell-sidebar-default-config agent-shell-preferred-agent-config)
-  ;; Position sidebar on the left (options: left, right)
-  (setq agent-shell-sidebar-side 'left)
-  (setq agent-shell-sidebar-locked nil)
-  ;; Width as percentage of frame
-  (setq agent-shell-sidebar-width "5%"))
-
-
-;; Agent Shell Attention - Mode-line indicator for pending agent buffers
-(use-package agent-shell-attention
-  :ensure (:host github :repo "ultronozm/agent-shell-attention.el")
-  :after agent-shell
-  :config
-  ;; Define a custom face for the indicator
-  (defface agent-shell-attention-face
-    '((t :foreground "#fb4934" :weight bold))  ;; gruvbox red
-    "Face for agent-shell-attention mode-line indicator.")
-
-  ;; Override the render function to use our face
-  (defun mr-x/agent-shell-attention-render (pending _active)
-    "Render with custom face. PENDING is count, _ACTIVE ignored."
-    (when (or agent-shell-attention-show-zeros (not (zerop pending)))
-      (propertize (format agent-shell-attention-lighter pending)
-                  'face 'agent-shell-attention-face
-                  'mouse-face 'mode-line-highlight
-                  'local-map agent-shell-attention--mode-line-map)))
-
-  (setq agent-shell-attention-render-function #'mr-x/agent-shell-attention-render)
-
-  ;; macOS notifications via AppleScript
-  (defun mr-x/agent-shell-notify (_buffer title body)
-    "Send macOS notification via AppleScript."
-    (start-process "notify" nil "osascript"
-                   "-e" (format "display notification %S with title %S"
-                                body title)))
-
-  (setq agent-shell-attention-notify-function #'mr-x/agent-shell-notify)
-  (agent-shell-attention-mode 1))
-
-
-;; Agent Shell Manager - Dashboard for managing multiple agent sessions
-(use-package agent-shell-manager
-  :ensure (:host github :repo "jethrokuan/agent-shell-manager")
-  :after agent-shell
-  :config
-  ;; Position manager window (options: left, right, top, bottom, nil for no auto-display)
-  (setq agent-shell-manager-window-side 'bottom))
-
-
-
-;; (use-package claude-code
-;;   :ensure (:host github :repo "stevemolitor/claude-code.el")
-;;   :after general
-;;   :config
-;;   ;; Use vterm as the terminal backend (since you already have it)
-;;   (setq claude-code-terminal-backend 'vterm)
-  
-;;   ;; Enable claude-code-mode
-;;   (claude-code-mode 1)
-  
-;;   ;; Key binding for the command map - using a different prefix since you use C-c c for org-capture
-;;   :bind-keymap
-;;   ("C-c C-l" . claude-code-command-map)  ; or choose your preferred prefix
-  
-;;   ;; Optional: Set up repeat map for mode cycling
-;;   :bind
-;;   (:repeat-map my-claude-code-repeat-map 
-;;                ("M" . claude-code-cycle-mode)))
-
-;; (add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
-
-
-
-
-
-;; Adjust frame transparency for focused reading/viewing
-(defun mr-x/adjust-frame-alpha-for-focus ()
-  "Make frame opaque when viewing focused content (Claude, PDF, markdown preview), transparent otherwise."
-  (let ((should-be-opaque nil))
-    ;; Check all windows in the current frame
-    (walk-windows
-     (lambda (win)
-       (let ((buf (window-buffer win)))
-         (when (or (string-match-p "\\*claude" (buffer-name buf))
-                   (with-current-buffer buf (eq major-mode 'pdf-view-mode))
-                   (with-current-buffer buf (eq major-mode 'xwidget-webkit-mode)))
-           (setq should-be-opaque t))))
-     nil 'visible)
-    ;; Set alpha based on whether Claude or book is showing
-    (if should-be-opaque
-        (set-frame-parameter nil 'alpha '(100 100))   ;; opaque when reading
-      (set-frame-parameter nil 'alpha '(80 50)))))    ;; transparent otherwise
-
-(add-hook 'window-configuration-change-hook #'mr-x/adjust-frame-alpha-for-focus)
+  (add-hook 'window-configuration-change-hook #'mr-x/adjust-frame-alpha-for-focus)
 
 (use-package ledger-mode
   :ensure t
