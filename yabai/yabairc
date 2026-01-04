@@ -87,3 +87,6 @@ yabai -m signal --add event=space_changed action="sketchybar --trigger space_cha
 yabai -m signal --add event=display_added action="bash $HOME/.dotfiles/sketchybar/plugins/yabai-layout-setup.sh"
 yabai -m signal --add event=display_removed action="bash $HOME/.dotfiles/sketchybar/plugins/yabai-layout-setup.sh"
 yabai -m signal --add event=display_changed action="bash $HOME/.dotfiles/sketchybar/plugins/yabai-layout-setup.sh"
+
+# Sandbox Emacs: create new space and move it there
+yabai -m signal --add event=window_created app="^Emacs$" title="SANDBOX" action="yabai -m space --create && index=\$(yabai -m query --spaces --display | jq 'map(select(.\"is-native-fullscreen\" == false))[-1].index') && yabai -m window \$YABAI_WINDOW_ID --space \$index && yabai -m space --focus \$index"

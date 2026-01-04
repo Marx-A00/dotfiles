@@ -3,3 +3,6 @@ direction.org
 tmp/
 var/
 CLAUDE.md
+org-clock-save.el
+org-roam.db
+places
