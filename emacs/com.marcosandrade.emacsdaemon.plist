@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.marcosandrade.emacsdaemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/marcosandrade/.dotfiles/scripts/emacs-daemon-start.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>TERM</key>
+        <string>xterm-256color</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/tmp/emacs-daemon.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/emacs-daemon.stderr.log</string>
+</dict>
+</plist>

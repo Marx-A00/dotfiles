@@ -1,0 +1,160 @@
+#+TITLE: Naughty Apps Space Configuration
+#+AUTHOR: Marcos
+#+DATE: [2025-01-10 Fri]
+#+DESCRIPTION: Implementation plan for dedicated space for problematic apps in yabai
+
+* Overview
+Create a dedicated "naughty corner" space for apps that don't play well with yabai's tiling window manager.
+
+* Current Problematic Apps
+Based on system scan and common issues:
+
+** Confirmed Troublemakers
+- [ ] Discord (Electron app, minimum window size issues)
+- [ ] 1Clipboard (likely has overlay/floating requirements)
+- [ ] Zoom (screen sharing hangs, fullscreen issues)
+- [ ] Microsoft Teams (if installed)
+- [ ] Slack (if installed)
+
+** Potential Additions
+- [ ] Spotify (often needs special handling)
+- [ ] System Settings (already configured to float)
+- [ ] Any future Electron apps
+
+* Implementation Steps
+
+** 1. Choose Dedicated Space Number
+#+BEGIN_SRC bash
+# Option A: Use space 10 (last space, out of the way)
+NAUGHTY_SPACE=10
+
+# Option B: Use space 9 (penultimate space)
+NAUGHTY_SPACE=9
+
+# Option C: Dynamic space (create new one)
+# yabai -m space --create
+# NAUGHTY_SPACE=$(yabai -m query --spaces | jq '.[-1].index')
+#+END_SRC
+
+** 2. Add to yabairc Configuration
+Location: =~/.dotfiles/yabai/yabairc=
+
+*** Basic Implementation
+#+BEGIN_SRC bash
+# Naughty Apps Corner - Space for problematic applications
+NAUGHTY_SPACE=10
+
+# Discord - Electron app with min window requirements
+yabai -m rule --add app="^Discord$" space=$NAUGHTY_SPACE manage=off
+
+# 1Clipboard - Clipboard manager, needs floating
+yabai -m rule --add app="^1Clipboard$" space=$NAUGHTY_SPACE manage=off
+
+# Zoom - Screen sharing issues
+yabai -m rule --add app="^zoom\.us$" space=$NAUGHTY_SPACE native-fullscreen=on
+
+# Add more as needed...
+#+END_SRC
+
+*** Advanced Array-Based Implementation
+#+BEGIN_SRC bash
+# Define naughty apps array
+NAUGHTY_SPACE=10
+naughty_apps=(
+    "Discord"
+    "1Clipboard"
+    "zoom.us"
+    "Slack"
+    "Microsoft Teams"
+    "Spotify"
+)
+
+# Apply rules to all naughty apps
+for app in "${naughty_apps[@]}"; do
+    yabai -m rule --add app="^$app$" space=$NAUGHTY_SPACE manage=off
+done
+#+END_SRC
+
+** 3. Optional: Set Space Layout
+#+BEGIN_SRC bash
+# Set the naughty space to float layout (all windows float)
+yabai -m config --space $NAUGHTY_SPACE layout float
+
+# Or use stack layout (windows stack on top of each other)
+yabai -m config --space $NAUGHTY_SPACE layout stack
+#+END_SRC
+
+** 4. Add SKHD Shortcuts
+Location: =~/.dotfiles/skhd/skhdrc=
+
+#+BEGIN_SRC bash
+# Quick jump to naughty space
+cmd + alt - 0 : yabai -m space --focus 10
+
+# Send current window to naughty corner
+cmd + shift + alt - 0 : yabai -m window --space 10
+
+# Bring window back from naughty corner
+cmd + ctrl + alt - 0 : yabai -m window --space recent
+#+END_SRC
+
+** 5. Optional: Sketchybar Integration
+Add visual indicator for naughty space in sketchybar:
+
+#+BEGIN_SRC bash
+# In sketchybar config, give space 10 a special label/icon
+sketchybar --add space space10 left \
+           --set space10 label="🚫" \
+                        label.font="SF Pro:Bold:16.0"
+#+END_SRC
+
+* Testing Commands
+
+** Check Current App Status
+#+BEGIN_SRC bash
+# List all apps and their space assignments
+yabai -m query --windows | jq -r '.[] | "Space \(.space): \(.app) (managed: \(.["is-managed"]))"' | sort
+
+# Check if rules are applied
+yabai -m rule --list | grep -E "(Discord|1Clipboard|zoom)"
+
+# Test moving Discord to naughty space
+yabai -m window $(yabai -m query --windows | jq '.[] | select(.app=="Discord") | .id') --space 10
+#+END_SRC
+
+** Debug Commands
+#+BEGIN_SRC bash
+# See exact app names for rules
+yabai -m query --windows | jq -r '.[].app' | sort -u
+
+# Check which windows are floating vs managed
+yabai -m query --windows | jq '.[] | {app: .app, managed: .["is-managed"], floating: .["is-floating"], space: .space}'
+#+END_SRC
+
+* Rollback Plan
+If things go wrong:
+
+#+BEGIN_SRC bash
+# Remove all naughty app rules
+yabai -m rule --remove app="^Discord$"
+yabai -m rule --remove app="^1Clipboard$"
+yabai -m rule --remove app="^zoom\.us$"
+
+# Or restart yabai fresh
+yabai --restart-service
+#+END_SRC
+
+* Notes
+- Discord scratchpad rule already exists in current config (line 78)
+- Consider whether to keep scratchpad functionality or move to dedicated space
+- Some apps might work better with =sticky=on= to appear on all spaces
+- Monitor performance - too many floating windows can impact system resources
+
+* TODO Tasks
+- [ ] Decide on space number (10 recommended)
+- [ ] Test with current Discord scratchpad rule
+- [ ] Add configuration to yabairc
+- [ ] Test each app individually
+- [ ] Update SKHD shortcuts
+- [ ] Document any app-specific quirks discovered
+- [ ] Consider creating startup script to ensure space exists

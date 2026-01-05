@@ -1,5 +1,20 @@
+# -*- mode: sh -*-
+
 # Test binding - press cmd+x to verify skhd is working
 # cmd - x : osascript -e 'display notification "skhd test successful"'
+
+# Emacs
+cmd + shift - e : /opt/homebrew/opt/emacs-plus@30/bin/emacsclient -c -n -a ""
+cmd + shift - r : ~/.dotfiles/scripts/emacs-restart.sh
+cmd + shift - s : ~/.dotfiles/scripts/emacs-sandbox.sh
+
+# Native yabai scratchpad bindings
+cmd + shift - space : ~/.dotfiles/scripts/scratchpad-emacs.sh scratch
+cmd + shift - o : ~/.dotfiles/scripts/scratchpad-emacs.sh scratch-org
+
+# Additional scratchpad toggles
+# "pageup" : open -a "Messages"
+# "pagedown" : open -a "Discord"
 
 alt - h : yabai -m window --focus west
 alt - j : yabai -m window --focus south
@@ -16,20 +31,41 @@ ctrl + alt - right : yabai -m window --resize right:20:0
 ctrl + alt - up    : yabai -m window --resize top:0:-20
 ctrl + alt - down  : yabai -m window --resize bottom:0:20
 
+cmd - 1 : yabai -m space --focus 1
+
 alt - t : yabai -m window --toggle float
 
 alt - f : yabai -m window --toggle zoom-fullscreen
 
 # move window to specific monitor by label
 
+# Laptop display
+alt - 1 : yabai -m window --display 1; yabai -m display --focus 1
 
-alt - 1 : yabai -m window --display 1; yabai -m window --focus
-alt - 2 : yabai -m window --display 2; yabai -m window --focus
-alt - 3 : yabai -m window --display 3; yabai -m window --focus
-alt - 4 : yabai -m window --display 4; yabai -m window --focus
+# Vertical Monitor
+alt - 2 : yabai -m window --display 2; yabai -m display --focus 2
+
+# Main Left Monitor
+alt - 3 : yabai -m window --display 3; yabai -m display --focus 3
+
+# Main Right Monitor
+alt - 4 : yabai -m window --display 4; yabai -m display --focus 4
+
+# Focus only - no window movement
+ctrl - 1 : yabai -m display --focus 1
+ctrl - 2 : yabai -m display --focus 2
+ctrl - 3 : yabai -m display --focus 3
+ctrl - 4 : yabai -m display --focus 4
+
 
 alt + shift - b : yabai -m space --balance
 alt + shift - r : yabai --restart-service
 
 ctrl - space : ~/.dotfiles/yabai/scripts/toggle_layout.sh
+
+# Send focused window to a new space and follow it
+cmd + ctrl - 0x18 : yabai -m space --create && \
+                    index="$(yabai -m query --spaces --display | jq 'map(select(."is-native-fullscreen" == false))[-1].index')" && \
+                    yabai -m window --space "${index}" && \
+                    yabai -m space --focus "${index}"
 
