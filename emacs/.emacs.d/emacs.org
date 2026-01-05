@@ -1268,6 +1268,15 @@
   (global-set-key (kbd "M-x") 'counsel-M-x)
   (global-set-key (kbd "C-x C-f") 'counsel-find-file)
 
+  ;; Fix: Swiper breaks org-mode src block highlighting after search
+  ;; This advice refreshes org fontification after swiper cleanup
+  (defun mr-x/swiper-refresh-org-fontification (&rest _)
+    "Refresh org-mode fontification after swiper search."
+    (when (derived-mode-p 'org-mode)
+      (jit-lock-refontify)))
+
+  (advice-add 'swiper--cleanup :after #'mr-x/swiper-refresh-org-fontification)
+
 
 #+end_src
 
@@ -1728,16 +1737,21 @@ Creates a frame named 'Dev: {project}' with:
       "Remove Agent from agent-shell buffer names."
       (when (derived-mode-p 'agent-shell-mode)
         (when (string-match "\\(.*\\) Agent @ \\(.*\\)" (buffer-name))
-          (rename-buffer (format "*%s @ %s*"
-                                 (match-string 1 (buffer-name))
-                                 (match-string 2 (buffer-name))) t))))
+          (let* ((base-name (format "*%s @ %s*"
+                                    (match-string 1 (buffer-name))
+                                    (match-string 2 (buffer-name))))
+                 ;; rename-buffer returns actual name (includes <N> suffix if needed)
+                 (actual-name (rename-buffer base-name t)))
+            ;; Use actual-name so shell-maker can find the buffer
+            (setq-local shell-maker--buffer-name-override actual-name)))))
     (advice-add 'agent-shell :after #'mr-x/agent-shell-rename-buffer)
 
-    ;; Disable header and welcome message (cleaner look)
-    (setq agent-shell-header-style nil)
+    ;; Use text header style - shows initialization status
+    ;; (nil header + nil modeline = no feedback when session is initializing = errors)
+    (setq agent-shell-header-style 'text)
     (setq agent-shell-show-welcome-message nil)
     
-    ;; Also disable the modeline fallback (it shows model/mode when header is nil)
+    ;; Disable modeline info (header is enough for init feedback)
     (defun agent-shell--mode-line-format () nil)
 
     ;; Enable syntax highlighting in code blocks
@@ -1751,7 +1765,7 @@ Creates a frame named 'Dev: {project}' with:
     
     ;; Code block background styling
     (defface mr-x/agent-shell-code-block-bg
-      '((t :background "#504945" :extend t))  ;; gruvbox bg2
+      '((t :background "#050505" :extend t))  ;; near black
       "Face for code block backgrounds in agent-shell.")
     
     (defun mr-x/agent-shell-code-block-background (quotes1-start quotes1-end lang lang-start lang-end body-start body-end quotes2-start quotes2-end)
@@ -1766,6 +1780,38 @@ Creates a frame named 'Dev: {project}' with:
           (overlay-put ov 'priority -10))))
     
     (advice-add 'markdown-overlays--fontify-source-block :after #'mr-x/agent-shell-code-block-background)
+    
+    ;; Random icons for code block copy button + language box styling
+    (defvar mr-x/code-block-icons
+      '("🔥" "🚀" "💀" "👾" "🤖" "⚡" "✨" "🎯" "🧠" "💅" "🦄" "👀" "🍕" "🌶️" "🎸" "🎮"
+        "💎" "🌈" "🌙" "⭐" "🍄" "🎪" "🎨" "🎵" "🎲" "🃏" "🎭" "🎬" "📡" "🔮" "💣" "🧨"
+        "🏴‍☠️" "👻" "💀" "🎃" "🦇" "🕷️" "🐉" "🦖" "🦑" "🐙" "🦈" "🐺" "🦊" "🐸" "🐍" "🦎"
+        "⚔️" "🗡️" "🏹" "🛡️" "💊" "🧪" "🔬" "🧬" "💻" "🖥️" "⌨️" "🕹️" "📟" "📺" "📀" "💾"
+        "🌀" "🌊" "🔱" "⚓" "☠️" "🏁" "🚩" "🎌" "⛳" "🧿" "🪬" "♠️" "♣️" "♥️" "♦️"
+        "🀄" "🎴" "🔔" "🎺" "🥁" "🪘" "🎻" "🪕" "🎷" "🪗" "🎹"
+        "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
+        "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+      "Random icons for code block copy button.")
+    
+    (defun mr-x/random-code-icon ()
+      "Return a random icon from the list."
+      (nth (random (length mr-x/code-block-icons)) mr-x/code-block-icons))
+    
+    (defun mr-x/agent-shell-style-code-block-header (quotes1-start quotes1-end lang lang-start lang-end body-start body-end quotes2-start quotes2-end)
+      "Customize copy icon and language box styling."
+      (dolist (ov (overlays-in quotes1-start quotes1-end))
+        (when (overlay-get ov 'display)
+          (overlay-put ov 'display
+                       (propertize (concat (mr-x/random-code-icon) " ")
+                                   'pointer 'hand
+                                   'keymap (overlay-get ov 'keymap)))))
+      (unless (eq lang-start lang-end)
+        (dolist (ov (overlays-in lang-start lang-end))
+          (when (equal (overlay-get ov 'face) '(:box t))
+            (overlay-put ov 'face
+                         '(:background "#689d6a" :foreground "#1d2021" :box nil :weight bold))))))
+    
+    (advice-add 'markdown-overlays--fontify-source-block :after #'mr-x/agent-shell-style-code-block-header)
 
     ;; Fix: Override indent-text to preserve text properties (for diff highlighting)
     ;; The original function uses split-string/mapconcat which strips properties
@@ -2037,6 +2083,15 @@ Highlights the actual code content, not just +/- markers."
     (setq agent-shell-anthropic-claude-environment
           (agent-shell-make-environment-variables :inherit-env t))
 
+    ;; MCP Servers - taskmaster for task management
+    ;; Stdio transport requires: name, command, args, env
+    ;; env must be a vector [] for proper JSON array serialization
+    (setq agent-shell-mcp-servers
+          `(((name . "task-master-ai")
+             (command . "npx")
+             (args . ["-y" "--package=task-master-ai" "task-master-ai"])
+             (env . []))))
+
     ;; Custom prompt config
     (setq agent-shell-preferred-agent-config
           (agent-shell-make-agent-config
@@ -2256,3 +2311,4 @@ Highlights the actual code content, not just +/- markers."
 #+end_src
 
 
+<!-- font-lock test 1767591929 -->
