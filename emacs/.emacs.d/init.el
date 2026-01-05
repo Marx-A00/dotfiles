@@ -778,6 +778,14 @@
 (use-package highlight
   :ensure t)
 
+;; Display agent-shell buffers in a left side window
+(add-to-list 'display-buffer-alist
+             '("Claude Agent @"
+               (display-buffer-in-side-window)
+               (side . left)
+               (window-width . 0.30)
+               (slot . 0)))
+
 ;; Popper for popup buffer management
 (use-package popper
   :ensure t
@@ -1498,19 +1506,21 @@ Creates a frame named 'Dev: {project}' with:
     (define-key agent-shell-mode-map (kbd "<backtab>") #'agent-shell-cycle-session-mode)
     (define-key agent-shell-mode-map (kbd "C-<tab>") nil)
     
+    ;; TODO: Fix buffer rename - causes "Wrong type argument: stringp, nil" error
     ;; Remove "Agent" from buffer name: "Claude Agent @ dir" -> "Claude @ dir"
-    (defun mr-x/agent-shell-rename-buffer (&rest _)
-      "Remove Agent from agent-shell buffer names."
-      (when (derived-mode-p 'agent-shell-mode)
-        (when (string-match "\\(.*\\) Agent @ \\(.*\\)" (buffer-name))
-          (let* ((base-name (format "*%s @ %s*"
-                                    (match-string 1 (buffer-name))
-                                    (match-string 2 (buffer-name))))
-                 ;; rename-buffer returns actual name (includes <N> suffix if needed)
-                 (actual-name (rename-buffer base-name t)))
-            ;; Use actual-name so shell-maker can find the buffer
-            (setq-local shell-maker--buffer-name-override actual-name)))))
-    (advice-add 'agent-shell :after #'mr-x/agent-shell-rename-buffer)
+    ;; Runs after shell-maker--initialize so markers are set up
+    ;; (defun mr-x/agent-shell-rename-buffer (&rest _)
+    ;;   "Remove Agent from agent-shell buffer names."
+    ;;   (when (and (derived-mode-p 'agent-shell-mode)
+    ;;              (string-match "\\(.*\\) Agent @ \\(.*\\)" (buffer-name)))
+    ;;     (let* ((base-name (format "*%s @ %s*"
+    ;;                               (match-string 1 (buffer-name))
+    ;;                               (match-string 2 (buffer-name))))
+    ;;            ;; rename-buffer returns actual name (includes <N> suffix if needed)
+    ;;            (actual-name (rename-buffer base-name t)))
+    ;;       ;; Use actual-name so shell-maker can find the buffer
+    ;;       (setq-local shell-maker--buffer-name-override actual-name))))
+    ;; (advice-add 'shell-maker--initialize :after #'mr-x/agent-shell-rename-buffer)
 
     ;; Use text header style - shows initialization status
     ;; (nil header + nil modeline = no feedback when session is initializing = errors)
@@ -1626,6 +1636,27 @@ INDENT-STRING defaults to two spaces."
         (evil-local-set-key 'normal (kbd "TAB") #'forward-button)
         (evil-local-set-key 'normal (kbd "<backtab>") #'backward-button)))
     (add-hook 'diff-mode-hook #'mr-x/agent-shell-diff-mode-setup)
+
+    (defun mr-x/agent-shell-toggle ()
+      "Toggle agent shell display (fixed to find project shells)."
+      (interactive)
+      (let ((shell-buffer (cond
+                           (agent-shell-prefer-viewport-interaction
+                            (agent-shell-viewport--buffer))
+                           ((derived-mode-p 'agent-shell-mode)
+                            (current-buffer))
+                           ((or (derived-mode-p 'agent-shell-viewport-view-mode)
+                                (derived-mode-p 'agent-shell-viewport-edit-mode))
+                            (agent-shell--current-shell))
+                           (t (seq-first (agent-shell-project-buffers))))))
+        (unless shell-buffer
+          (user-error "No agent shell buffers available for current project"))
+        (if-let ((window (get-buffer-window shell-buffer)))
+            (if (and (> (count-windows) 1)
+                     (not (bound-and-true-p transient--prefix)))
+                (delete-window window)
+              (switch-to-prev-buffer))
+          (agent-shell--display-buffer shell-buffer))))
 
     (defun mr-x/focus-ai-window ()
       "Focus the agent-shell window if visible, otherwise show a message."
