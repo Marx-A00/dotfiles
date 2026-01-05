@@ -1742,6 +1742,30 @@ Creates a frame named 'Dev: {project}' with:
 
     ;; Enable syntax highlighting in code blocks
     (setq agent-shell-highlight-blocks t)
+    
+    ;; Map language names to tree-sitter modes for syntax highlighting
+    (add-to-list 'markdown-overlays-language-mapping '("typescript" . "typescript-ts"))
+    (add-to-list 'markdown-overlays-language-mapping '("tsx" . "tsx-ts"))
+    (add-to-list 'markdown-overlays-language-mapping '("javascript" . "js-ts"))
+    (add-to-list 'markdown-overlays-language-mapping '("js" . "js-ts"))
+    
+    ;; Code block background styling
+    (defface mr-x/agent-shell-code-block-bg
+      '((t :background "#504945" :extend t))  ;; gruvbox bg2
+      "Face for code block backgrounds in agent-shell.")
+    
+    (defun mr-x/agent-shell-code-block-background (quotes1-start quotes1-end lang lang-start lang-end body-start body-end quotes2-start quotes2-end)
+      "Add background overlay to code blocks."
+      (save-excursion
+        (goto-char quotes1-start)
+        (beginning-of-line)
+        (let ((ov (make-overlay (point) (1+ quotes2-end))))
+          (overlay-put ov 'evaporate t)
+          (overlay-put ov 'category 'markdown-overlays)
+          (overlay-put ov 'face 'mr-x/agent-shell-code-block-bg)
+          (overlay-put ov 'priority -10))))
+    
+    (advice-add 'markdown-overlays--fontify-source-block :after #'mr-x/agent-shell-code-block-background)
 
     ;; Fix: Override indent-text to preserve text properties (for diff highlighting)
     ;; The original function uses split-string/mapconcat which strips properties
