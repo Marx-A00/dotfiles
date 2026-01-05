@@ -171,3 +171,7 @@ Currently migrating Emacs configuration from package.el/straight.el to Elpaca pa
 <!-- another tiny message: debugging that monet function now 🐛 -->
 <!-- tiny message: claude was here 👋 -->
 <!-- tiny message: yooo what's good bestie 😎 -->
+
+## Task Master AI Instructions
+**Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
+@./.taskmaster/CLAUDE.md
