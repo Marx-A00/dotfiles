@@ -1499,6 +1499,13 @@ Creates a frame named 'Dev: {project}' with:
                                  (match-string 2 (buffer-name))) t))))
     (advice-add 'agent-shell :after #'mr-x/agent-shell-rename-buffer)
 
+    ;; Disable header and welcome message (cleaner look)
+    (setq agent-shell-header-style nil)
+    (setq agent-shell-show-welcome-message nil)
+    
+    ;; Also disable the modeline fallback (it shows model/mode when header is nil)
+    (defun agent-shell--mode-line-format () nil)
+
     ;; Enable syntax highlighting in code blocks
     (setq agent-shell-highlight-blocks t)
 
