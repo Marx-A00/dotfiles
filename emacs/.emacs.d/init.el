@@ -1137,44 +1137,78 @@
   (setq diff-ansi-tool-delta-args '("--side-by-side" "--width" "180")))
 
 (use-package projectile
-  :ensure t
-  :init
-  (projectile-mode +1)
-  :config
-  ;; Set the completion system to ivy since you're using it
-  (setq projectile-completion-system 'ivy)
-  ;; Configure project search paths
-  (setq projectile-project-search-path '("~/roaming" "~/work"))
-  ;; Set default action when switching projects
-  (setq projectile-switch-project-action #'projectile-dired)
-  ;; Use the hybrid indexing method for better performance
-  (setq projectile-indexing-method 'hybrid)
-  ;; Enable caching for better performance
-  (setq projectile-enable-caching t)
-  :bind (:map projectile-mode-map
-              ("C-c p" . projectile-command-map)))
+    :ensure t
+    :init
+    (projectile-mode +1)
+    :config
+    ;; Set the completion system to ivy since you're using it
+    (setq projectile-completion-system 'ivy)
+    ;; Configure project search paths
+    (setq projectile-project-search-path '("~/roaming" "~/work"))
+    ;; Set default action when switching projects
+    (setq projectile-switch-project-action #'projectile-dired)
+    ;; Use the hybrid indexing method for better performance
+    (setq projectile-indexing-method 'hybrid)
+    ;; Enable caching for better performance
+    (setq projectile-enable-caching t)
+    :bind (:map projectile-mode-map
+                ("C-c p" . projectile-command-map)))
 
-(use-package counsel-projectile
-  :ensure t
-  :after (projectile counsel)
-  :config 
-  (counsel-projectile-mode 1))
+  (use-package counsel-projectile
+    :ensure t
+    :after (projectile counsel)
+    :config 
+    (counsel-projectile-mode 1))
 
-;; dedicated vterm for project
-    (defun mr-x/spawn-project-terminal-frame ()
-    "Spawn a new frame with a vterm in the current project directory.
-  Use SPC c r from this frame to send regions to your agent-shell."
+  ;; Add dev environment keybinding to projectile-command-map
+  (with-eval-after-load 'projectile
+    (define-key projectile-command-map (kbd "C-d") #'mr-x/spawn-dev-environment))
 
+  ;; dedicated vterm for project
+      (defun mr-x/spawn-project-terminal-frame ()
+      "Spawn a new frame with a vterm in the current project directory.
+    Use SPC c r from this frame to send regions to your agent-shell."
+
+      (interactive)
+      (let* ((project-root (or (projectile-project-root) default-directory))
+    	 (frame (make-frame `((name . ,(format "Terminal: %s"
+    					       (file-name-nondirectory
+  						(directory-file-name project-root))))))))
+        (select-frame-set-input-focus frame)
+        (let ((default-directory project-root))
+
+  	(multi-vterm))
+        (delete-other-windows)))
+
+  (defun mr-x/spawn-dev-environment ()
+    "Spawn a new frame with two horizontal vterms for dev and queue.
+Creates a frame named 'Dev: {project}' with:
+  - Top: vterm running `pnpm run dev` (named *{project}: dev*)
+  - Bottom: vterm running `pnpm queue:dev` (named *{project}: queue*)"
     (interactive)
     (let* ((project-root (or (projectile-project-root) default-directory))
-  	 (frame (make-frame `((name . ,(format "Terminal: %s"
-  					       (file-name-nondirectory
-						(directory-file-name project-root))))))))
+           (project-name (file-name-nondirectory (directory-file-name project-root)))
+           (frame (make-frame `((name . ,(format "Dev: %s" project-name))))))
       (select-frame-set-input-focus frame)
       (let ((default-directory project-root))
-
-	(multi-vterm))
-      (delete-other-windows)))
+        ;; Create first vterm for dev server
+        (multi-vterm)
+        (rename-buffer (format "*%s: dev*" project-name))
+        (let ((dev-buf (current-buffer)))
+          ;; Split horizontally (top/bottom)
+          (split-window-below)
+          ;; Create second vterm for queue in bottom window
+          (other-window 1)
+          (multi-vterm)
+          (rename-buffer (format "*%s: queue*" project-name))
+          ;; Send commands to both vterms
+          (vterm-send-string "pnpm queue:dev")
+          (vterm-send-return)
+          ;; Switch to dev buffer and send its command
+          (select-window (get-buffer-window dev-buf))
+          (vterm-send-string "pnpm run dev")
+          (vterm-send-return)))
+      (message "Dev environment spawned for %s" project-name)))
 
 (use-package ox-hugo
   :ensure t
@@ -1851,7 +1885,21 @@ Highlights the actual code content, not just +/- markers."
     :after agent-shell
     :config
     ;; Position manager window (options: left, right, top, bottom, nil for no auto-display)
-    (setq agent-shell-manager-window-side 'bottom))
+    (setq agent-shell-manager-window-side 'bottom)
+    ;; Fix evil-mode conflict - bind keys in normal state
+    (evil-define-key 'normal agent-shell-manager-mode-map
+      (kbd "RET") #'agent-shell-manager-goto
+      (kbd "gr") #'agent-shell-manager-refresh
+      (kbd "q") #'quit-window
+      (kbd "K") #'agent-shell-manager-kill
+      (kbd "c") #'agent-shell-manager-new
+      (kbd "r") #'agent-shell-manager-restart
+      (kbd "D") #'agent-shell-manager-delete-killed
+      (kbd "m") #'agent-shell-manager-set-mode
+      (kbd "M") #'agent-shell-manager-set-model
+      (kbd "C-c C-c") #'agent-shell-manager-interrupt
+      (kbd "t") #'agent-shell-manager-view-traffic
+      (kbd "l") #'agent-shell-manager-toggle-logging))
 
 
 
