@@ -7,6 +7,11 @@
 * Table of Contents :TOC:
 - [[#setup][Setup]]
   - [[#elpaca][Elpaca]]
+- [[#org][Org]]
+  - [[#org-mode-setup][Org Mode Setup]]
+  - [[#org-babel][Org Babel]]
+  - [[#org-roam][Org Roam]]
+  - [[#built-in-overrides][Built-in Overrides]]
   - [[#unleash-the-demon][Unleash the Demon]]
   - [[#exec-path-from-shell][Exec Path from Shell]]
   - [[#keeping-emacs-clean][Keeping Emacs Clean]]
@@ -17,53 +22,55 @@
   - [[#time-to-get-some-help][Time To Get Some Help]]
   - [[#dired][Dired]]
   - [[#ivy--swiper][Ivy & Swiper]]
-- [[#org][Org]]
-  - [[#org-mode-setup][Org Mode Setup]]
-  - [[#org-babel][Org Babel]]
-  - [[#org-roam][Org Roam]]
 - [[#development][Development]]
+  - [[#magit][Magit]]
+  - [[#im-different][I'm different]]
+  - [[#projectile][Projectile]]
   - [[#i-want-to-be-a-writer][I want to be a writer]]
+  - [[#i-want-to-be-a-reader][I Want To Be A Reader]]
   - [[#languages][Languages]]
+  - [[#ai-overlord][AI Overlord]]
 - [[#nothing-personal][Nothing Personal]]
   - [[#ledger][Ledger]]
+  - [[#i-do-da-digital-dash][I Do Da Digital Dash]]
 
 * Setup
 
 ** Elpaca
 #+begin_src emacs-lisp
 
-  (defvar elpaca-installer-version 0.8)
+  (defvar elpaca-installer-version 0.11)
   (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
   (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
   (defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
   (defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-				:ref nil :depth 1
-				:files (:defaults "elpaca-test.el" (:exclude "extensions"))
-				:build (:not elpaca--activate-package)))
+  				:ref nil :depth 1
+  				:files (:defaults "elpaca-test.el" (:exclude "extensions"))
+  				:build (:not elpaca--activate-package)))
   (let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
-	 (build (expand-file-name "elpaca/" elpaca-builds-directory))
-	 (order (cdr elpaca-order))
-	 (default-directory repo))
+  	 (build (expand-file-name "elpaca/" elpaca-builds-directory))
+  	 (order (cdr elpaca-order))
+  	 (default-directory repo))
     (add-to-list 'load-path (if (file-exists-p build) build repo))
     (unless (file-exists-p repo)
       (make-directory repo t)
       (when (< emacs-major-version 28) (require 'subr-x))
       (condition-case-unless-debug err
-	  (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-		    ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
-						    ,@(when-let* ((depth (plist-get order :depth)))
-							(list (format "--depth=%d" depth) "--no-single-branch"))
-						    ,(plist-get order :repo) ,repo))))
-		    ((zerop (call-process "git" nil buffer t "checkout"
-					  (or (plist-get order :ref) "--"))))
-		    (emacs (concat invocation-directory invocation-name))
-		    ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-					  "--eval" "(byte-recompile-directory \".\" 0 'force)")))
-		    ((require 'elpaca))
-		    ((elpaca-generate-autoloads "elpaca" repo)))
-	      (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-	    (error "%s" (with-current-buffer buffer (buffer-string))))
-	((error) (warn "%s" err) (delete-directory repo 'recursive))))
+  	  (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
+  		    ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
+  						    ,@(when-let* ((depth (plist-get order :depth)))
+  							(list (format "--depth=%d" depth) "--no-single-branch"))
+  						    ,(plist-get order :repo) ,repo))))
+  		    ((zerop (call-process "git" nil buffer t "checkout"
+  					  (or (plist-get order :ref) "--"))))
+  		    (emacs (concat invocation-directory invocation-name))
+  		    ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+  					  "--eval" "(byte-recompile-directory \".\" 0 'force)")))
+  		    ((require 'elpaca))
+  		    ((elpaca-generate-autoloads "elpaca" repo)))
+  	      (progn (message "%s" (buffer-string)) (kill-buffer buffer))
+  	    (error "%s" (with-current-buffer buffer (buffer-string))))
+  	((error) (warn "%s" err) (delete-directory repo 'recursive))))
     (unless (require 'elpaca-autoloads nil t)
       (require 'elpaca)
       (elpaca-generate-autoloads "elpaca" repo)
@@ -71,519 +78,73 @@
   (add-hook 'after-init-hook #'elpaca-process-queues)
   (elpaca `(,@elpaca-order))
 
-  ;; Disable package.el
-  (setq package-enable-at-startup nil)
-
   (elpaca elpaca-use-package
     ;; Enable Elpaca support for use-package's :ensure keyword.
     (elpaca-use-package-mode))
 
-#+end_src
-** Unleash the Demon
+  ;; Load org early to avoid version conflicts
+  (elpaca org)
+  (elpaca-wait)
 
-#+begin_src emacs-lisp
+  ;; Ensure .org files always open in org-mode (fixes version mismatch issues)
+  (add-to-list 'auto-mode-alist '("\\.org\\'" . org-mode))
 
-  (pcase system-type
-    ('gnu/linux "It's Linux!")
-    ('windows-nt "It's Windows!")
-    ('darwin "It's macOS!"))
-
-  (if (daemonp)
-      (message "Loading in the daemon!")
-    (message "Loading in regular Emacs!"))
-
-  (defun mr-x/set-font-faces ()
-    (message "Setting faces!")
-    (set-face-attribute 'default nil :font "Iosevka" :height 280))
-
-    ;; Set the fixed pitch face
-
-  (if (daemonp)
-      (add-hook 'after-make-frame-functions
-		(lambda (frame)
-		  (setq doom-modeline-icon t)
-		  (with-selected-frame frame
-		    (mr-x/set-font-faces))))
-    (mr-x/set-font-faces))
-
-
+  ;; Function to fix any .org files stuck in fundamental-mode
+  (defun mr-x/fix-org-mode-buffers ()
+    "Fix any .org files that opened in fundamental-mode"
+    (interactive)
+    (dolist (buffer (buffer-list))
+      (when (and (buffer-file-name buffer)
+                 (string-match "\\.org$" (buffer-file-name buffer))
+                 (not (eq (with-current-buffer buffer major-mode) 'org-mode)))
+        (with-current-buffer buffer
+          (org-mode)))))
 
 #+end_src
-
-** Exec Path from Shell
-#+begin_src emacs-lisp
-
-  (use-package exec-path-from-shell
-    :ensure t
-    :config
-    (when (memq window-system '(mac ns x))
-      (exec-path-from-shell-initialize)))
-
-#+end_src
-
-** Keeping Emacs Clean
-
-#+begin_src emacs-lisp
-
-  (use-package no-littering
-    :ensure t
-    :config
-    (setq custom-file (no-littering-expand-etc-file-name "custom.el"))
-    (load custom-file 'noerror)
-    (no-littering-theme-backups))
-
-#+end_src
-** Terminal
-#+begin_src emacs-lisp
-
-
-    (use-package vterm
-      :ensure t)
-
-      (use-package multi-vterm
-	  :ensure t
-	  :after evil
-	  :config
-
-	  (add-hook 'vterm-mode-hook
-			  (lambda ()
-			  (setq-local evil-insert-state-cursor 'box)
-			  (evil-insert-state)))
-	  (define-key vterm-mode-map [return]                      #'vterm-send-return)
-
-	  (setq vterm-keymap-exceptions nil)
-	  ;; dedicated terminal height of 30%
-	  (setq multi-vterm-dedicated-window-height-percent 40)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
-	  (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
-	  (evil-define-key 'normal vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-	  (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
-	  (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
-	  (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
-	  (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
-	  (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
-	  (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume))
-
-
-      ;; Optional: set the shell explicitly if needed
-      ;; (setq vterm-shell "/bin/zsh")
-
-
-    ;; (use-package multi-vterm
-    ;; 	 :config
-    ;; 	 (add-hook 'vterm-mode-hook
-    ;; 			 (lambda ()
-    ;; 			 (setq-local evil-insert-state-cursor 'box)
-    ;; 			 (evil-insert-state)))
-
-    ;; 	 (define-key vterm-mode-map [return]                      #'vterm-send-return)
-
-    ;; 	 (setq vterm-keymap-exceptions nil))
-
-
-
-#+end_src
-** UI
-
-#+begin_src emacs-lisp
-
-  (use-package all-the-icons
-    :ensure t
-    :if (display-graphic-p))
-
-  (use-package doom-themes
-    :ensure t
-    :config
-    (load-theme 'doom-sourcerer))
-
-  (use-package doom-modeline
-    :ensure t
-    :init (doom-modeline-mode 1)
-    (setq doom-modeline-modal-modern-icon nil))
-
-
-  (set-face-attribute 'default nil :font "Iosevka" :height 280)
-
-  (defun mr-x/general-setup ()
-    (display-line-numbers-mode 1)
-    (set-frame-parameter (selected-frame) 'alpha '(80 50)))
-
-  (add-hook 'text-mode-hook #'mr-x/general-setup)
-  (add-hook 'prog-mode-hook #'mr-x/general-setup)
-
-					  ; opacity
-  (set-frame-parameter (selected-frame) 'alpha '(80 50))
-  (add-to-list 'default-frame-alist '(alpha-background . 20))
-					  ; keybindings section
-  (global-set-key (kbd "C-<escape>") #'universal-argument)
-  (global-set-key (kbd "C-c d") 'diff-buffer-with-file)
-  (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
-  (global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
-  (global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
-  (global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
-
-
-
-  (setq inhibit-startup-message t) ; Disable the startup message
-  (scroll-bar-mode -1) ; Disable the visible scrollbar
-  (tool-bar-mode -1)   ; Disable the toolbar
-  (tooltip-mode -1)    ; Disable tooltips
-  (menu-bar-mode -1)   ; Disable the menu bar
-  (set-fringe-mode 10) ; Give some breathing room
-
-
-#+end_src
-
-** Gain Some Perspective
-
-#+begin_src emacs-lisp
-
-  (use-package perspective
-  :ensure t
-  :bind
-  ("C-x C-b" . persp-counsel-switch-buffer)         ; or use a nicer switcher, see below
-  ("C-x C-i" . persp-ibuffer)
-  :custom
-  (persp-mode-prefix-key (kbd "C-x M-x"))  ; pick your own prefix key here
-  :init
-  (persp-mode))
-
-#+end_src
-
-** UX
-
-#+begin_src emacs-lisp
-
-  (defun mr-x/org-mode-visual-fill ()
-    (setq visual-fill-column-width 100
-	  visual-fill-column-center-text t)
-    (visual-fill-column-mode 1))
-
-  (use-package visual-fill-column
-    :ensure t
-    :config
-    (add-hook 'org-mode-hook #'mr-x/org-mode-visual-fill))
-
-  (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
-  (setq visible-bell t)
-  (fset 'yes-or-no-p 'y-or-n-p)
-
-  (use-package highlight
-    :ensure t)
-#+end_src
-*** Scratch Buffer Setup
-#+begin_src emacs-lisp
-
-  (setq initial-major-mode 'org-mode)
-  (setq initial-scratch-message "\
-  # Clear your mind young one.")
-
-#+end_src
-
-*** Keybindings
-
-#+begin_src emacs-lisp
-
-      (use-package general
-      :ensure t
-      :demand t
-      :config
-      ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
-      (general-evil-setup t)
-
-      ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
-      ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
-      ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
-      ;; will only have an effect for general.el key definers. The advice can later be removed with
-      ;; (general-auto-unbind-keys t).
-      (general-auto-unbind-keys))
-
-      (with-eval-after-load 'general
-	(general-create-definer mr-x/leader-def
-	  :states '(normal visual motion emacs insert)
-	  :keymaps 'override
-	  :prefix "SPC"
-	  :global-prefix "C-SPC"))
-
-      (with-eval-after-load 'general
-	(mr-x/leader-def
-	  "a" 'mr-x/org-agenda-custom
-	  ;; "m" 'mu4e
-	  "f" 'link-hint-open-link
-	  ;; "p" 'projectile-command-map
-	  "h" 'winner-undo
-	  "l" 'winner-redo
-	  ;; "s" 'mr-x/toggle-shortcuts
-	  ;; "S" 'mr-x/scratch
-	  ;; "v" 'multi-vterm
-	  "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
-	  "1" (lambda () (interactive) (persp-switch-by-number 1))
-	  "2" (lambda () (interactive) (persp-switch-by-number 2))
-	  "3" (lambda () (interactive) (persp-switch-by-number 3))
-	  "4" (lambda () (interactive) (persp-switch-by-number 4))
-	  "5" (lambda () (interactive) (persp-switch-by-number 5)))
-
-	(mr-x/leader-def
-	  "d" '(:ignore t :wk "Dired")
-	  "d d" '(dired :wk "Open Dired")
-	  "d j" '(dired-jump :wk "Dired jump to current")
-	  "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
-
-	(mr-x/leader-def
-	"b" '(:ignore t :wk "buffer")
-	"b b" '(persp-counsel-switch-buffer :wk "switch buffer")
-	"b k" '(kill-this-buffer :wk "kill this buffer")
-	"b r" '(revert-buffer :wk "revert buffer"))
-	
-	(mr-x/leader-def
-	"v" '(:ignore t :wk "vterm")
-	"v v" '(multi-vterm :wk "multi-vterm")
-	"v n" '(multi-vterm-next :wk "multi-vterm-next")
-	"v p" '(multi-vterm-prev :wk "multi-vterm-prev")
-	"v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")))
-
-;; add multi-vterm-project in projectile prolly
-
-
-	(defun mr-x/org-agenda-day ()
-	  (interactive)
-	  (org-agenda nil "a"))
-
-	(defun mr-x/org-agenda-custom ()
-	  (interactive)
-	  (org-agenda nil "c"))
-
-
-#+end_src
-
-*** All I do is win win win no matter what
-
-#+begin_src emacs-lisp
-
-  (winner-mode 1)
-
-#+end_src
-
-** Time To Get Some Help
-
-*** You Need Some Help
-
-#+begin_src emacs-lisp
-
-  (use-package helpful
-    :ensure t
-    :custom
-    (counsel-describe-function-function #'helpful-callable)
-    (counsel-describe-variable-function #'helpful-variable))
-
-  (global-set-key (kbd "C-h v") #'helpful-variable)
-  (global-set-key (kbd "C-h k") #'helpful-key)
-  (global-set-key (kbd "C-h x") #'helpful-command)
-
-#+end_src
-
-*** You need a hint
-#+begin_src emacs-lisp
-
-  (use-package link-hint
-    :ensure t)
-  
-#+end_src
-
-#+begin_src emacs-lisp
-
-  (use-package which-key
-    :ensure t
-    :config
-    (which-key-mode)
-    (setq which-key-separator " → ")
-    (setq which-key-idle-delay 1))
-
-#+end_src
-*** Evil
-#+begin_src emacs-lisp
-
-  (use-package evil
-    :ensure t
-    :demand t
-    :init (setq evil-want-integration t)
-    (setq evil-want-keybinding nil)
-    (setq evil-want-C-u-scroll t)
-    (setq evil-want-C-i-jump nil)
-    (setq evil-respect-visual-line-mode t)
-    :config
-    (evil-mode 1))
-
-
-#+end_src
-
-*** Spreading Evil
-
-#+begin_src emacs-lisp
-
-    (use-package evil-collection
-      :ensure t
-      :after (evil ivy)
-      :config
-      (evil-collection-init))
-
-  (use-package evil-org
-    :ensure t
-    :after org
-    :hook (org-mode . evil-org-mode)
-    :config
-    (require 'evil-org-agenda)
-    (evil-org-agenda-set-keys))
-
-#+end_src
-** Dired
-
-#+begin_src emacs-lisp
-
-    (use-package dired
-    :ensure nil  
-    :commands (dired dired-jump)
-    :config
-    (setq insert-directory-program "gls")
-    (setq dired-use-ls-dired t)
-    (setq dired-listing-switches "-al --group-directories-first")
-    (evil-define-key 'normal dired-mode-map
-      "h" 'dired-up-directory
-      "l" 'dired-find-file)
-
-    (add-hook 'dired-mode-hook
-	  (lambda ()
-	    (dired-omit-mode 1)
-	    (dired-hide-details-mode 1))))
-
-  (use-package dired-x
-    :ensure nil 
-    :after dired
-    :config
-    (setq dired-omit-files (rx (seq bol "."))))
-
-
-    (use-package all-the-icons-dired
-      :ensure t
-      :hook (dired-mode . all-the-icons-dired-mode))
-
-    (setq display-line-numbers-type 'relative)
-    (dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
-      (add-hook mode (lambda () (display-line-numbers-mode 1))))
-#+end_src
-
-** Ivy & Swiper
-
-#+begin_src emacs-lisp
-
-  ;; Ivy & Counsel
-
-  (use-package swiper
-    :ensure t)
-
-  (use-package ivy
-    :ensure t
-    :bind (("C-s" . swiper)
-	     :map ivy-minibuffer-map
-	     ("TAB" . ivy-alt-done)
-	     ("C-l" . ivy-alt-done)
-	     ("C-j" . ivy-next-line)
-	     ("C-k" . ivy-previous-line)
-	     :map ivy-switch-buffer-map
-	     ("C-k" . ivy-previous-line)
-	     ("C-l" . ivy-done)
-	     ("C-d" . ivy-switch-buffer-kill)
-	     :map ivy-reverse-i-search-map
-	     ("C-k" . ivy-previous-line)
-	     ("C-d" . ivy-reverse-i-search-kill))
-    :config
-    (ivy-mode 1)
-    (setq ivy-use-virtual-buffers nil)
-    (setq ivy-count-format "(%d/%d) "))
-
-  ;; Taken from emacswiki to search for symbol/word at point
-  ;; Must be done at end of init I guess
-  ;; (define-key swiper-map (kbd "C-.")
-  ;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'symbol))))))
-
-  ;; (define-key swiper-map (kbd "M-.")
-  ;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
-
-
-  (use-package counsel
-    :ensure t
-    :config
-    (counsel-mode 1))
-
-  (global-set-key (kbd "M-x") 'counsel-M-x)
-  (global-set-key (kbd "C-x C-f") 'counsel-find-file)
-
-
-#+end_src
-
 
 * Org
 ** Org Mode Setup
 
 #+begin_src emacs-lisp
 
-      ;; org (kinda not really)
-
-      (use-package toc-org
-	:ensure t
-	:commands toc-org-enable
-	:hook (org-mode . toc-org-mode))
-
-      (defun mr-x/org-mode-setup()
-
-	(visual-line-mode 1)
-	(auto-fill-mode 0)
-	      (setq org-hide-leading-stars t)
-	(setq org-agenda-include-diary t)
-	(setq org-fold-core-style 'overlays)
-	(setq org-agenda-span 'day)
-	(setq evil-auto-indent nil))
-
-      (setq org-agenda-files
-	    '("~/roaming/agenda.org"
-	      "~/roaming/habits.org"
-	      "~/jira"))
-      (setq org-clock-persist t)
-      (org-clock-persistence-insinuate)
 
       (use-package org
-	:hook (org-mode . mr-x/org-mode-setup)
-	:config
-	(setq org-hide-emphasis-markers t)
-	(setq org-agenda-start-with-log-mode t)
-	(setq org-log-done 'time)
-	(setq org-log-into-drawer t)
+        :ensure nil
+        :demand t
+  	:hook (org-mode . mr-x/org-mode-setup)
+  	:config
+  	;; Move org-agenda-files here
+  	(setq org-agenda-files '("~/roaming/agenda.org"))
+  	
+  	;; Move clock persistence here  
+  	(setq org-clock-persist t)
+  	(org-clock-persistence-insinuate)
+  	
+  	;; Define setup function here
+  	(defun mr-x/org-mode-setup()
+  	  (visual-line-mode 1)
+  	  (auto-fill-mode 0)
+  	  (setq org-hide-leading-stars t)
+  	  (setq org-agenda-include-diary t)
+  	  (setq org-fold-core-style 'overlays)
+  	  (setq org-agenda-span 'day)
+  	  (setq evil-auto-indent nil))
+  	
+  	;; Rest of org config
+  	(setq org-hide-emphasis-markers t)
+  	(setq org-agenda-start-with-log-mode t)
+  	(setq org-log-done 'time)
+  	(setq org-log-into-drawer t)
 
-	;; testing
+  	;; testing
 
-	(setq org-M-RET-may-split-line '((default . nil)))
-	(setq org-list-automatic-rules 
-	      '((checkbox . t)
-	       (indent . nil)
-	       (ordered . nil)))
+  	(setq org-M-RET-may-split-line '((default . nil)))
+  	(setq org-list-automatic-rules 
+  	      '((checkbox . t)
+  	       (indent . nil)
+  	       (ordered . nil)))
 
-	;; doesn't work lol thanks oai
+  	;; doesn't work lol thanks oai
 
       ;;   (defun my/org-meta-return-auto-checkbox (&rest _)
       ;; "Extend `M-RET` to insert a checkbox automatically."
@@ -595,172 +156,175 @@
 
 
 
-	(setq org-highlight-latex-and-related '(latex))
+  	(setq org-highlight-latex-and-related '(latex))
 
-					      ; org- habit setup
+  					      ; org- habit setup
 
-	(require 'org-habit)
-	(add-to-list 'org-modules 'org-habit)
-	(setq org-habit-graph-column 60)
+  	(require 'org-habit)
+  	(add-to-list 'org-modules 'org-habit)
+  	(setq org-habit-graph-column 60)
 
-	(setq org-todo-keywords
-	      '((sequence
-		 "TODO(t)"
-		 "NEXT(n)"
-		 "|"
-		 "DONE(d!)")
-		(sequence
-		 "BACKLOG(b)"
-		 "PLAN(p)"
-		 "READY(r)"
-		 "IN-PROGRESS(i)"
-		 "REVIEW(v)"
-		 "WATCHING(w@/!)"
-		 "HOLD(h)"
-		 "|"
-		 "COMPLETED(c)"
-		 "CANC(k@)")))
+  	(setq org-todo-keywords
+  	      '((sequence
+  		 "TODO(t)"
+  		 "NEXT(n)"
+  		 "|"
+  		 "DONE(d!)")
+  		(sequence
+  		 "BACKLOG(b)"
+  		 "PLAN(p)"
+  		 "READY(r)"
+  		 "IN-PROGRESS(i)"
+  		 "REVIEW(v)"
+  		 "WATCHING(w@/!)"
+  		 "HOLD(h)"
+  		 "|"
+  		 "COMPLETED(c)"
+  		 "CANC(k@)")))
 
-	(setq org-todo-keyword-faces
-	      '(("TODO" . "#FF1800")
-		("NEXT" . "#FF1800")
-		("PLAN" . "#F67F2F")
-		("DONE" . "#62656A")
-		("HOLD" . "#62656A")
-		("WAIT" . "#B7CBA8")
-		("IN-PROGRESS" . "#b7cba8") 
-		("BACKLOG" . "#62656A")))
+  	(setq org-todo-keyword-faces
+  	      '(("TODO" . "#FF1800")
+  		("NEXT" . "#FF1800")
+  		("PLAN" . "#F67F2F")
+  		("DONE" . "#62656A")
+  		("HOLD" . "#62656A")
+  		("WAIT" . "#B7CBA8")
+  		("IN-PROGRESS" . "#b7cba8") 
+  		("BACKLOG" . "#62656A")))
 
-	(custom-set-faces
-	 '(org-level-1 ((t (:foreground "#ff743f")))))
+  	(custom-set-faces
+  	 '(org-level-1 ((t (:foreground "#ff743f")))))
 
-	(custom-set-faces
-	 '(org-level-2 ((t (:foreground "#67bc44")))))
+  	(custom-set-faces
+  	 '(org-level-2 ((t (:foreground "#67bc44")))))
 
-	(custom-set-faces
-	 '(org-level-3 ((t (:foreground "#67c0de"))))))
+  	(custom-set-faces
+  	 '(org-level-3 ((t (:foreground "#67c0de"))))))
 
       (use-package org-superstar
-	:ensure t
-	:hook (org-mode . org-superstar-mode)
-	:config
-	(setq org-superstar-headline-bullets-list
-	      '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
-	(setq org-ellipsis " ‧"))
+  	:ensure t
+  	:hook (org-mode . org-superstar-mode)
+  	:config
+  	(setq org-superstar-headline-bullets-list
+  	      '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
+  	(setq org-ellipsis " ‧"))
 
 
       ;; org agenda
       (setq org-agenda-skip-scheduled-if-done t
-	    org-agenda-skip-deadline-if-done t
-	    org-agenda-include-deadlines t
-	    org-agenda-block-separator #x2501
-	    org-agenda-compact-blocks t
-	    org-agenda-start-with-log-mode t)
+  	    org-agenda-skip-deadline-if-done t
+  	    org-agenda-include-deadlines t
+  	    org-agenda-block-separator #x2501
+  	    org-agenda-compact-blocks t
+  	    org-agenda-start-with-log-mode t)
 
       (setq org-agenda-clockreport-parameter-plist
-	    (quote (:link t :maxlevel 5 :fileskip0 t :compact t :narrow 80)))
+  	    (quote (:link t :maxlevel 5 :fileskip0 t :compact t :narrow 80)))
       (setq org-agenda-deadline-faces
-	    '((1.0001 . org-warning)              ; due yesterday or before
-	      (0.0    . org-upcoming-deadline)))  ; due today or later
+  	    '((1.0001 . org-warning)              ; due yesterday or before
+  	      (0.0    . org-upcoming-deadline)))  ; due today or later
 
       (defun org-habit-streak-count ()
-	(goto-char (point-min))
-	(while (not (eobp))
-	  ;;on habit line?
-	  (when (get-text-property (point) 'org-habit-p)
-	    (let ((streak 0)
-		  (counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
-		  )
-	      (move-to-column counter)
-	      ;;until end of line
-	      (while (= (char-after (point)) org-habit-completed-glyph)
-		(setq streak (+ streak 1))
-		(setq counter (- counter 1))
-		(backward-char 1))
-	      (end-of-line)
-	      (insert (number-to-string streak))))
-	  (forward-line 1)))
+  	(goto-char (point-min))
+  	(while (not (eobp))
+  	  ;;on habit line?
+  	  (when (get-text-property (point) 'org-habit-p)
+  	    (let ((streak 0)
+  		  (counter (+ org-habit-graph-column (- org-habit-preceding-days org-habit-following-days)))
+  		  )
+  	      (move-to-column counter)
+  	      ;;until end of line
+  	      (while (= (char-after (point)) org-habit-completed-glyph)
+  		(setq streak (+ streak 1))
+  		(setq counter (- counter 1))
+  		(backward-char 1))
+  	      (end-of-line)
+  	      (insert (number-to-string streak))))
+  	  (forward-line 1)))
 
       (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
 
       (defun my/style-org-agenda()
-	(setq org-agenda-window-setup 'only-window)
-	(set-face-attribute 'org-agenda-date nil :height 1.1)
-	(set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
-	(set-face-attribute 'org-agenda-date-today nil
-			    :foreground "#897d6c"   
-			    :background nil        
-			    :weight 'bold
-			    :underline nil)           ;; Make it bold
-	(set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
+  	(setq org-agenda-window-setup 'only-window)
+  	(set-face-attribute 'org-agenda-date nil :height 1.1)
+  	(set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
+  	(set-face-attribute 'org-agenda-date-today nil
+  			    :foreground "#897d6c"   
+  			    :background nil        
+  			    :weight 'bold
+  			    :underline nil)           ;; Make it bold
+  	(set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
 
       (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
 
 
 
       (setq org-agenda-breadcrumbs-separator " ❱ "
-	    org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
-	    org-agenda-time-grid '((daily today)
-				   (800 1000 1200 1400 1600 1800 2000)
-				   "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
-	    org-agenda-prefix-format '((agenda . "%i %-12:c [%e] %?-12t%b% s")
-				       (todo . " %i %-12:c [%e] ")
-				       (tags . " %i %-12:c")
-				       (search . " %i %-12:c")))
+  	    org-agenda-current-time-string "⏰ ┈┈┈┈┈┈┈┈┈┈┈ now"
+  	    org-agenda-time-grid '((daily today)
+  				   (800 1000 1200 1400 1600 1800 2000)
+  				   "---" "┈┈┈┈┈┈┈┈┈┈┈┈┈")
+  	    org-agenda-prefix-format '((agenda . "%i %-12:c [%e] %?-12t%b% s")
+  				       (todo . " %i %-12:c [%e] ")
+  				       (tags . " %i %-12:c")
+  				       (search . " %i %-12:c")))
 
 
 
 
       (setq org-agenda-custom-commands
-	    '(("p" "Projects Agenda"
-	       ((todo "NEXT"
-		      ((org-agenda-overriding-header
-			(concat "Projects\n" (make-string (window-width) 9472) "\n\n"))
-		       (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
-					   "~/roaming/notes/20250212103431-customize_org_agenda.org"
-					   "~/roaming/notes/20240507202146-openpair.org"
-					   "~/roaming/notes/20250107142334-rec.org"
-					   "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
-					   "~/roaming/notes/20250220152855-personal_website.org"
-					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
-					   "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
-	      ("c" "Custom Projects & Agenda"
-	       ((agenda ""
-			((org-agenda-overriding-header "Agenda")
-			 (org-agenda-prefix-format
-			  '((agenda . "  %?-12t% s")
-			    (timeline . "  % s")
-			    (todo . "  ")
-			    (tags . "  ")
-			    (search . "  ")))
-			 (org-agenda-log-mode-items '(closed clock))))
-		(todo "NEXT"
-		      ((org-agenda-overriding-header
-			(concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
-		       (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
-					   "~/roaming/notes/20250212103431-customize_org_agenda.org"
-					   "~/roaming/notes/20240507202146-openpair.org"
-					   "~/roaming/notes/20250107142334-rec.org"
-					   "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
-					   "~/roaming/notes/20250220152855-personal_website.org"
+  	    '(("p" "Projects Agenda"
+  	       ((todo "NEXT"
+  		      ((org-agenda-overriding-header
+  			(concat "Projects\n" (make-string (window-width) 9472) "\n\n"))
+  		       (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
+  					   "~/roaming/notes/20250212103431-customize_org_agenda.org"
+  					   "~/roaming/notes/20250701091830-omi_live.org"
+
+  					   "~/roaming/notes/20240507202146-openpair.org"
+  					   "~/roaming/notes/20250107142334-rec.org"
+  					   "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
+  					   "~/roaming/notes/20250220152855-personal_website.org"
+  					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+  					   "~/roaming/notes/20240416191540-typingpracticeapplication.org"))))))
+  	      ("c" "Custom Projects & Agenda"
+  	       ((agenda ""
+  			((org-agenda-overriding-header "Agenda")
+  			 (org-agenda-prefix-format
+  			  '((agenda . "  %?-12t% s")
+  			    (timeline . "  % s")
+  			    (todo . "  ")
+  			    (tags . "  ")
+  			    (search . "  ")))
+  			 (org-agenda-log-mode-items '(closed clock))))
+  		(todo "NEXT"
+  		      ((org-agenda-overriding-header
+  			(concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
+  		       (org-agenda-files '("~/roaming/notes/20250211154648-stable_elpaca.org"
+  					   "~/roaming/notes/20250701091830-omi_live.org"
+  					   "~/roaming/notes/20250212103431-customize_org_agenda.org"
+  					   "~/roaming/notes/20240507202146-openpair.org"
+  					   "~/roaming/notes/20250107142334-rec.org"
+  					   "~/roaming/notes/20250210175701-amazon_orders_sorting.org"
+  					   "~/roaming/notes/20250220152855-personal_website.org"
   "~/roaming/notes/20250317082044-vibe_coding_video.org"
   "~/roaming/notes/20250402103112-kountdown.org"
-					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
-					   "~/roaming/notes/20250309222443-virtual_museum.org"
-					   "~/roaming/notes/20250402092144-track01_s_w.org"
-					   "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
-	       nil)))
+  					   "~/roaming/notes/20240708090814-guitar_fretboard_js.org"
+  					   "~/roaming/notes/20250309222443-virtual_museum.org"
+  					   "~/roaming/notes/20250402092144-track01_s_w.org"
+  					   "~/roaming/notes/20240416191540-typingpracticeapplication.org")))))
+  	       nil)))
       (setq org-agenda-format-date (lambda (date)
-				     (concat"\n"(make-string(window-width)9472)
-					    "\n"(org-agenda-format-date-aligned date))))
+  				     (concat"\n"(make-string(window-width)9472)
+  					    "\n"(org-agenda-format-date-aligned date))))
       (setq org-cycle-separator-lines 2)
 
       (add-hook 'org-agenda-finalize-hook
-		(lambda ()
-		  (setq visual-fill-column-width 100) 
-		  (setq visual-fill-column-center-text t)
-		  (visual-fill-column-mode t)
-		  (display-line-numbers-mode 1)))
+  		(lambda ()
+  		  (setq visual-fill-column-width 100) 
+  		  (setq visual-fill-column-center-text t)
+  		  (visual-fill-column-mode t)
+  		  (display-line-numbers-mode 1)))
 
 
 
@@ -771,29 +335,32 @@
     "Find and highlight the task in the 'Projects' section with the lowest 'GOAL #' number."
     (when (derived-mode-p 'org-agenda-mode)
       (save-excursion
-	(goto-char (point-min))
-	(let (lowest-goal lowest-pos)
-	  ;; Search for "Projects" section
-	  (when (re-search-forward "^Projects" nil t)
-	    ;; Iterate over tasks under "Projects"
-	    (while (re-search-forward "GOAL #\\([0-9]+\\)" nil t)
-	      (let* ((goal-num (string-to-number (match-string 1)))
-		     (line-start (line-beginning-position))
-		     (line-end (line-end-position)))
-		;; Track the lowest goal number and its position
-		(when (or (not lowest-goal) (< goal-num lowest-goal))
-		  (setq lowest-goal goal-num)
-		  (setq lowest-pos (cons line-start line-end))))))
-	  ;; Apply highlighting to the first occurrence of the lowest goal
-	  (when lowest-pos
-	    (let ((ov (make-overlay (car lowest-pos) (cdr lowest-pos))))
-	      (overlay-put ov 'face '(:background "dark red" :foreground "white" :weight bold))))))))
+  	(goto-char (point-min))
+  	(let (lowest-goal lowest-pos)
+  	  ;; Search for "Projects" section
+  	  (when (re-search-forward "^Projects" nil t)
+  	    ;; Iterate over tasks under "Projects"
+  	    (while (re-search-forward "GOAL #\\([0-9]+\\)" nil t)
+  	      (let* ((goal-num (string-to-number (match-string 1)))
+  		     (line-start (line-beginning-position))
+  		     (line-end (line-end-position)))
+  		;; Track the lowest goal number and its position
+  		(when (or (not lowest-goal) (< goal-num lowest-goal))
+  		  (setq lowest-goal goal-num)
+  		  (setq lowest-pos (cons line-start line-end))))))
+  	  ;; Apply highlighting to the first occurrence of the lowest goal
+  	  (when lowest-pos
+  	    (let ((ov (make-overlay (car lowest-pos) (cdr lowest-pos))))
+  	      (overlay-put ov 'face '(:background "dark red" :foreground "white" :weight bold))))))))
 
 
   (add-hook 'org-agenda-finalize-hook #'my-highlight-lowest-goal)
 
-
-
+  ;; toc-org for table of contents generation
+  (use-package toc-org
+    :ensure t
+    :commands toc-org-enable
+    :hook (org-mode . toc-org-mode))
 
 
 #+end_src
@@ -899,6 +466,7 @@
      (require 'org-roam-dailies)
 
      (org-roam-db-autosync-mode))
+
   (setq org-roam-dailies-directory "journal/")
 
 
@@ -912,6 +480,7 @@
 
   (with-eval-after-load 'org-roam
     (require 'org-roam-node)
+
    (defun my/org-roam-filter-by-tag (tag-name)
      (lambda (node)
        (member tag-name (org-roam-node-tags node))))
@@ -924,14 +493,10 @@
 
    (defun my/org-roam-refresh-agenda-list ()
      (interactive)
-     (setq org-agenda-files
-	   (append
-	    (my/org-roam-list-notes-by-tag "Project")
-	    (directory-files-recursively
-	     (expand-file-name org-roam-dailies-directory org-roam-directory)
-	     "\\.org$"))))
+     (setq org-agenda-files (my/org-roam-list-notes-by-tag "Project")))
 
    (my/org-roam-refresh-agenda-list))
+
 
    (defun my/org-roam-project-finalize-hook ()
      "Adds the captured project file to `org-agenda-files' if the
@@ -1034,7 +599,808 @@
     org-roam-ui-update-on-save t
     org-roam-ui-open-on-start t))
 #+end_src
+** Built-in Overrides
+#+begin_src emacs-lisp
+
+(use-package transient
+  :ensure t
+  :demand t
+  :init
+  ;; Remove built-in transient from load-path to force using the newer version
+  (setq load-path (delete (expand-file-name "transient" (locate-library "transient")) load-path)))
+
+#+end_src
+
+** Unleash the Demon
+
+#+begin_src emacs-lisp
+
+  (pcase system-type
+    ('gnu/linux "It's Linux!")
+    ('windows-nt "It's Windows!")
+    ('darwin "It's macOS!"))
+
+  (if (daemonp)
+      (message "Loading in the daemon!")
+    (message "Loading in regular Emacs!"))
+
+  (defun mr-x/set-font-faces ()
+    (message "Setting faces!")
+    (set-face-attribute 'default nil :font "JuliaMono" :height 240))
+
+    ;; Set the fixed pitch face
+
+  (if (daemonp)
+      (add-hook 'after-make-frame-functions
+		(lambda (frame)
+		  (setq doom-modeline-icon t)
+		  (with-selected-frame frame
+		    (mr-x/set-font-faces))))
+    (mr-x/set-font-faces))
+
+
+
+#+end_src
+
+** Exec Path from Shell
+#+begin_src emacs-lisp
+
+  (use-package exec-path-from-shell
+    :ensure t
+    :config
+    ;; Run on macOS or when running as daemon (window-system is nil in daemon)
+    (when (or (daemonp) (memq window-system '(mac ns x)))
+      (exec-path-from-shell-initialize)))
+
+#+end_src
+
+** Keeping Emacs Clean
+
+#+begin_src emacs-lisp
+
+  (use-package no-littering
+    :ensure t
+    :config
+    (setq custom-file (no-littering-expand-etc-file-name "custom.el"))
+    (load custom-file 'noerror)
+    (no-littering-theme-backups))
+
+#+end_src
+** Terminal
+#+begin_src emacs-lisp
+
+
+  (use-package vterm
+    :ensure t
+    :config
+    ;; Prevent evil-collection from messing with vterm keys
+
+
+    (setq vterm-scroll-to-bottom-on-output nil)
+    (with-eval-after-load 'evil-collection
+      (setq evil-collection-vterm-bind-escape-in-insert nil)
+      (delete 'vterm evil-collection-mode-list)))
+
+  (use-package multi-vterm
+    :ensure t
+    :after (evil vterm)
+    :config
+    ;; Set buffer name prefix to "vterm"
+    (setq multi-vterm-buffer-name "vterm")
+    ;; Set dedicated terminal height
+    (setq multi-vterm-dedicated-window-height-percent 40)
+    
+    ;; Setup vterm with evil properly
+    (add-hook 'vterm-mode-hook
+              (lambda ()
+                (setq-local evil-insert-state-cursor 'box)
+                (evil-insert-state)))
+    
+    ;; Basic vterm configuration
+    (setq vterm-keymap-exceptions nil)
+    
+    ;; Define keys after vterm-mode-map exists
+    (with-eval-after-load 'vterm
+      (define-key vterm-mode-map [return] #'vterm-send-return)
+      
+      ;; Pass through common terminal keys in insert mode
+      (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
+      
+      ;; Normal mode keys
+      (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
+      (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
+      (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
+      (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
+      (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
+      (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)))
+
+
+
+
+    ;; Optional: set the shell explicitly if needed
+    ;; (setq vterm-shell "/bin/zsh")
+
+
+  ;; (use-package multi-vterm
+  ;; 	 :config
+  ;; 	 (add-hook 'vterm-mode-hook
+  ;; 			 (lambda ()
+  ;; 			 (setq-local evil-insert-state-cursor 'box)
+  ;; 			 (evil-insert-state)))
+
+  ;; 	 (define-key vterm-mode-map [return]                      #'vterm-send-return)
+
+  ;; 	 (setq vterm-keymap-exceptions nil))
+
+
+
+#+end_src
+** UI
+
+#+begin_src emacs-lisp
+
+    (use-package all-the-icons
+      :ensure t
+      :if (display-graphic-p))
+
+    (use-package doom-themes
+      :ensure t
+      :config
+      (load-theme 'doom-gruvbox))
+
+    (use-package doom-modeline
+      :ensure t
+      :init (doom-modeline-mode 1)
+      :custom
+      ;; Make modeline smaller and cleaner
+      (doom-modeline-height 25)  ; Smaller height (default is 25)
+      (doom-modeline-bar-width 3)  ; Thinner bar
+      
+      ;; Remove encoding to save space
+      (doom-modeline-buffer-encoding nil)  ; Remove encoding indicator
+      
+      ;; Other space-saving options
+      (doom-modeline-indent-info nil)  ; Remove indentation info
+      (doom-modeline-minor-modes nil)  ; Hide minor modes (they take lots of space)
+      (doom-modeline-buffer-file-name-style 'truncate-upto-root)  ; Shorter file paths
+      
+      ;; Keep useful stuff
+      (doom-modeline-major-mode-icon t)  ; Keep major mode icon
+      (doom-modeline-major-mode-color-icon t)  ; Colorful icons
+      (doom-modeline-buffer-state-icon t)  ; Modified/saved state
+      (doom-modeline-buffer-modification-icon t)  ; Show if modified
+      (doom-modeline-lsp t)  ; Keep LSP indicator
+      (doom-modeline-github nil)  ; Remove github notifications (saves space)
+      (doom-modeline-persp-name nil)  ; Remove perspective name if not using
+      (doom-modeline-modal-modern-icon nil)  ; Your existing setting
+      
+      ;; Performance
+      (doom-modeline-checker-simple-format t)  ; Simpler error format
+      (doom-modeline-env-version nil)  ; Don't show environment version
+      (doom-modeline-unicode-fallback t))  ; Use unicode when icons unavailable
+      
+      :config
+      ;; Commented out to prevent modeline shrinking when frame loses focus
+      ;; (set-face-attribute 'mode-line nil :height 0.9)
+      ;; (set-face-attribute 'mode-line-inactive nil :height 0.9))
+
+
+    ;; (set-face-attribute 'default nil :font "JuliaMono" :height 280)
+
+    (defun mr-x/general-setup ()
+      (display-line-numbers-mode 1)
+      (set-frame-parameter (selected-frame) 'alpha '(80 50)))
+
+    (add-hook 'text-mode-hook #'mr-x/general-setup)
+    (add-hook 'prog-mode-hook #'mr-x/general-setup)
+
+  					  ; opacity
+    (set-frame-parameter (selected-frame) 'alpha '(100 50))
+    (add-to-list 'default-frame-alist '(alpha-background . 20))
+  					  ; keybindings section
+    (global-set-key (kbd "C-<escape>") #'universal-argument)
+    (global-set-key (kbd "C-c d") 'diff-buffer-with-file)
+    (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
+    (global-set-key (kbd "C-c l") #'org-store-link) ; Suggested Key-binding from org-manual
+    (global-set-key (kbd "C-c a") #'org-agenda) ; Suggested Key-binding from org-manual
+    (global-set-key (kbd "C-c c") #'org-capture) ; Suggested Key-binding from org-manual
+
+
+
+
+
+
+
+    (setq inhibit-startup-message t) ; Disable the startup message
+    (scroll-bar-mode -1) ; Disable the visible scrollbar
+    (tool-bar-mode -1)   ; Disable the toolbar
+    (tooltip-mode -1)    ; Disable tooltips
+    (menu-bar-mode -1)   ; Disable the menu bar
+    (set-fringe-mode 10) ; Give some breathing room
+
+  ;; Disable native fullscreen behavior
+  (setq ns-use-native-fullscreen nil)
+
+  ;; Make new frames tile properly instead of floating
+  (setq ns-pop-up-frames nil)
+
+  ;; Prevent Emacs from resizing frames
+  (setq frame-resize-pixelwise t)
+
+
+
+
+#+end_src
+
+** Gain Some Perspective
+
+#+begin_src emacs-lisp
+
+  (use-package perspective
+  :ensure t
+  :bind
+  ("C-x C-b" . persp-counsel-switch-buffer)         ; or use a nicer switcher, see below
+  ("C-x C-i" . persp-ibuffer)
+  :custom
+  (persp-mode-prefix-key (kbd "C-x M-x"))  ; keep original prefix for compatibility
+  :init
+  (persp-mode))
+
+#+end_src
+
+** UX
+
+#+begin_src emacs-lisp
+
+  (defun mr-x/org-mode-visual-fill ()
+    (setq visual-fill-column-width 100
+	  visual-fill-column-center-text t)
+    (visual-fill-column-mode 1))
+
+  (use-package visual-fill-column
+    :ensure t
+    :config
+    (add-hook 'org-mode-hook #'mr-x/org-mode-visual-fill))
+
+  (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
+  (setq visible-bell t)
+  (fset 'yes-or-no-p 'y-or-n-p)
+  
+  ;; Auto-revert mode to automatically refresh buffers when files change on disk
+  (global-auto-revert-mode 1)
+  (setq global-auto-revert-non-file-buffers t)
+
+  (use-package highlight
+    :ensure t)
+
+  ;; Popper for popup buffer management
+  (use-package popper
+    :ensure t
+    :bind (("C-`"     . popper-toggle)
+           ("C-<tab>" . popper-cycle)
+           ("C-M-`"   . popper-toggle-type))
+    :init
+    ;; Group popups by perspective
+    (setq popper-group-function #'popper-group-by-perspective)
+    (setq popper-reference-buffers
+          '("\\*Messages\\*"
+            "\\*Warnings\\*"
+            "\\*Compile-Log\\*"
+            "\\*Backtrace\\*"
+            "\\*evil-registers\\*"
+            "\\*Apropos\\*"
+            "\\*scratch\\*"
+            "\\*Help\\*"
+            "\\*helpful.*\\*"
+            "\\*vterm.*\\*"
+            "\\*compilation\\*"
+            help-mode
+            helpful-mode
+            compilation-mode
+            vterm-mode))
+    :config
+    (setq popper-display-control t)
+    (setq popper-display-function #'popper-select-popup-at-bottom)
+    (popper-mode +1)
+    (popper-echo-mode +1))
+#+end_src
+*** Scratch Buffer Setup
+#+begin_src emacs-lisp
+
+  (setq initial-major-mode 'org-mode)
+  (setq initial-scratch-message "\
+  # Clear your mind young one.")
+
+#+end_src
+
+*** Keybindings
+
+#+begin_src emacs-lisp
+
+    (use-package general
+      :ensure t
+      :demand t
+      :config
+      ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
+      (general-evil-setup t)
+
+      ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
+      ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
+      ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
+      ;; will only have an effect for general.el key definers. The advice can later be removed with
+      ;; (general-auto-unbind-keys t).
+      (general-auto-unbind-keys))
+
+    (with-eval-after-load 'general
+      (general-create-definer mr-x/leader-def
+        :states '(normal visual motion emacs insert)
+        :keymaps 'override
+        :prefix "SPC"
+        :global-prefix "C-SPC"))
+
+    (with-eval-after-load 'general
+      (mr-x/leader-def
+        "a" 'mr-x/org-agenda-custom
+        ;; "m" 'mu4e
+        "f" 'link-hint-open-link
+        "p" 'projectile-command-map
+        "w" '(:keymap evil-window-map :package evil :wk "window")
+        "h" 'winner-undo
+        "l" 'winner-redo
+        ;; "s" 'mr-x/toggle-shortcuts
+        ;; "S" 'mr-x/scratch
+        ;; "v" 'multi-vterm
+        "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
+        "1" (lambda () (interactive) (persp-switch-by-number 1))
+        "2" (lambda () (interactive) (persp-switch-by-number 2))
+        "3" (lambda () (interactive) (persp-switch-by-number 3))
+        "4" (lambda () (interactive) (persp-switch-by-number 4))
+        "5" (lambda () (interactive) (persp-switch-by-number 5)))
+
+      (mr-x/leader-def
+        "d" '(:ignore t :wk "Dired")
+        "d d" '(dired :wk "Open Dired")
+        "d j" '(dired-jump :wk "Dired jump to current")
+        "d h" '((lambda () (interactive) (dired "~/")) :wk "Dired home")
+        "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
+
+      (mr-x/leader-def
+        "b" '(:ignore t :wk "buffer")
+        "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
+        "b k" '(kill-this-buffer :wk "kill this buffer")
+        "b r" '(revert-buffer :wk "revert buffer"))
+      
+      (mr-x/leader-def
+        "v" '(:ignore t :wk "vterm")
+        "v v" '(multi-vterm :wk "multi-vterm")
+        "v n" '(multi-vterm-next :wk "multi-vterm-next")
+        "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
+        "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
+        "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame"))
+
+      (mr-x/leader-def
+        "c" '(:ignore t :wk "Agent Shell")
+        "c c" '(agent-shell :wk "Start Agent Shell")
+        "c n" '(agent-shell-new-shell :wk "New shell")
+        "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
+        "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
+        "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
+        "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
+        "c j" '(agent-shell-attention-jump :wk "Jump to pending")
+        "c p" '(:ignore t :wk "Prompts")
+        "c p p" '(agent-shell-prompt-compose :wk "Compose prompt")
+        "c p t" '(:ignore t :wk "Taskmaster")
+        "c p t n" '(mr-x/taskmaster-next-task :wk "Next task")
+        "c p t s" '(mr-x/taskmaster-summary :wk "Summary")
+        "c r" '(agent-shell-send-region :wk "Send region")
+        "c f" '(agent-shell-send-file :wk "Send file")
+        "c F" '(agent-shell-send-other-file :wk "Send other file")
+        "c d" '(agent-shell-send-dwim :wk "Send DWIM (region/error)")
+        "c s" '(agent-shell-send-screenshot :wk "Send screenshot")
+        "c i" '(agent-shell-interrupt :wk "Interrupt")
+        "c o" '(agent-shell-other-buffer :wk "Other buffer (viewport/shell)")
+        "c m" '(agent-shell-set-session-mode :wk "Set mode")
+        "c M" '(agent-shell-cycle-session-mode :wk "Cycle mode")
+        "c ." '(agent-shell-set-session-model :wk "Set model")
+        "c T" '(agent-shell-open-transcript :wk "Open transcript")
+        "c q" '(agent-shell-queue-request :wk "Queue request")
+        "c l" '(:ignore t :wk "Logs")
+        "c l l" '(agent-shell-toggle-logging :wk "Toggle logging")
+        "c l v" '(agent-shell-view-traffic :wk "View traffic")
+        "c l a" '(agent-shell-view-acp-logs :wk "View ACP logs")
+        "c l r" '(agent-shell-reset-logs :wk "Reset logs")
+        "c 1" '(mr-x/agent-shell-allow :wk "Allow")
+        "c 2" '(mr-x/agent-shell-deny :wk "Deny")
+        "c 3" '(mr-x/agent-shell-allow-always :wk "Allow always")
+        "c 0" '(mr-x/agent-shell-view-diff :wk "View diff"))
+
+
+      (mr-x/leader-def
+        "g" '(:ignore t :wk "git")
+        "g g" '(magit-status :wk "magit status")
+        "g d" '(magit-diff-unstaged :wk "diff unstaged")
+        "g c" '(magit-branch-or-checkout :wk "branch or checkout")
+        "g l" '(magit-log-current :wk "log current")
+        "g L" '(magit-log-oneline :wk "log oneline")
+        "g b" '(magit-blame :wk "blame")
+        "g p" '(magit-push-current :wk "push current")
+        "g P" '(magit-pull-branch :wk "pull branch")
+        "g f" '(magit-fetch :wk "fetch"))
+
+      ;; Bind after agent-shell loads
+      (with-eval-after-load 'agent-shell
+        (mr-x/leader-def
+          "g m" '(mr-x/ai-commit-message :wk "AI commit message")))
+
+      (mr-x/leader-def
+        "x" '(:keymap perspective-map :wk "perspective"))
+
+
+  )
+
+    (defun mr-x/org-agenda-day ()
+      (interactive)
+      (org-agenda nil "a"))
+
+    (defun mr-x/org-agenda-custom ()
+      (interactive)
+      (org-agenda nil "c"))
+
+
+#+end_src
+
+*** All I do is win win win no matter what
+
+#+begin_src emacs-lisp
+
+  (winner-mode 1)
+
+#+end_src
+
+*** Don't lose your scratch work
+
+#+begin_src emacs-lisp
+
+  (defun my/check-scratch-buffers-before-quit ()
+    "Check if any scratch buffers have content and offer to save them."
+    (let ((scratch-buffers (seq-filter
+                            (lambda (buf)
+                              (and (string-match-p "\\*scratch\\*" (buffer-name buf))
+                                   (with-current-buffer buf
+                                     (> (buffer-size) 0)
+                                     ;; Check if it's not just the default message
+                                     (not (string-match-p "^;; This buffer is for"
+                                                          (buffer-string))))))
+                            (buffer-list))))
+      (if scratch-buffers
+          (let ((response (read-char-choice
+                           (format "You have %d non-empty scratch buffer(s). [s]ave, [d]iscard, [c]ancel quit? "
+                                   (length scratch-buffers))
+                           '(?s ?d ?c))))
+            (cond
+             ((eq response ?s)
+              (dolist (buf scratch-buffers)
+                (with-current-buffer buf
+                  (write-file (read-file-name (format "Save %s to: " (buffer-name buf))))))
+              t)  ;; allow quit
+             ((eq response ?d) t)  ;; discard and quit
+             ((eq response ?c) nil)))  ;; cancel quit
+        t)))  ;; no scratch buffers, allow quit
+
+  (add-hook 'kill-emacs-query-functions #'my/check-scratch-buffers-before-quit)
+
+#+end_src
+
+** Time To Get Some Help
+
+*** You Need Some Help
+
+#+begin_src emacs-lisp
+
+  (use-package helpful
+    :ensure t
+    :custom
+    (counsel-describe-function-function #'helpful-callable)
+    (counsel-describe-variable-function #'helpful-variable))
+
+  (global-set-key (kbd "C-h v") #'helpful-variable)
+  (global-set-key (kbd "C-h k") #'helpful-key)
+  (global-set-key (kbd "C-h x") #'helpful-command)
+
+#+end_src
+
+*** You need a hint
+#+begin_src emacs-lisp
+
+  (use-package link-hint
+    :ensure t)
+  
+#+end_src
+
+#+begin_src emacs-lisp
+
+  (use-package which-key
+    :ensure t
+    :config
+    (which-key-mode)
+    (setq which-key-separator " → ")
+    (setq which-key-idle-delay 1))
+
+#+end_src
+*** Evil
+#+begin_src emacs-lisp
+
+  (use-package evil
+    :ensure t
+    :demand t
+    :init (setq evil-want-integration t)
+    (setq evil-want-keybinding nil)
+    (setq evil-want-C-u-scroll t)
+    (setq evil-want-C-i-jump nil)
+    (setq evil-respect-visual-line-mode t)
+    :config
+    (evil-mode 1))
+
+
+#+end_src
+
+*** Spreading Evil
+
+#+begin_src emacs-lisp
+
+    (use-package evil-collection
+      :ensure t
+      :after (evil ivy)
+      :config
+      (evil-collection-init))
+
+  (use-package evil-org
+    :ensure t
+    :after org
+    :hook (org-mode . evil-org-mode)
+    :config
+    (require 'evil-org-agenda)
+    (evil-org-agenda-set-keys))
+
+#+end_src
+** Dired
+
+#+begin_src emacs-lisp
+
+    (use-package dired
+    :ensure nil  
+    :commands (dired dired-jump)
+    :config
+    (setq insert-directory-program "gls")
+    (setq dired-use-ls-dired t)
+    (setq dired-listing-switches "-al --group-directories-first")
+    (evil-define-key 'normal dired-mode-map
+      "h" 'dired-up-directory
+      "l" 'dired-find-file)
+
+    (add-hook 'dired-mode-hook
+  	  (lambda ()
+  	    (dired-omit-mode 1)
+  	    (dired-hide-details-mode 1)
+  	    (display-line-numbers-mode 1))))
+
+  (use-package dired-x
+    :ensure nil 
+    :after dired
+    :config
+    (setq dired-omit-files (rx (seq bol "."))))
+
+  (add-hook 'dired-mode-hook
+  	    (lambda () (setq-local dired-omit-verbose t)))
+  (setq dired-omit-verbose nil)
+
+
+
+    (use-package all-the-icons-dired
+      :ensure t
+      :hook (dired-mode . all-the-icons-dired-mode))
+
+    (setq display-line-numbers-type 'relative)
+    (dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
+      (add-hook mode (lambda () (display-line-numbers-mode 1))))
+#+end_src
+
+** Ivy & Swiper
+
+#+begin_src emacs-lisp
+
+  ;; Ivy & Counsel
+
+  (use-package swiper
+    :ensure t)
+
+  (use-package ivy
+    :ensure t
+    :bind (("C-s" . swiper)
+	     :map ivy-minibuffer-map
+	     ("TAB" . ivy-alt-done)
+	     ("C-l" . ivy-alt-done)
+	     ("C-j" . ivy-next-line)
+	     ("C-k" . ivy-previous-line)
+	     :map ivy-switch-buffer-map
+	     ("C-k" . ivy-previous-line)
+	     ("C-l" . ivy-done)
+	     ("C-d" . ivy-switch-buffer-kill)
+	     :map ivy-reverse-i-search-map
+	     ("C-k" . ivy-previous-line)
+	     ("C-d" . ivy-reverse-i-search-kill))
+    :config
+    (ivy-mode 1)
+    (setq ivy-use-virtual-buffers nil)
+    (setq ivy-count-format "(%d/%d) "))
+
+  ;; Taken from emacswiki to search for symbol/word at point
+  ;; Must be done at end of init I guess
+  ;; (define-key swiper-map (kbd "C-.")
+  ;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'symbol))))))
+
+  ;; (define-key swiper-map (kbd "M-.")
+  ;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
+
+
+  (use-package counsel
+    :ensure t
+    :config
+    (counsel-mode 1))
+
+  (global-set-key (kbd "M-x") 'counsel-M-x)
+  (global-set-key (kbd "C-x C-f") 'counsel-find-file)
+
+
+#+end_src
+
 * Development
+** Magit
+;; test commit - delete me
+#+begin_src emacs-lisp
+
+  ;; with-editor must be configured BEFORE magit loads
+  (use-package with-editor
+    :ensure t
+    :hook ((shell-mode . with-editor-export-editor)
+           (eshell-mode . with-editor-export-editor)
+           (term-exec . with-editor-export-editor)
+           (vterm-mode . with-editor-export-editor))
+    :config
+    ;; Fix for daemon mode - explicitly set the emacsclient path
+    (setq with-editor-emacsclient-executable
+          "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"))
+
+  (use-package magit
+    :ensure t
+    :after with-editor
+    :commands (magit-status magit-get-current-branch)
+    :custom
+    (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1)
+    :init
+    ;; Fix for daemon mode - set EDITOR globally so git uses emacsclient
+    (setenv "EDITOR" "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"))
+
+  ;; Syntax highlighting in Magit diffs via delta
+  (use-package magit-delta
+    :ensure t
+    :hook (magit-mode . magit-delta-mode)
+    :config
+    (setq magit-delta-delta-args '("--syntax-theme" "gruvbox-dark")))
+
+#+end_src
+
+** I'm different
+#+begin_src emacs-lisp
+
+(setq ediff-split-window-function 'split-window-horizontally)
+(setq ediff-window-setup-function 'ediff-setup-windows-plain)
+
+;; diff-ansi for beautiful delta-powered diffs
+(use-package diff-ansi
+  :ensure (:host codeberg :repo "ideasman42/emacs-diff-ansi")
+  :config
+  (setq diff-ansi-tool 'delta)
+  ;; Optional: extra delta args for side-by-side
+  (setq diff-ansi-tool-delta-args '("--side-by-side" "--width" "180")))
+#+end_src
+** Projectile
+#+begin_src emacs-lisp
+
+  (use-package projectile
+    :ensure t
+    :init
+    (projectile-mode +1)
+    :config
+    ;; Set the completion system to ivy since you're using it
+    (setq projectile-completion-system 'ivy)
+    ;; Configure project search paths
+    (setq projectile-project-search-path '("~/roaming" "~/work"))
+    ;; Set default action when switching projects
+    (setq projectile-switch-project-action #'projectile-dired)
+    ;; Use the hybrid indexing method for better performance
+    (setq projectile-indexing-method 'hybrid)
+    ;; Enable caching for better performance
+    (setq projectile-enable-caching t)
+    :bind (:map projectile-mode-map
+                ("C-c p" . projectile-command-map)))
+
+  (use-package counsel-projectile
+    :ensure t
+    :after (projectile counsel)
+    :config 
+    (counsel-projectile-mode 1))
+
+  ;; Add dev environment keybinding to projectile-command-map
+  (with-eval-after-load 'projectile
+    (define-key projectile-command-map (kbd "C-d") #'mr-x/spawn-dev-environment))
+
+  ;; dedicated vterm for project
+      (defun mr-x/spawn-project-terminal-frame ()
+      "Spawn a new frame with a vterm in the current project directory.
+    Use SPC c r from this frame to send regions to your agent-shell."
+
+      (interactive)
+      (let* ((project-root (or (projectile-project-root) default-directory))
+    	 (frame (make-frame `((name . ,(format "Terminal: %s"
+    					       (file-name-nondirectory
+  						(directory-file-name project-root))))))))
+        (select-frame-set-input-focus frame)
+        (let ((default-directory project-root))
+
+  	(multi-vterm))
+        (delete-other-windows)))
+
+  (defun mr-x/spawn-dev-environment ()
+    "Spawn a new frame with two horizontal vterms for dev and queue.
+Creates a frame named 'Dev: {project}' with:
+  - Top: vterm running `pnpm run dev` (named *{project}: dev*)
+  - Bottom: vterm running `pnpm queue:dev` (named *{project}: queue*)"
+    (interactive)
+    (let* ((project-root (or (projectile-project-root) default-directory))
+           (project-name (file-name-nondirectory (directory-file-name project-root)))
+           (frame (make-frame `((name . ,(format "Dev: %s" project-name))))))
+      (select-frame-set-input-focus frame)
+      (let ((default-directory project-root))
+        ;; Create first vterm for dev server
+        (multi-vterm)
+        (rename-buffer (format "*%s: dev*" project-name))
+        (let ((dev-buf (current-buffer)))
+          ;; Split horizontally (top/bottom)
+          (split-window-below)
+          ;; Create second vterm for queue in bottom window
+          (other-window 1)
+          (multi-vterm)
+          (rename-buffer (format "*%s: queue*" project-name))
+          ;; Send commands to both vterms
+          (vterm-send-string "pnpm queue:dev")
+          (vterm-send-return)
+          ;; Switch to dev buffer and send its command
+          (select-window (get-buffer-window dev-buf))
+          (vterm-send-string "pnpm run dev")
+          (vterm-send-return)))
+      (message "Dev environment spawned for %s" project-name)))
+
+
+#+end_src
+
 ** I want to be a writer
 #+begin_src emacs-lisp
     (use-package ox-hugo
@@ -1046,7 +1412,153 @@
 
 
 #+end_src
+
+** I Want To Be A Reader
+#+begin_src emacs-lisp
+  ;; Remember last position in files (like a real bookmark)
+  (save-place-mode 1)
+
+
+  (use-package pdf-tools
+    :ensure t
+    :mode ("\\.pdf\\'" . pdf-view-mode)
+    :config
+    (pdf-tools-install)
+    (evil-define-key 'normal pdf-view-mode-map (kbd "SPC") nil))  ;; compiles the epdfinfo server
+
+  ;; Extend save-place to remember PDF page positions
+  (use-package saveplace-pdf-view
+    :ensure t
+    :after pdf-tools)
+
+  (use-package org-noter
+    :ensure (:host github :repo "org-noter/org-noter")
+    :after pdf-tools)
+
+
+
+#+end_src
+
 ** Languages
+
+*** Markdown
+#+begin_src emacs-lisp
+  (use-package markdown-mode
+    :ensure t
+    :mode ("\\.md\\'" . markdown-mode))
+
+  (use-package markdown-xwidget
+    :ensure (:host github
+             :repo "cfclrk/markdown-xwidget"
+             :files (:defaults "resources"))
+    :after markdown-mode
+    :bind (:map markdown-mode-map
+           ("C-c C-c x" . markdown-xwidget-preview-mode))
+    :custom
+    (markdown-xwidget-github-theme "dark")
+    (markdown-xwidget-code-block-theme "gruvbox-dark-medium")
+    :config
+    ;; Add custom CSS for larger text after preview mode enables
+    (defvar mr-x/markdown-custom-css
+      (expand-file-name "etc/markdown-custom.css" user-emacs-directory))
+    (advice-add 'markdown-xwidget-preview-mode--enable :after
+                (lambda ()
+                  (add-to-list 'markdown-css-paths mr-x/markdown-custom-css t))))
+
+
+
+
+
+
+#+end_src
+
+*** Tree-sitter Auto
+#+begin_src emacs-lisp
+  ;; Automatically install and use tree-sitter grammars
+  (use-package treesit-auto
+    :ensure t
+    :custom
+    (treesit-auto-install 'prompt)  ;; Ask before installing grammars
+    :config
+    (treesit-auto-add-to-auto-mode-alist 'all)
+    (global-treesit-auto-mode))
+#+end_src
+
+*** LSP Mode with Corfu
+#+begin_src emacs-lisp
+  ;; Corfu for in-buffer completion
+  (use-package corfu
+    :ensure t
+    :custom
+    (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+    (corfu-auto t)                 ;; Enable auto completion
+    (corfu-auto-prefix 2)          ;; Minimum length of prefix
+    (corfu-auto-delay 0.2)         ;; Delay before auto completion
+    (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+    (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+    (corfu-preview-current nil)    ;; Disable current candidate preview
+    (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+    :init
+    (global-corfu-mode))
+
+  ;; Extensions for Corfu
+  (use-package corfu-terminal
+    :ensure t
+    :after corfu
+    :config
+    (unless (display-graphic-p)
+      (corfu-terminal-mode +1)))
+
+  ;; LSP Mode for Language Server Protocol support
+  (use-package lsp-mode
+    :ensure t
+    :commands (lsp lsp-deferred)
+    :hook ((typescript-ts-mode . lsp-deferred)
+           (tsx-ts-mode . lsp-deferred)
+           (js-ts-mode . lsp-deferred)
+           (web-mode . lsp-deferred))
+    :init
+    (setq lsp-keymap-prefix "C-c l")
+    :config
+    ;; Performance tuning
+    (setq gc-cons-threshold 100000000)
+    (setq read-process-output-max (* 1024 1024)) ;; 1mb
+    (setq lsp-idle-delay 0.500)
+    
+    ;; UI settings
+    (setq lsp-lens-enable nil)              ;; No code lens
+    (setq lsp-headerline-breadcrumb-enable nil)  ;; No breadcrumbs
+    (setq lsp-modeline-code-actions-enable nil)
+    (setq lsp-modeline-diagnostics-enable t)
+    (setq lsp-signature-auto-activate t)
+    (setq lsp-signature-render-documentation nil)
+    (setq lsp-eldoc-enable-hover t)
+    (setq lsp-completion-provider :none)  ;; Let Corfu handle completion
+    (setq lsp-enable-snippet t))
+
+  ;; LSP UI for better LSP experience
+  (use-package lsp-ui
+    :ensure t
+    :commands lsp-ui-mode
+    :hook (lsp-mode . lsp-ui-mode)
+    :config
+    (setq lsp-ui-sideline-enable nil)       ;; No sideline
+    (setq lsp-ui-doc-enable t)              ;; Keep documentation
+    (setq lsp-ui-doc-show-with-cursor nil)  ;; Don't show automatically
+    (setq lsp-ui-doc-show-with-mouse t)     ;; Show on mouse hover
+    (setq lsp-ui-doc-position 'at-point)
+    (setq lsp-ui-peek-enable t))
+
+  ;; Optional: Kind icon for completion candidates
+  (use-package kind-icon
+    :ensure t
+    :after corfu
+    :custom
+    (kind-icon-default-face 'corfu-default)
+    :config
+    (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
+#+end_src
+
 *** Elisp
 
 #+begin_src emacs-lisp
@@ -1057,40 +1569,631 @@
 
   (electric-indent-mode -1)
 
+  ;; Flycheck for syntax checking
+  (use-package flycheck
+    :ensure t
+    :hook ((emacs-lisp-mode . flycheck-mode)
+           (emacs-lisp-mode . (lambda ()
+                                ;; Disable checkdoc nagging about docstrings
+                                (setq-local flycheck-disabled-checkers '(emacs-lisp-checkdoc)))))
+    :config
+    (setq flycheck-indication-mode 'right-fringe)
+    (setq flycheck-emacs-lisp-load-path 'inherit))
+
 #+end_src
 
 *** Typescript/Javascript
 
 #+begin_src emacs-lisp
-      (use-package typescript-mode
-	:ensure t
-	:mode "\\.ts\\'"
-	:config
-	(setq typescript-indent-level 2))
+  ;; Modern TypeScript setup with tree-sitter and LSP
+  
+  ;; Use built-in tree-sitter modes for TypeScript/TSX (Emacs 29+)
+  ;; These provide better syntax highlighting and structural editing
+  (use-package typescript-ts-mode
+    :mode (("\\.ts\\'" . typescript-ts-mode)
+           ("\\.tsx\\'" . tsx-ts-mode))
+    :config
+    (setq typescript-indent-level 2))
 
-      (use-package web-mode
-	:ensure t
-	:config
-	(add-to-list 'auto-mode-alist '("\\.phtml\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.php\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.[agj]sp\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.as[cp]x\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.erb\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.mustache\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.djhtml\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.html?\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.scss\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.css\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.jsx\\'" . web-mode))
-	(add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode)))
+  ;; Add LSP support for TypeScript
+  (add-hook 'typescript-ts-mode-hook #'lsp-deferred)
+  (add-hook 'tsx-ts-mode-hook #'lsp-deferred)
+  (add-hook 'js-ts-mode-hook #'lsp-deferred)
+  
+  ;; Configure LSP for TypeScript
+  (with-eval-after-load 'lsp-mode
+    ;; TypeScript/JavaScript specific settings
+    (setq lsp-typescript-preferences-import-module-specifier "relative"
+          lsp-typescript-preferences-quote-style "single"
+          lsp-typescript-format-enable t
+          lsp-javascript-format-enable t
+          lsp-typescript-tsserver-log-verbosity "off"
+          lsp-javascript-display-return-type-hints t
+          lsp-typescript-display-return-type-hints t))
 
-  (defun my-web-mode-hook ()
-    "Hooks for Web mode."
-    (setq web-mode-markup-indent-offset 2)
-    (setq web-mode-css-indent-offset 2)
-    (setq web-mode-code-indent-offset 2))
+  ;; Optional: Prettier formatting for TypeScript/JavaScript
+  (use-package prettier
+    :ensure t
+    :hook ((typescript-ts-mode . prettier-mode)
+           (tsx-ts-mode . prettier-mode)
+           (js-ts-mode . prettier-mode)
+           (json-ts-mode . prettier-mode)
+           (css-mode . prettier-mode))
+    :config
+    (setq prettier-enabled-parsers '(typescript tsx javascript json css scss)))
 
-  (add-hook 'web-mode-hook  'my-web-mode-hook)
+  ;; Web-mode for legacy support and template files
+  (use-package web-mode
+    :ensure t
+    :mode (("\\.html?\\'" . web-mode)
+           ("\\.phtml\\'" . web-mode)
+           ("\\.php\\'" . web-mode)
+           ("\\.[agj]sp\\'" . web-mode)
+           ("\\.as[cp]x\\'" . web-mode)
+           ("\\.erb\\'" . web-mode)
+           ("\\.mustache\\'" . web-mode)
+           ("\\.djhtml\\'" . web-mode)
+           ("\\.vue\\'" . web-mode))
+    :config
+    (setq web-mode-markup-indent-offset 2
+          web-mode-css-indent-offset 2
+          web-mode-code-indent-offset 2
+          web-mode-enable-auto-pairing t
+          web-mode-enable-css-colorization t))
+
+  ;; Optional: Tailwind CSS LSP support
+  (use-package lsp-tailwindcss
+    :ensure t
+    :init
+    (setq lsp-tailwindcss-add-on-mode t)
+    :config
+    (add-to-list 'lsp-tailwindcss-major-modes 'tsx-ts-mode)
+    (add-to-list 'lsp-tailwindcss-major-modes 'typescript-ts-mode))
+
+#+end_src
+
+
+** AI Overlord
+#+begin_src emacs-lisp
+
+  (use-package monet
+    :ensure (:host github :repo "https://github.com/stevemolitor/monet")
+    :config
+    ;; Use ediff as the diff tool
+    (setq monet-diff-tool 'ediff)
+    
+    ;; Comment out Delta functions for now - will deal with later
+    ;; ;; Custom Delta-powered diff function for beautiful syntax highlighting
+    ;; (defun mr-x/monet-delta-diff (old-file-path new-file-path new-file-contents on-accept on-quit &optional session)
+    ;;   "Display diff using Delta for beautiful syntax highlighting."
+    ;;   ;; Write new content to the new file path
+    ;;   (with-temp-file new-file-path
+    ;;     (insert new-file-contents))
+    ;;   
+    ;;   ;; Just run the delta diff command and let Emacs handle the display
+    ;;   (let ((cmd (format "git diff --no-index %s %s | delta --paging=never"
+    ;;                      (shell-quote-argument old-file-path)
+    ;;                      (shell-quote-argument new-file-path))))
+    ;;     (async-shell-command cmd "*Monet Delta Diff*"))
+    ;;   
+    ;;   ;; Return simple context
+    ;;   (list :buffer-name "*Monet Delta Diff*"))
+
+    ;; 
+    ;; ;; Simple cleanup function
+    ;; (defun mr-x/monet-delta-diff-cleanup (context)
+    ;;   "Cleanup function for Delta diff."
+    ;;   (when context
+    ;;     (let ((diff-buffer (plist-get context :diff-buffer)))
+    ;;       (when (and diff-buffer (buffer-live-p diff-buffer))
+    ;;         (kill-buffer diff-buffer)))))
+
+    ;;
+    ;; ;; Set Delta as the diff tool with proper cleanup
+    ;; (setq monet-diff-tool #'mr-x/monet-delta-diff)
+    ;; (setq monet-diff-cleanup-tool #'mr-x/monet-delta-diff-cleanup)
+    )
+
+  ;;; Agent Shell - Native Emacs buffer for Claude Code
+  ;; ACP (Agent Client Protocol) implementation for Emacs
+  (use-package acp
+    :ensure (:host github :repo "xenodium/acp.el"))
+
+  ;; Shell infrastructure for agent-shell
+  (use-package shell-maker
+    :ensure t)
+
+  (use-package agent-shell
+    :ensure (:host github :repo "xenodium/agent-shell")
+    :after (acp shell-maker)
+    :hook ((agent-shell-mode . orgtbl-mode)  ;; Auto-align org tables
+           (agent-shell-mode . display-line-numbers-mode)  ;; Show line numbers
+           (agent-shell-mode . (lambda () (corfu-mode -1)))  ;; Disable corfu (no backend)
+           (agent-shell-mode . (lambda ()
+                                 ;; Make sent input text green like strings
+                                 (face-remap-add-relative 'comint-highlight-input
+                                                          :foreground "#b8bb26")))
+           (agent-shell-mode . (lambda ()
+                                 ;; Make prompt symbol gruvbox yellow
+                                 (face-remap-add-relative 'comint-highlight-prompt
+                                                          :foreground "#fabd2f")))
+)
+    :config
+    ;; Rebind: S-<tab> cycles mode, C-<tab> is free for popper
+    (define-key agent-shell-mode-map (kbd "<backtab>") #'agent-shell-cycle-session-mode)
+    (define-key agent-shell-mode-map (kbd "C-<tab>") nil)
+    
+    ;; Remove "Agent" from buffer name: "Claude Agent @ dir" -> "Claude @ dir"
+    (defun mr-x/agent-shell-rename-buffer (&rest _)
+      "Remove Agent from agent-shell buffer names."
+      (when (derived-mode-p 'agent-shell-mode)
+        (when (string-match "\\(.*\\) Agent @ \\(.*\\)" (buffer-name))
+          (rename-buffer (format "*%s @ %s*"
+                                 (match-string 1 (buffer-name))
+                                 (match-string 2 (buffer-name))) t))))
+    (advice-add 'agent-shell :after #'mr-x/agent-shell-rename-buffer)
+
+    ;; Enable syntax highlighting in code blocks
+    (setq agent-shell-highlight-blocks t)
+
+    ;; Fix: Override indent-text to preserve text properties (for diff highlighting)
+    ;; The original function uses split-string/mapconcat which strips properties
+    (with-eval-after-load 'agent-shell-ui
+      (defun agent-shell-ui--indent-text (text &optional indent-string)
+        "Indent TEXT preserving text properties.
+Adds INDENT-STRING to the beginning of each non-empty line.
+INDENT-STRING defaults to two spaces."
+        (when text
+          (let ((indent (or indent-string "  "))
+                (result (copy-sequence text))
+                (offset 0))
+            ;; Insert indent at the beginning if non-empty
+            (unless (string-empty-p result)
+              (setq result (concat indent result))
+              (setq offset (length indent)))
+            ;; Find each newline and insert indent after it (if not followed by newline/end)
+            (let ((pos 0))
+              (while (setq pos (string-match "\n" result pos))
+                (setq pos (1+ pos))
+                (when (and (< pos (length result))
+                           (not (eq (aref result pos) ?\n)))
+                  (setq result (concat (substring result 0 pos)
+                                       indent
+                                       (substring result pos)))
+                  (setq pos (+ pos (length indent))))))
+            result))))
+    ;; Custom icons
+    (setq agent-shell-permission-icon "\uf259")
+    (setq agent-shell-thought-process-icon "\uf29d")
+
+    ;; Fix keybindings in agent-shell diff view (evil-mode conflicts)
+    ;; The diff view uses buttons - we need to make sure evil doesn't intercept keys
+    (defun mr-x/agent-shell-diff-mode-setup ()
+      "Setup keybindings for agent-shell diff buffers."
+      (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name))
+        ;; Use emacs state so all the button keys (y/n/a/p) work properly
+        (evil-emacs-state)
+        ;; Also set up keys in normal mode as backup
+        (evil-local-set-key 'normal (kbd "C-n") #'diff-hunk-next)
+        (evil-local-set-key 'normal (kbd "C-p") #'diff-hunk-prev)
+        (evil-local-set-key 'normal (kbd "j") #'diff-hunk-next)
+        (evil-local-set-key 'normal (kbd "k") #'diff-hunk-prev)
+        (evil-local-set-key 'normal (kbd "q") #'kill-current-buffer)
+        (evil-local-set-key 'normal (kbd "RET") #'push-button)
+        (evil-local-set-key 'normal (kbd "TAB") #'forward-button)
+        (evil-local-set-key 'normal (kbd "<backtab>") #'backward-button)))
+    (add-hook 'diff-mode-hook #'mr-x/agent-shell-diff-mode-setup)
+
+    (defun mr-x/focus-ai-window ()
+      "Focus the agent-shell window if visible, otherwise show a message."
+      (interactive)
+      (let ((ai-window nil))
+        (walk-windows
+         (lambda (w)
+           (when (and (not ai-window)
+                      (eq (buffer-local-value 'major-mode (window-buffer w))
+                          'agent-shell-mode))
+             (setq ai-window w))))
+        (if ai-window
+            (select-window ai-window)
+          (mr-x/agent-shell-toggle))))
+
+    (defun mr-x/taskmaster-next-task ()
+      "Ask agent-shell for the next taskmaster task."
+      (interactive)
+      (mr-x/focus-ai-window)
+      (goto-char (point-max))
+      (insert "What's the next task?")
+      (shell-maker-submit))
+
+    (defun mr-x/taskmaster-summary ()
+      "Ask for a summary of taskmaster tags and status."
+      (interactive)
+      (mr-x/focus-ai-window)
+      (goto-char (point-max))
+      (insert "Please provide a succinct summary of the current taskmaster tags and their corresponding status.")
+      (shell-maker-submit))
+
+    ;; ============================================
+    ;; Custom Permission System (no buttons needed)
+    ;; ============================================
+    
+    (defvar mr-x/pending-permissions nil
+      "Alist of pending permission requests.
+Each entry is (TOOL-CALL-ID . PLIST) where PLIST contains:
+  :request    - The full ACP request object
+  :client     - The ACP client
+  :state      - The agent-shell session state  
+  :options    - The permission options from ACP
+  :buffer     - The agent-shell buffer")
+
+    (defun mr-x/agent-shell-permission-handler (orig-fn &rest args)
+      "Advice around `agent-shell--on-request' to intercept permissions."
+      (let* ((state (cadr (member :state args)))
+             (request (cadr (member :request args))))
+        (let-alist request
+          (if (equal .method "session/request_permission")
+              (let ((tool-call-id .params.toolCall.toolCallId)
+                    (buffer (map-elt state :buffer)))
+                ;; Store the full context BEFORE calling original
+                (push (cons tool-call-id
+                            (list :request request
+                                  :client (map-elt state :client)
+                                  :state state
+                                  :options .params.options
+                                  :buffer buffer))
+                      mr-x/pending-permissions)
+                
+                ;; Let original handle the UI/state management
+                (apply orig-fn args)
+                
+                ;; Notify user after original is done
+                (message "Permission needed: %s [SPC c 1=allow 2=deny 3=always]" 
+                         .params.toolCall.title))
+            
+            ;; All other requests pass through normally
+            (apply orig-fn args)))))
+
+    (advice-add 'agent-shell--on-request :around #'mr-x/agent-shell-permission-handler)
+
+    (defun mr-x/respond-to-permission (kind)
+      "Respond to the most recent pending permission with KIND.
+KIND should be \"allow_once\", \"reject_once\", or \"allow_always\"."
+      (let* ((entry (car mr-x/pending-permissions))
+             (tool-call-id (car entry))
+             (data (cdr entry))
+             (request (plist-get data :request))
+             (client (plist-get data :client))
+             (state (plist-get data :state))
+             (options (plist-get data :options)))
+        (if-let* ((option (seq-find (lambda (o) 
+                                     (string= (alist-get 'kind o) kind)) 
+                                   options))
+                  (option-id (alist-get 'optionId option)))
+            (progn
+              ;; Send the response
+              (agent-shell--send-permission-response
+               :client client
+               :request-id (alist-get 'id request)
+               :option-id option-id
+               :state state
+               :tool-call-id tool-call-id)
+              
+              ;; Remove from pending list
+              (setq mr-x/pending-permissions (cdr mr-x/pending-permissions))
+              
+              ;; Handle reject specially (interrupt agent)
+              (when (string= kind "reject_once")
+                (with-current-buffer (plist-get data :buffer)
+                  (agent-shell-interrupt t)))
+              
+              (message "Permission %s" 
+                       (pcase kind
+                         ("allow_once" "allowed")
+                         ("reject_once" "denied")
+                         ("allow_always" "always allowed"))))
+          
+          (message "No pending permission requests"))))
+
+    (defun mr-x/agent-shell-allow ()
+      "Allow the current permission request."
+      (interactive)
+      (mr-x/respond-to-permission "allow_once"))
+
+    (defun mr-x/agent-shell-deny ()
+      "Deny the current permission request."
+      (interactive)
+      (mr-x/respond-to-permission "reject_once"))
+
+    (defun mr-x/agent-shell-allow-always ()
+      "Allow always the current permission request."
+      (interactive)
+      (mr-x/respond-to-permission "allow_always"))
+
+    (defun mr-x/fontify-diff-with-language (mode-fn)
+      "Apply MODE-FN syntax highlighting to diff hunks in current buffer.
+Highlights the actual code content, not just +/- markers."
+      (save-excursion
+        (goto-char (point-min))
+        (let ((inhibit-read-only t))
+          (while (not (eobp))
+            (let ((line-start (point))
+                  (line-end (line-end-position)))
+              ;; Only process +/- lines (actual code changes)
+              (when (and (< line-start line-end)
+                         (memq (char-after line-start) '(?+ ?-)))
+                (let* ((code-start (1+ line-start))  ; skip the +/- marker
+                       (code-text (buffer-substring-no-properties code-start line-end))
+                       (fontified-text (with-temp-buffer
+                                         (insert code-text)
+                                         (funcall mode-fn)
+                                         (font-lock-ensure)
+                                         (buffer-string))))
+                  ;; Apply the fontified properties to the original
+                  (when (> (length fontified-text) 0)
+                    (let ((pos 0))
+                      (while (< pos (length fontified-text))
+                        (let ((face (get-text-property pos 'face fontified-text)))
+                          (when face
+                            (add-face-text-property 
+                             (+ code-start pos) 
+                             (+ code-start pos 1)
+                             face t)))
+                        (setq pos (1+ pos))))))))
+            (forward-line 1)))))
+
+    (defun mr-x/agent-shell-view-diff ()
+      "View the diff for the current pending permission with syntax highlighting."
+      (interactive)
+      (if-let* ((entry (car mr-x/pending-permissions))
+                (tool-call-id (car entry))
+                (data (cdr entry))
+                (state (plist-get data :state))
+                (diff (map-nested-elt state `(:tool-calls ,tool-call-id :diff))))
+          (let* ((filename (map-elt diff :file))
+                 (mode-fn (assoc-default filename auto-mode-alist 'string-match)))
+            (agent-shell-diff
+             :old (map-elt diff :old)
+             :new (map-elt diff :new)
+             :title (file-name-nondirectory filename))
+            ;; Apply language-specific syntax highlighting to diff content
+            (with-current-buffer "*agent-shell-diff*"
+              (when (and mode-fn (fboundp mode-fn))
+                (mr-x/fontify-diff-with-language mode-fn)))
+            ;; Re-add our keybindings since we called agent-shell-diff without them
+            (with-current-buffer "*agent-shell-diff*"
+              (let ((map (make-sparse-keymap)))
+                (set-keymap-parent map (current-local-map))
+                (define-key map (kbd "n") 'diff-hunk-next)
+                (define-key map (kbd "p") 'diff-hunk-prev)
+                (define-key map (kbd "y") (lambda ()
+                                            (interactive)
+                                            (kill-current-buffer)
+                                            (mr-x/agent-shell-allow)))
+                (define-key map (kbd "!") (lambda ()
+                                            (interactive)
+                                            (kill-current-buffer)
+                                            (mr-x/agent-shell-allow-always)))
+                (define-key map (kbd "r") (lambda ()
+                                            (interactive)
+                                            (kill-current-buffer)
+                                            (mr-x/agent-shell-deny)))
+                (define-key map (kbd "q") 'kill-current-buffer)
+                (use-local-map map))
+              (setq header-line-format
+                    (concat "  "
+                            (propertize (file-name-nondirectory filename) 'face 'mode-line-emphasis)
+                            " "
+                            (propertize "n" 'face 'help-key-binding) " next "
+                            (propertize "p" 'face 'help-key-binding) " prev "
+                            (propertize "y" 'face 'help-key-binding) " accept "
+                            (propertize "!" 'face 'help-key-binding) " always "
+                            (propertize "r" 'face 'help-key-binding) " reject "
+                            (propertize "q" 'face 'help-key-binding) " exit"))))
+        (message "No diff available for current permission")))
+
+
+    ;; Auto-close diff buffer when permission is accepted/rejected
+    (advice-add 'agent-shell--send-permission-response :after
+                (lambda (&rest _)
+                  (dolist (buf (buffer-list))
+                    (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name buf))
+                      (kill-buffer buf)))))
+    ;; Use existing Claude CLI login
+    (setq agent-shell-anthropic-authentication
+          (agent-shell-anthropic-make-authentication :login t))
+    ;; Inherit environment (gets PATH, ANTHROPIC_API_KEY, etc.)
+    (setq agent-shell-anthropic-claude-environment
+          (agent-shell-make-environment-variables :inherit-env t))
+
+    ;; Custom prompt config
+    (setq agent-shell-preferred-agent-config
+          (agent-shell-make-agent-config
+           :mode-line-name "Claude"
+           :buffer-name "Claude"
+           :shell-prompt "λ "
+           :shell-prompt-regexp "λ "
+           :icon-name "anthropic.png"
+           :welcome-function #'agent-shell-anthropic--claude-code-welcome-message
+           :client-maker (lambda (buffer)
+                           (agent-shell-anthropic-make-claude-client :buffer buffer))
+           :default-model-id (lambda () agent-shell-anthropic-default-model-id))))
+
+  ;; Delta-powered syntax highlighting for agent-shell diffs
+  (with-eval-after-load 'agent-shell-diff
+    (require 'ansi-color)
+
+    ;; Dynamic var to pass filename for delta syntax detection
+    (defvar my/agent-shell-diff-filename nil
+      "Current filename being diffed, for delta syntax detection.")
+
+    ;; Use delta instead of plain diff, with proper file extension for syntax
+    (defun my/agent-shell-diff-with-delta (old new)
+      "Create diff with delta - returns raw output with ANSI codes."
+      (let* ((ext (if my/agent-shell-diff-filename
+                      (file-name-extension my/agent-shell-diff-filename)
+                    nil))
+             (suffix (if ext (concat "." ext) ""))
+             (old-file (make-temp-file "old" nil suffix))
+             (new-file (make-temp-file "new" nil suffix)))
+        (unwind-protect
+            (progn
+              (with-temp-file old-file (insert old))
+              (with-temp-file new-file (insert new))
+              (with-temp-buffer
+                (let ((process-environment (cons "FORCE_COLOR=1" process-environment)))
+                  (call-process "delta" nil t nil
+                                "--syntax-theme" "gruvbox-dark"
+                                "--paging" "never"
+                                "--color-only"
+                                old-file new-file))
+                (buffer-string)))
+          (delete-file old-file)
+          (delete-file new-file))))
+
+    ;; Capture filename from :title and apply ANSI colors after
+    (defun my/agent-shell-diff-apply-ansi (orig-fun &rest args)
+      "Run agent-shell-diff then apply ANSI colors to the result buffer."
+      ;; Extract filename from :title arg
+      (let ((my/agent-shell-diff-filename (plist-get args :title)))
+        ;; Replace diff-mode with a minimal version that doesn't clobber colors
+        ;; but runs the hook so evil-emacs-state and other setup happens
+        (cl-letf (((symbol-function 'diff-mode)
+                   (lambda ()
+                     (kill-all-local-variables)
+                     (setq major-mode 'diff-mode)
+                     (setq mode-name "Diff")
+                     ;; Don't run font-lock (preserves delta colors)
+                     (setq font-lock-defaults nil)
+                     ;; Run the hook so mr-x/agent-shell-diff-mode-setup fires
+                     (run-mode-hooks 'diff-mode-hook))))
+          (apply orig-fun args)))
+      ;; Now find the diff buffer and apply colors
+      (when-let ((buf (get-buffer "*agent-shell-diff*")))
+        (with-current-buffer buf
+          (let ((inhibit-read-only t))
+            (ansi-color-apply-on-region (point-min) (point-max))))))
+
+    (advice-add 'agent-shell-diff--make-diff :override #'my/agent-shell-diff-with-delta)
+    (advice-add 'agent-shell-diff :around #'my/agent-shell-diff-apply-ansi))
+
+
+  ;; Agent Shell Sidebar - Project-isolated sidebar for agent-shell
+  (use-package agent-shell-sidebar
+    :ensure (:host github :repo "cmacrae/agent-shell-sidebar")
+    :after agent-shell
+    :config
+    ;; Use the same config as agent-shell-preferred-agent-config
+    (setq agent-shell-sidebar-default-config agent-shell-preferred-agent-config)
+    ;; Position sidebar on the left (options: left, right)
+    (setq agent-shell-sidebar-side 'left)
+    (setq agent-shell-sidebar-locked nil)
+    ;; Width as percentage of frame
+    (setq agent-shell-sidebar-width "5%"))
+
+
+  ;; Agent Shell Attention - Mode-line indicator for pending agent buffers
+  (use-package agent-shell-attention
+    :ensure (:host github :repo "ultronozm/agent-shell-attention.el")
+    :after agent-shell
+    :config
+    ;; Define a custom face for the indicator
+    (defface agent-shell-attention-face
+      '((t :foreground "#fb4934" :weight bold))  ;; gruvbox red
+      "Face for agent-shell-attention mode-line indicator.")
+
+    ;; Override the render function to use our face
+    (defun mr-x/agent-shell-attention-render (pending _active)
+      "Render with custom face. PENDING is count, _ACTIVE ignored."
+      (when (or agent-shell-attention-show-zeros (not (zerop pending)))
+        (propertize (format agent-shell-attention-lighter pending)
+                    'face 'agent-shell-attention-face
+                    'mouse-face 'mode-line-highlight
+                    'local-map agent-shell-attention--mode-line-map)))
+
+    (setq agent-shell-attention-render-function #'mr-x/agent-shell-attention-render)
+
+    ;; macOS notifications via AppleScript
+    (defun mr-x/agent-shell-notify (_buffer title body)
+      "Send macOS notification via AppleScript."
+      (start-process "notify" nil "osascript"
+                     "-e" (format "display notification %S with title %S"
+                                  body title)))
+
+    (setq agent-shell-attention-notify-function #'mr-x/agent-shell-notify)
+    (agent-shell-attention-mode 1))
+
+
+  ;; Agent Shell Manager - Dashboard for managing multiple agent sessions
+  (use-package agent-shell-manager
+    :ensure (:host github :repo "jethrokuan/agent-shell-manager")
+    :after agent-shell
+    :config
+    ;; Position manager window (options: left, right, top, bottom, nil for no auto-display)
+    (setq agent-shell-manager-window-side 'bottom)
+    ;; Fix evil-mode conflict - bind keys in normal state
+    (evil-define-key 'normal agent-shell-manager-mode-map
+      (kbd "RET") #'agent-shell-manager-goto
+      (kbd "gr") #'agent-shell-manager-refresh
+      (kbd "q") #'quit-window
+      (kbd "K") #'agent-shell-manager-kill
+      (kbd "c") #'agent-shell-manager-new
+      (kbd "r") #'agent-shell-manager-restart
+      (kbd "D") #'agent-shell-manager-delete-killed
+      (kbd "m") #'agent-shell-manager-set-mode
+      (kbd "M") #'agent-shell-manager-set-model
+      (kbd "C-c C-c") #'agent-shell-manager-interrupt
+      (kbd "t") #'agent-shell-manager-view-traffic
+      (kbd "l") #'agent-shell-manager-toggle-logging))
+
+
+
+  ;; (use-package claude-code
+  ;;   :ensure (:host github :repo "stevemolitor/claude-code.el")
+  ;;   :after general
+  ;;   :config
+  ;;   ;; Use vterm as the terminal backend (since you already have it)
+  ;;   (setq claude-code-terminal-backend 'vterm)
+    
+  ;;   ;; Enable claude-code-mode
+  ;;   (claude-code-mode 1)
+    
+  ;;   ;; Key binding for the command map - using a different prefix since you use C-c c for org-capture
+  ;;   :bind-keymap
+  ;;   ("C-c C-l" . claude-code-command-map)  ; or choose your preferred prefix
+    
+  ;;   ;; Optional: Set up repeat map for mode cycling
+  ;;   :bind
+  ;;   (:repeat-map my-claude-code-repeat-map 
+  ;;                ("M" . claude-code-cycle-mode)))
+
+  ;; (add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
+
+
+
+
+
+  ;; Adjust frame transparency for focused reading/viewing
+  (defun mr-x/adjust-frame-alpha-for-focus ()
+    "Make frame opaque when viewing focused content (Claude, PDF, markdown preview), transparent otherwise."
+    (let ((should-be-opaque nil))
+      ;; Check all windows in the current frame
+      (walk-windows
+       (lambda (win)
+         (let ((buf (window-buffer win)))
+           (when (or (string-match-p "\\*claude" (buffer-name buf))
+                     (with-current-buffer buf (eq major-mode 'pdf-view-mode))
+                     (with-current-buffer buf (eq major-mode 'xwidget-webkit-mode)))
+             (setq should-be-opaque t))))
+       nil 'visible)
+      ;; Set alpha based on whether Claude or book is showing
+      (if should-be-opaque
+          (set-frame-parameter nil 'alpha '(100 100))   ;; opaque when reading
+        (set-frame-parameter nil 'alpha '(80 50)))))    ;; transparent otherwise
+
+  (add-hook 'window-configuration-change-hook #'mr-x/adjust-frame-alpha-for-focus)
+
+
 
 #+end_src
 
@@ -1114,3 +2217,11 @@
 	  (save-buffer)))))
 
 #+end_src
+
+** I Do Da Digital Dash 
+#+begin_src emacs-lisp
+  (use-package page-break-lines
+    :ensure t)
+#+end_src
+
+

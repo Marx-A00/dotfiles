@@ -1,3 +1,4 @@
+# -*- mode: sh -*-
 # for this to work you must configure sudo such that
 # it will be able to run the command without password
 
@@ -14,8 +15,22 @@ yabai -m signal --add event=dock_did_restart action="sleep 3 && sudo yabai --loa
 #yabai -m config display 56FEF42D-88B7-46E3-9C9B-7746A0929EB7 label vert
 
 # general settings
-yabai -m config layout bsp
+# Note: We don't set a global layout anymore - each space can have its own
+# yabai -m config layout bsp  # Commented out for per-space layouts
 yabai -m config window_gap 10
+
+# Optional: Set default layouts per space on startup
+# This handles both multi-monitor and laptop-only scenarios
+# Uncomment and modify based on your preferences:
+#
+# for i in $(yabai -m query --spaces | jq '.[].index'); do
+#   yabai -m config --space $i layout bsp  # Set all to bsp by default
+# done
+#
+# Or set specific spaces to specific layouts:
+# yabai -m config --space 1 layout bsp     # Laptop display space 1
+# yabai -m config --space 2 layout float   # Laptop display space 2
+# yabai -m config --space 3 layout bsp     # External monitor space
 
 # default padding for external displays
 # yabai -m config top_padding 60
@@ -30,9 +45,9 @@ yabai -m config right_padding 10
 yabai -m config mouse_follows_focus on
 yabai -m config focus_follows_mouse autoraise
 yabai -m config window_placement second_child
-yabai -m config window_opacity on
+yabai -m config window_opacity off
 yabai -m config active_window_opacity 1.0
-yabai -m config normal_window_opacity 0.95
+yabai -m config normal_window_opacity 1.0
 
 # borders
 yabai -m config window_border on
@@ -43,3 +58,35 @@ yabai -m config insert_feedback_color 0xffd75f5f
 
 # rules (example: make System Preferences float)
 yabai -m rule --add app="^System Settings$" manage=off
+
+# Emacs-specific rules for better compatibility
+# Clear any existing Emacs rules first
+yabai -m rule --remove app="^Emacs$" 2>/dev/null || true
+
+# Force Emacs to be managed (most important rule)
+yabai -m rule --add app="Emacs" manage=on
+
+# Disable native fullscreen for Emacs
+yabai -m rule --add app="Emacs" native-fullscreen=off
+
+# Scratchpad rules - these windows will automatically float and get scratchpad IDs
+yabai -m rule --add app="Emacs" title="SCRATCHPAD" scratchpad="scratch" grid="6:6:1:1:4:4" manage=off
+yabai -m rule --add app="Emacs" title="SCRATCHPAD-ORG" scratchpad="scratch-org" grid="6:6:1:2:4:3" manage=off
+
+# Additional scratchpad apps
+yabai -m rule --add app="Messages" scratchpad="imessage" grid="6:6:1:1:4:4" manage=off
+yabai -m rule --add app="Discord" scratchpad="discord" grid="6:6:0:0:3:6" manage=off
+
+# Add signal to force tile Emacs windows when created (but not scratchpads)
+yabai -m signal --add event=window_created app="^Emacs$" action="if [[ \$(yabai -m query --windows --window \$YABAI_WINDOW_ID | jq -r '.scratchpad') == '' ]]; then yabai -m window \$YABAI_WINDOW_ID --toggle float; yabai -m window \$YABAI_WINDOW_ID --toggle float; fi"
+
+# Signal to update sketchybar when space changes
+yabai -m signal --add event=space_changed action="sketchybar --trigger space_change"
+
+# Signals to recreate layout indicators when displays change
+yabai -m signal --add event=display_added action="bash $HOME/.dotfiles/sketchybar/plugins/yabai-layout-setup.sh"
+yabai -m signal --add event=display_removed action="bash $HOME/.dotfiles/sketchybar/plugins/yabai-layout-setup.sh"
+yabai -m signal --add event=display_changed action="bash $HOME/.dotfiles/sketchybar/plugins/yabai-layout-setup.sh"
+
+# Sandbox Emacs: create new space and move it there
+yabai -m signal --add event=window_created app="^Emacs$" title="SANDBOX" action="yabai -m space --create && index=\$(yabai -m query --spaces --display | jq 'map(select(.\"is-native-fullscreen\" == false))[-1].index') && yabai -m window \$YABAI_WINDOW_ID --space \$index && yabai -m space --focus \$index"
