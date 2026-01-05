@@ -1482,12 +1482,23 @@ Creates a frame named 'Dev: {project}' with:
            (agent-shell-mode . (lambda ()
                                  ;; Make prompt symbol gruvbox yellow
                                  (face-remap-add-relative 'comint-highlight-prompt
-                                                          :foreground "#fabd2f"))))
+                                                          :foreground "#fabd2f")))
+)
     :config
     ;; Rebind: S-<tab> cycles mode, C-<tab> is free for popper
     (define-key agent-shell-mode-map (kbd "<backtab>") #'agent-shell-cycle-session-mode)
     (define-key agent-shell-mode-map (kbd "C-<tab>") nil)
     
+    ;; Remove "Agent" from buffer name: "Claude Agent @ dir" -> "Claude @ dir"
+    (defun mr-x/agent-shell-rename-buffer (&rest _)
+      "Remove Agent from agent-shell buffer names."
+      (when (derived-mode-p 'agent-shell-mode)
+        (when (string-match "\\(.*\\) Agent @ \\(.*\\)" (buffer-name))
+          (rename-buffer (format "*%s @ %s*"
+                                 (match-string 1 (buffer-name))
+                                 (match-string 2 (buffer-name))) t))))
+    (advice-add 'agent-shell :after #'mr-x/agent-shell-rename-buffer)
+
     ;; Enable syntax highlighting in code blocks
     (setq agent-shell-highlight-blocks t)
 
