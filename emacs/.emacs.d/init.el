@@ -718,6 +718,7 @@
   (set-frame-parameter (selected-frame) 'alpha '(100 50))
   (add-to-list 'default-frame-alist '(alpha-background . 20))
 					  ; keybindings section
+  (global-unset-key (kbd "s-t")) ; Disable macOS font panel (ns-popup-font-panel)
   (global-set-key (kbd "C-<escape>") #'universal-argument)
   (global-set-key (kbd "C-c d") 'diff-buffer-with-file)
   (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
@@ -1488,6 +1489,7 @@ Creates a frame named 'Dev: {project}' with:
 
   (use-package agent-shell
     :ensure (:host github :repo "xenodium/agent-shell")
+    :demand t
     :after (acp shell-maker)
     :hook ((agent-shell-mode . orgtbl-mode)  ;; Auto-align org tables
            (agent-shell-mode . display-line-numbers-mode)  ;; Show line numbers
@@ -1505,6 +1507,9 @@ Creates a frame named 'Dev: {project}' with:
     ;; Rebind: S-<tab> cycles mode, C-<tab> is free for popper
     (define-key agent-shell-mode-map (kbd "<backtab>") #'agent-shell-cycle-session-mode)
     (define-key agent-shell-mode-map (kbd "C-<tab>") nil)
+    
+    ;; CMD+Enter to submit prompt from normal mode (lazy mode)
+    (evil-define-key 'normal agent-shell-mode-map (kbd "s-<return>") #'shell-maker-submit)
     
     ;; TODO: Fix buffer rename - causes "Wrong type argument: stringp, nil" error
     ;; Remove "Agent" from buffer name: "Claude Agent @ dir" -> "Claude @ dir"
