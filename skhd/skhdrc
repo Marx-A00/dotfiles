@@ -7,6 +7,7 @@
 cmd + shift - e : /opt/homebrew/opt/emacs-plus@30/bin/emacsclient -c -n -a ""
 cmd + shift - r : ~/.dotfiles/scripts/emacs-restart.sh
 cmd + shift - s : ~/.dotfiles/scripts/emacs-sandbox.sh
+cmd + shift + ctrl - s : ~/.dotfiles/scripts/emacs-sandbox.sh --test
 
 # Native yabai scratchpad bindings
 cmd + shift - space : ~/.dotfiles/scripts/scratchpad-emacs.sh scratch

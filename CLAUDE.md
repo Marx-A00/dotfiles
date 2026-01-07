@@ -67,6 +67,47 @@ Example: If you add `(setq foo 'bar)` to emacs.org, also run:
 emacsclient --eval "(setq foo 'bar)"
 ```
 
+#### Sandbox Emacs (IMPORTANT)
+A separate, isolated Emacs instance exists for testing changes safely without affecting the main Emacs daemon.
+
+**Location**: `~/.emacs-sandbox` - a complete copy of the main `~/.emacs.d`
+
+**Launch**:
+- **Keybinding**: `Cmd + Shift + S` (via skhd)
+- **Script**: `~/.dotfiles/scripts/emacs-sandbox.sh`
+- **Direct**: `/opt/homebrew/opt/emacs-plus@30/bin/emacs --init-directory ~/.emacs-sandbox`
+
+**Visual distinction**:
+- Title bar shows "SANDBOX - buffername" (title bar enabled, unlike main Emacs)
+- Red "SANDBOX" badge in doom-modeline
+- `sandbox-indicator.el` loads after init for visual indicators
+
+**When to use**:
+- Testing experimental Emacs config changes
+- Debugging package issues without risking main session
+- Trying new elisp code before committing to real config
+
+**Workflow for testing changes**:
+1. Edit `~/.emacs-sandbox/init.el` directly (NOT emacs.org - skip tangling for quick iteration)
+2. Launch sandbox to test: `Cmd + Shift + S` or `~/.dotfiles/scripts/emacs-sandbox.sh`
+3. Once changes work, manually promote them to the real config (`emacs/.emacs.d/emacs.org`)
+4. Your main Emacs daemon stays completely untouched during testing
+
+**IMPORTANT - Main vs Sandbox editing**:
+- **Main config**: Edit `emacs.org`, then tangle to generate `init.el`
+- **Sandbox**: Edit `init.el` directly - skip the org/tangle step to minimize friction
+
+**Key files in sandbox**:
+- `~/.emacs-sandbox/init.el` - edit this directly for testing (not emacs.org)
+- `~/.emacs-sandbox/early-init.el` - has `undecorated-round` disabled for title bar visibility
+- `~/.emacs-sandbox/sandbox-indicator.el` - doom-modeline segment and visual indicators
+
+**Resync sandbox with main config**:
+```bash
+~/.dotfiles/scripts/emacs-sandbox.sh --fresh
+```
+This nukes the sandbox, copies fresh from main, and re-applies all sandbox-specific changes (title bar, doom-modeline indicator) automatically.
+
 #### Package Management (Elpaca)
 ```elisp
 ;; Update all packages
@@ -166,11 +207,6 @@ Currently migrating Emacs configuration from package.el/straight.el to Elpaca pa
 
 ---
 *Crafted with care for the perfect macOS development environment* ✨
-
-<!-- tiny message: delta diffs looking clean af 🔥 -->
-<!-- another tiny message: debugging that monet function now 🐛 -->
-<!-- tiny message: claude was here 👋 -->
-<!-- tiny message: yooo what's good bestie 😎 -->
 
 ## Task Master AI Instructions
 **Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
