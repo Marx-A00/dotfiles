@@ -711,8 +711,41 @@
     (display-line-numbers-mode 1)
     (set-frame-parameter (selected-frame) 'alpha '(80 50)))
 
+  (defun mr-x/surf-web ()
+    "Open xwidget-webkit with Google."
+    (interactive)
+    (xwidget-webkit-browse-url "https://google.com"))
+
+  (defun mr-x/surf-web-other-window ()
+    "Open xwidget-webkit with Google in other window."
+    (interactive)
+    (split-window-right)
+    (other-window 1)
+    (xwidget-webkit-browse-url "https://google.com"))
+
+  (defun mr-x/surf-url-other-window ()
+    "Prompt for URL and open in other window."
+    (interactive)
+    (split-window-right)
+    (other-window 1)
+    (call-interactively #'xwidget-webkit-browse-url))
+
+
+   (use-package xwwp
+     :ensure t
+     :custom
+     (xwwp-follow-link-completion-system 'ivy)
+     :config
+     (evil-define-key 'normal xwidget-webkit-mode-map
+       "f" 'xwwp-follow-link))
+
   (add-hook 'text-mode-hook #'mr-x/general-setup)
   (add-hook 'prog-mode-hook #'mr-x/general-setup)
+
+
+(use-package xwwp-follow-link-ivy
+  :ensure t
+  :after xwwp)
 
 					  ; opacity
   (set-frame-parameter (selected-frame) 'alpha '(100 50))
@@ -867,6 +900,7 @@
       "d d" '(dired :wk "Open Dired")
       "d j" '(dired-jump :wk "Dired jump to current")
       "d h" '((lambda () (interactive) (dired "~/")) :wk "Dired home")
+      "d r" '((lambda () (interactive) (dired "~/roaming")) :wk "Dired roaming")
       "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
 
     (mr-x/leader-def
@@ -897,7 +931,8 @@
       "c p t" '(:ignore t :wk "Taskmaster")
       "c p t n" '(mr-x/taskmaster-next-task :wk "Next task")
       "c p t s" '(mr-x/taskmaster-summary :wk "Summary")
-      "c r" '(agent-shell-send-region :wk "Send region")
+      "c r" '(mr-x/agent-shell-send-region-no-switch :wk "Send region (stay)")
+      "c R" '(agent-shell-send-region :wk "Send region (go)")
       "c f" '(agent-shell-send-file :wk "Send file")
       "c F" '(agent-shell-send-other-file :wk "Send other file")
       "c d" '(agent-shell-send-dwim :wk "Send DWIM (region/error)")
@@ -919,6 +954,13 @@
       "c 3" '(mr-x/agent-shell-allow-always :wk "Allow always")
       "c 0" '(mr-x/agent-shell-view-diff :wk "View diff"))
 
+
+    (mr-x/leader-def
+      "s" '(:ignore t :wk "surf")
+      "s s" '(mr-x/surf-web :wk "Surf web (Google)")
+      "s S" '(mr-x/surf-web-other-window :wk "Surf web (other window)")
+      "s u" '(xwidget-webkit-browse-url :wk "Surf URL")
+      "s U" '(mr-x/surf-url-other-window :wk "Surf URL (other window)"))
 
     (mr-x/leader-def
       "g" '(:ignore t :wk "git")
@@ -961,7 +1003,7 @@
                                  (with-current-buffer buf
                                    (> (buffer-size) 0)
                                    ;; Check if it's not just the default message
-                                   (not (string-match-p "^;; This buffer is for"
+                                   (not (string-match-p "^# Clear your mind"
                                                         (buffer-string))))))
                           (buffer-list))))
     (if scratch-buffers
@@ -1010,7 +1052,10 @@
   (setq evil-want-C-i-jump nil)
   (setq evil-respect-visual-line-mode t)
   :config
-  (evil-mode 1))
+  (evil-mode 1)
+  ;; Make M-backspace delete word without saving to register (like normal editors)
+  (define-key evil-insert-state-map (kbd "M-<backspace>")
+    (lambda () (interactive) (delete-region (point) (progn (backward-word) (point))))))
 
 (use-package evil-collection
     :ensure t
@@ -1030,6 +1075,7 @@
   :ensure nil  
   :commands (dired dired-jump)
   :config
+  (setq dired-kill-when-opening-new-dired-buffer t)
   (setq insert-directory-program "gls")
   (setq dired-use-ls-dired t)
   (setq dired-listing-switches "-al --group-directories-first")
@@ -1410,6 +1456,8 @@ Creates a frame named 'Dev: {project}' with:
          (json-ts-mode . prettier-mode)
          (css-mode . prettier-mode))
   :config
+  (setenv "NODE_PATH" "/opt/homebrew/lib/node_modules")
+
   (setq prettier-enabled-parsers '(typescript tsx javascript json css scss)))
 
 ;; Web-mode for legacy support and template files
@@ -1511,6 +1559,30 @@ Creates a frame named 'Dev: {project}' with:
     ;; CMD+Enter to submit prompt from normal mode (lazy mode)
     (evil-define-key 'normal agent-shell-mode-map (kbd "s-<return>") #'shell-maker-submit)
     
+    ;; Smart insert/append - jump to prompt if in history area
+    (defun mr-x/agent-shell-smart-insert ()
+      "Enter insert mode, jumping to prompt if not already there."
+      (interactive)
+      (if (shell-maker-point-at-last-prompt-p)
+          (evil-insert-state)
+        (goto-char (point-max))
+        (evil-insert-state)))
+
+    (defun mr-x/agent-shell-smart-append ()
+      "Enter append mode, jumping to prompt if not already there."
+      (interactive)
+      (if (shell-maker-point-at-last-prompt-p)
+          (evil-append 1)
+        (goto-char (point-max))
+        (evil-append 1)))
+
+    (evil-define-key 'normal agent-shell-mode-map
+      (kbd "i") #'mr-x/agent-shell-smart-insert
+      (kbd "a") #'mr-x/agent-shell-smart-append
+      (kbd "A") #'mr-x/agent-shell-smart-append
+      (kbd "o") #'mr-x/agent-shell-smart-append
+      (kbd "O") #'mr-x/agent-shell-smart-append)
+
     ;; TODO: Fix buffer rename - causes "Wrong type argument: stringp, nil" error
     ;; Remove "Agent" from buffer name: "Claude Agent @ dir" -> "Claude @ dir"
     ;; Runs after shell-maker--initialize so markers are set up
@@ -1641,6 +1713,13 @@ INDENT-STRING defaults to two spaces."
         (evil-local-set-key 'normal (kbd "TAB") #'forward-button)
         (evil-local-set-key 'normal (kbd "<backtab>") #'backward-button)))
     (add-hook 'diff-mode-hook #'mr-x/agent-shell-diff-mode-setup)
+
+    (defun mr-x/agent-shell-send-region-no-switch ()
+      "Send region to agent-shell without switching windows."
+      (interactive)
+      (agent-shell-insert
+       :text (agent-shell--get-processed-region :deactivate t :no-error t)
+       :no-focus t))
 
     (defun mr-x/agent-shell-toggle ()
       "Toggle agent shell display (fixed to find project shells)."
@@ -1892,7 +1971,7 @@ Highlights the actual code content, not just +/- markers."
           `(((name . "task-master-ai")
              (command . "npx")
              (args . ["-y" "--package=task-master-ai" "task-master-ai"])
-             (env . []))))
+             (env . [((name . "TASK_MASTER_TOOLS") (value . "all"))]))))
 
     ;; Custom prompt config
     (setq agent-shell-preferred-agent-config

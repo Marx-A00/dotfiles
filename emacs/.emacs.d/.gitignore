@@ -2,6 +2,7 @@ elpaca/cache/
 direction.org
 tmp/
 var/
+scratch-saves/
 CLAUDE.md
 org-clock-save.el
 org-roam.db
