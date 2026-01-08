@@ -1049,11 +1049,13 @@
         "c j" '(agent-shell-attention-jump :wk "Jump to pending")
         "c p" '(:ignore t :wk "Prompts")
         "c p p" '(agent-shell-prompt-compose :wk "Compose prompt")
+        "c p r" '(mr-x/agent-shell-test-prompt :wk "Random test prompt")
         "c p t" '(:ignore t :wk "Taskmaster")
         "c p t n" '(mr-x/taskmaster-next-task :wk "Next task")
         "c p t s" '(mr-x/taskmaster-summary :wk "Summary")
         "c r" '(mr-x/agent-shell-send-region-no-switch :wk "Send region (stay)")
         "c R" '(agent-shell-send-region :wk "Send region (go)")
+        "c y" '(mr-x/agent-shell-send-clipboard :wk "Send clipboard")
         "c f" '(agent-shell-send-file :wk "Send file")
         "c F" '(agent-shell-send-other-file :wk "Send other file")
         "c d" '(agent-shell-send-dwim :wk "Send DWIM (region/error)")
@@ -1241,6 +1243,7 @@
     (use-package dired
     :ensure nil  
     :commands (dired dired-jump)
+    :after evil
     :config
     (setq dired-kill-when-opening-new-dired-buffer t)
     (setq insert-directory-program "gls")
@@ -1519,15 +1522,23 @@ Creates a frame named 'Dev: {project}' with:
     :bind (:map markdown-mode-map
            ("C-c C-c x" . markdown-xwidget-preview-mode))
     :custom
-    (markdown-xwidget-github-theme "dark")
     (markdown-xwidget-code-block-theme "gruvbox-dark-medium")
     :config
-    ;; Add custom CSS for larger text after preview mode enables
-    (defvar mr-x/markdown-custom-css
-      (expand-file-name "etc/markdown-custom.css" user-emacs-directory))
-    (advice-add 'markdown-xwidget-preview-mode--enable :after
-                (lambda ()
-                  (add-to-list 'markdown-css-paths mr-x/markdown-custom-css t))))
+    ;; Load custom CSS into header content (file:// has cross-origin issues)
+    (defvar mr-x/markdown-gruvbox-css-file
+      (expand-file-name "etc/markdown-gruvbox-claude.css" user-emacs-directory))
+    
+    (defun mr-x/markdown-xwidget-setup ()
+      "Setup markdown-xwidget with inline Gruvbox CSS."
+      (let ((css (with-temp-buffer
+                   (insert-file-contents mr-x/markdown-gruvbox-css-file)
+                   (buffer-string))))
+        (setq markdown-xhtml-header-content
+              (concat markdown-xhtml-header-content
+                      "\n<style>\n" css "\n</style>\n"))))
+    
+    (advice-add 'markdown-xwidget-preview-mode--enable :before
+                #'mr-x/markdown-xwidget-setup))
 
 
 
@@ -1817,6 +1828,25 @@ Creates a frame named 'Dev: {project}' with:
       (kbd "o") #'mr-x/agent-shell-smart-append
       (kbd "O") #'mr-x/agent-shell-smart-append)
 
+    ;; Clear prompt with CMD+backspace
+    (defun mr-x/agent-shell-clear-prompt ()
+      "Clear the current prompt input in agent-shell."
+      (interactive)
+      (goto-char (point-max))
+      (let ((inhibit-read-only t))
+        (delete-region (comint-line-beginning-position) (point-max))))
+
+    (evil-define-key 'normal agent-shell-mode-map (kbd "s-<backspace>") #'mr-x/agent-shell-clear-prompt)
+    (evil-define-key 'insert agent-shell-mode-map (kbd "s-<backspace>") #'mr-x/agent-shell-clear-prompt)
+
+  ;; Global CMD+backspace - kill to beginning of line
+  (defun mr-x/kill-to-line-beginning ()
+    "Kill from point to beginning of line."
+    (interactive)
+    (kill-line 0))
+
+  (global-set-key (kbd "s-<backspace>") #'mr-x/kill-to-line-beginning)
+
     ;; TODO: Fix buffer rename - causes "Wrong type argument: stringp, nil" error
     ;; Remove "Agent" from buffer name: "Claude Agent @ dir" -> "Claude @ dir"
     ;; Runs after shell-maker--initialize so markers are set up
@@ -1849,24 +1879,6 @@ Creates a frame named 'Dev: {project}' with:
     (add-to-list 'markdown-overlays-language-mapping '("tsx" . "tsx-ts"))
     (add-to-list 'markdown-overlays-language-mapping '("javascript" . "js-ts"))
     (add-to-list 'markdown-overlays-language-mapping '("js" . "js-ts"))
-    
-    ;; Code block background styling
-    (defface mr-x/agent-shell-code-block-bg
-      '((t :background "#050505" :extend t))  ;; near black
-      "Face for code block backgrounds in agent-shell.")
-    
-    (defun mr-x/agent-shell-code-block-background (quotes1-start quotes1-end lang lang-start lang-end body-start body-end quotes2-start quotes2-end)
-      "Add background overlay to code blocks."
-      (save-excursion
-        (goto-char quotes1-start)
-        (beginning-of-line)
-        (let ((ov (make-overlay (point) (1+ quotes2-end))))
-          (overlay-put ov 'evaporate t)
-          (overlay-put ov 'category 'markdown-overlays)
-          (overlay-put ov 'face 'mr-x/agent-shell-code-block-bg)
-          (overlay-put ov 'priority -10))))
-    
-    (advice-add 'markdown-overlays--fontify-source-block :after #'mr-x/agent-shell-code-block-background)
     
     ;; Random icons for code block copy button + language box styling
     (defvar mr-x/code-block-icons
@@ -1926,6 +1938,7 @@ INDENT-STRING defaults to two spaces."
                                        (substring result pos)))
                   (setq pos (+ pos (length indent))))))
             result))))
+
     ;; Custom icons
     (setq agent-shell-permission-icon "\uf259")
     (setq agent-shell-thought-process-icon "\uf29d")
@@ -1954,6 +1967,26 @@ INDENT-STRING defaults to two spaces."
       (agent-shell-insert
        :text (agent-shell--get-processed-region :deactivate t :no-error t)
        :no-focus t))
+
+    (defun mr-x/agent-shell-send-clipboard ()
+      "Send system clipboard contents to agent-shell.
+Works from anywhere - doesn't require project context.
+Focuses Emacs and the agent-shell window."
+      (interactive)
+      (let* ((clipboard (gui-get-selection 'CLIPBOARD))
+             (shell-buffer (or (agent-shell--current-shell)
+                               (car (agent-shell-buffers)))))
+        (unless shell-buffer
+          (user-error "No agent shell buffers available"))
+        ;; Focus Emacs frame
+        (select-frame-set-input-focus (selected-frame))
+        ;; Switch to or display agent-shell buffer
+        (if-let ((win (get-buffer-window shell-buffer t)))
+            (select-window win)
+          (pop-to-buffer shell-buffer))
+        ;; Insert clipboard at end
+        (goto-char (point-max))
+        (insert clipboard)))
 
     (defun mr-x/agent-shell-toggle ()
       "Toggle agent shell display (fixed to find project shells)."
@@ -2004,6 +2037,14 @@ INDENT-STRING defaults to two spaces."
       (mr-x/focus-ai-window)
       (goto-char (point-max))
       (insert "Please provide a succinct summary of the current taskmaster tags and their corresponding status.")
+      (shell-maker-submit))
+
+    (defun mr-x/agent-shell-test-prompt ()
+      "Send a random test prompt to exercise agent-shell functionality."
+      (interactive)
+      (mr-x/focus-ai-window)
+      (goto-char (point-max))
+      (insert "I am testing the functionality of agent-shell and the Emacs application. Modify random code files in this project - the actual code changes don't matter, just make some edits to test the tool calling flow.")
       (shell-maker-submit))
 
     ;; ============================================
