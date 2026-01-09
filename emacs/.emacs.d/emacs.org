@@ -924,13 +924,12 @@
   (use-package highlight
     :ensure t)
 
-  ;; Display agent-shell buffers in a left side window
+  ;; Display agent-shell buffers on the left at 30% width (regular window, not side-window)
   (add-to-list 'display-buffer-alist
                '("Claude Agent @"
-                 (display-buffer-in-side-window)
-                 (side . left)
-                 (window-width . 0.30)
-                 (slot . 0)))
+                 (display-buffer-in-direction)
+                 (direction . left)
+                 (window-width . 0.30)))
 
   ;; Popper for popup buffer management
   (use-package popper
