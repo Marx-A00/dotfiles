@@ -1013,7 +1013,17 @@
         "2" (lambda () (interactive) (persp-switch-by-number 2))
         "3" (lambda () (interactive) (persp-switch-by-number 3))
         "4" (lambda () (interactive) (persp-switch-by-number 4))
-        "5" (lambda () (interactive) (persp-switch-by-number 5)))
+        "5" (lambda () (interactive) (persp-switch-by-number 5))
+        "t" '(mr-x/test-environment :wk "Test environment"))
+
+      (defun mr-x/test-environment ()
+        "Spawn agent-shell on left, dired ~/roaming/sandbox on right."
+        (interactive)
+        (delete-other-windows)
+        (dired "~/roaming/sandbox")
+        (split-window-horizontally)
+        (agent-shell)
+        (balance-windows))
 
       (mr-x/leader-def
         "d" '(:ignore t :wk "Dired")
@@ -1021,6 +1031,7 @@
         "d j" '(dired-jump :wk "Dired jump to current")
         "d h" '((lambda () (interactive) (dired "~/")) :wk "Dired home")
         "d r" '((lambda () (interactive) (dired "~/roaming")) :wk "Dired roaming")
+        "d e" '((lambda () (interactive) (dired "~/.dotfiles")) :wk "Dired dotfiles")
         "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
 
       (mr-x/leader-def
@@ -1114,7 +1125,6 @@
     (defun mr-x/org-agenda-custom ()
       (interactive)
       (org-agenda nil "c"))
-
 
 #+end_src
 
