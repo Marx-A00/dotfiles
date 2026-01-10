@@ -633,13 +633,30 @@
     (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
     (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
     
+    ;; CMD+Backspace to clear line (send C-u to terminal)
+    (evil-define-key 'insert vterm-mode-map (kbd "s-<backspace>") 
+      (lambda () (interactive) (vterm-send-key "u" nil nil t)))
+    
+    ;; Option+Backspace to delete word (send M-DEL to terminal)  
+    (evil-define-key 'insert vterm-mode-map (kbd "M-<backspace>")
+      (lambda () (interactive) (vterm-send-key "<backspace>" nil t nil)))
+    
     ;; Normal mode keys
     (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
     (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
     (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
     (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
     (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
-    (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)))
+    (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)
+    
+    ;; Paste in normal mode - send clipboard to vterm
+    (evil-define-key 'normal vterm-mode-map (kbd "p")
+      (lambda () (interactive)
+        (vterm-send-string (current-kill 0))))
+    
+    ;; CMD+Enter to send/execute in both modes
+    (evil-define-key 'normal vterm-mode-map (kbd "s-<return>") #'vterm-send-return)
+    (evil-define-key 'insert vterm-mode-map (kbd "s-<return>") #'vterm-send-return))))
 
 
 
@@ -722,6 +739,13 @@
     (split-window-right)
     (other-window 1)
     (xwidget-webkit-browse-url "https://google.com"))
+
+  (defun mr-x/surf-link-at-point ()
+    "Open URL at point in xwidget-webkit."
+    (interactive)
+    (if-let ((url (thing-at-point 'url)))
+        (xwidget-webkit-browse-url url)
+      (message "No URL at point")))
 
   (defun mr-x/surf-url-other-window ()
     "Prompt for URL and open in other window."
@@ -972,11 +996,13 @@
       "s s" '(mr-x/surf-web :wk "Surf web (Google)")
       "s S" '(mr-x/surf-web-other-window :wk "Surf web (other window)")
       "s u" '(xwidget-webkit-browse-url :wk "Surf URL")
-      "s U" '(mr-x/surf-url-other-window :wk "Surf URL (other window)"))
+      "s U" '(mr-x/surf-url-other-window :wk "Surf URL (other window)")
+      "s l" '(mr-x/surf-link-at-point :wk "Surf link at point"))
 
     (mr-x/leader-def
       "g" '(:ignore t :wk "git")
-      "g g" '(magit-status :wk "magit status")
+      "g g" '(magit-status :wk "magit status (fullframe)")
+      "g G" '(mr-x/magit-status-side-window :wk "magit status (side window)")
       "g d" '(magit-diff-unstaged :wk "diff unstaged")
       "g c" '(magit-branch-or-checkout :wk "branch or checkout")
       "g l" '(magit-log-current :wk "log current")
@@ -1190,10 +1216,23 @@
   :after with-editor
   :commands (magit-status magit-get-current-branch)
   :custom
-  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1)
+  ;; Fullframe by default - magit takes over, restores on quit
+  (magit-display-buffer-function #'magit-display-buffer-fullcolumn-most-v1)
   :init
   ;; Fix for daemon mode - set EDITOR globally so git uses emacsclient
   (setenv "EDITOR" "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"))
+
+;; Side-window magit for IDE-style peek
+(defun mr-x/magit-status-side-window ()
+  "Open magit-status in a side window on the right."
+  (interactive)
+  (let ((magit-display-buffer-function
+         (lambda (buffer)
+           (display-buffer buffer
+                           '((display-buffer-in-side-window)
+                             (side . right)
+                             (window-width . 0.4))))))
+    (magit-status)))
 
 ;; Syntax highlighting in Magit diffs via delta
 (use-package magit-delta
@@ -2164,6 +2203,101 @@ Highlights the actual code content, not just +/- markers."
       (kbd "t") #'agent-shell-manager-view-traffic
       (kbd "l") #'agent-shell-manager-toggle-logging))
 
+
+  ;; Permission UI Override - Hybrid Style (cleaner vertical layout)
+  (defvar mr-x/permission-ui-style 'hybrid
+    "Style for permission UI. Options:
+- 'minimal    - Basic vertical layout
+- 'spaced     - More padding/alignment  
+- 'separator  - Line between diff and actions
+- 'highlighted - Colored keybindings
+- 'icons      - Icons for each action
+- 'hybrid     - Highlighted keys + separator (recommended)")
+
+  (with-eval-after-load 'agent-shell
+    (defun mr-x/permission-format-line (char label keymap &optional is-diff)
+      "Format a single permission line based on current style."
+      (let* ((style mr-x/permission-ui-style)
+             (icon (when (eq style 'icons)
+                     (cond (is-diff "👁 ")
+                           ((string= char "y") "✓ ")
+                           ((string= char "n") "✗ ")
+                           ((string= char "!") "⚡ ")
+                           (t ""))))
+             (key-face (if (memq style '(highlighted hybrid))
+                           '(:foreground "#fabd2f" :weight bold)  ; gruvbox yellow
+                         'link))
+             (padding (if (memq style '(spaced separator icons hybrid)) "   " "  "))
+             (formatted-char (propertize char 'font-lock-face key-face))
+             (formatted-label (propertize (concat (or icon "") label) 'font-lock-face 'default)))
+        (propertize
+         (concat padding formatted-char "   " formatted-label)
+         'keymap keymap
+         'mouse-face 'highlight
+         'help-echo (format "Press %s to %s" char label)
+         'agent-shell-permission-button t
+         'cursor-sensor-functions
+         (list (lambda (_window _old-pos sensor-action)
+                 (when (eq sensor-action 'entered)
+                   (message "Press RET or %s to %s" char label)))))))
+
+    (defun mr-x/agent-shell--make-tool-call-permission-text (&rest args)
+      "Minimal vertical permission UI override with multiple styles."
+      (let* ((request (plist-get args :request))
+             (state (plist-get args :state))
+             (tool-call-id (map-nested-elt request '(params toolCall toolCallId)))
+             (tool-title (map-nested-elt request '(params toolCall title)))
+             (tool-kind (map-nested-elt request '(params toolCall kind)))
+             ;; Use title if available, otherwise kind, otherwise generic
+             (tool-name (or tool-title tool-kind "tool"))
+             (diff (map-nested-elt state `(:tool-calls ,tool-call-id :diff)))
+             (diff-available diff)
+             (style mr-x/permission-ui-style)
+             ;; Build keymaps
+             (yes-map (let ((map (make-sparse-keymap)))
+                        (define-key map [mouse-1] #'agent-shell-permission-accept-immediately)
+                        (define-key map (kbd "RET") #'agent-shell-permission-accept-immediately)
+                        map))
+             (no-map (let ((map (make-sparse-keymap)))
+                       (define-key map [mouse-1] #'agent-shell-permission-deny)
+                       (define-key map (kbd "RET") #'agent-shell-permission-deny)
+                       map))
+             (always-map (let ((map (make-sparse-keymap)))
+                           (define-key map [mouse-1] #'agent-shell-permission-always-allow)
+                           (define-key map (kbd "RET") #'agent-shell-permission-always-allow)
+                           map))
+             (diff-map (when diff-available
+                         (let ((map (make-sparse-keymap)))
+                           (define-key map [mouse-1] #'agent-shell-permission-view-diff)
+                           (define-key map (kbd "RET") #'agent-shell-permission-view-diff)
+                           map)))
+             ;; Separator line for hybrid/separator styles
+             (separator (when (memq style '(separator hybrid))
+                          "\n   ─────────────────────────────\n")))
+        ;; Build the permission text
+        (concat
+         ;; Header
+         (propertize (format "\n   Allow %s?" tool-name) 'font-lock-face 'bold)
+         "\n"
+         ;; Diff option (if available)
+         (when diff-available
+           (concat
+            (mr-x/permission-format-line "0" "View diff" diff-map t)
+            (or separator "\n")))
+         ;; When no diff, still add separator if style calls for it
+         (when (and (not diff-available) separator)
+           separator)
+         ;; Action buttons (keys match SPC c bindings)
+         (mr-x/permission-format-line "1" "Allow once" yes-map)
+         "\n"
+         (mr-x/permission-format-line "2" "Deny" no-map)
+         "\n"
+         (mr-x/permission-format-line "3" "Always allow" always-map)
+         "\n")))
+
+    ;; Apply the override
+    (advice-add 'agent-shell--make-tool-call-permission-text
+                :override #'mr-x/agent-shell--make-tool-call-permission-text))
 
 
   ;; (use-package claude-code
