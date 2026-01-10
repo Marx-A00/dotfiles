@@ -1643,6 +1643,26 @@ Creates a frame named 'Dev: {project}' with:
       (kbd "o") #'mr-x/agent-shell-smart-append
       (kbd "O") #'mr-x/agent-shell-smart-append)
 
+    ;; Context-sensitive permission keys in normal mode
+    ;; When permission pending: respond directly
+    ;; When no permission: self-insert (type the character)
+    (defun mr-x/agent-shell-permission-or-insert (key action)
+      "If permission pending in current buffer, run ACTION. Otherwise insert KEY."
+      (if (and mr-x/pending-permissions
+               (eq (current-buffer) (plist-get (cdar mr-x/pending-permissions) :buffer)))
+          (funcall action)
+        ;; No permission pending - insert the character
+        (insert key)))
+
+    (evil-define-key 'normal agent-shell-mode-map (kbd "1")
+      (lambda () (interactive) (mr-x/agent-shell-permission-or-insert "1" #'mr-x/agent-shell-allow)))
+    (evil-define-key 'normal agent-shell-mode-map (kbd "2")
+      (lambda () (interactive) (mr-x/agent-shell-permission-or-insert "2" #'mr-x/agent-shell-deny)))
+    (evil-define-key 'normal agent-shell-mode-map (kbd "3")
+      (lambda () (interactive) (mr-x/agent-shell-permission-or-insert "3" #'mr-x/agent-shell-allow-always)))
+    (evil-define-key 'normal agent-shell-mode-map (kbd "0")
+      (lambda () (interactive) (mr-x/agent-shell-permission-or-insert "0" #'mr-x/agent-shell-view-diff)))
+
     ;; Clear prompt with CMD+backspace
     (defun mr-x/agent-shell-clear-prompt ()
       "Clear the current prompt input in agent-shell."
