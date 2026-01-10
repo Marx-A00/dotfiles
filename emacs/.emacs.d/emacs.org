@@ -2269,17 +2269,33 @@ Highlights the actual code content, not just +/- markers."
                 (define-key map (kbd "p") 'diff-hunk-prev)
                 (define-key map (kbd "y") (lambda ()
                                             (interactive)
-                                            (kill-current-buffer)
-                                            (mr-x/agent-shell-allow)))
+                                            (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+                                              (kill-current-buffer)
+                                              (mr-x/agent-shell-allow)
+                                              (when (buffer-live-p shell-buf)
+                                                (pop-to-buffer shell-buf)))))
                 (define-key map (kbd "!") (lambda ()
                                             (interactive)
-                                            (kill-current-buffer)
-                                            (mr-x/agent-shell-allow-always)))
+                                            (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+                                              (kill-current-buffer)
+                                              (mr-x/agent-shell-allow-always)
+                                              (when (buffer-live-p shell-buf)
+                                                (pop-to-buffer shell-buf)))))
                 (define-key map (kbd "r") (lambda ()
                                             (interactive)
-                                            (kill-current-buffer)
-                                            (mr-x/agent-shell-deny)))
-                (define-key map (kbd "q") 'kill-current-buffer)
+                                            (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+                                              (kill-current-buffer)
+                                              (mr-x/agent-shell-deny)
+                                              (when (buffer-live-p shell-buf)
+                                                (pop-to-buffer shell-buf)))))
+                (define-key map (kbd "q") (lambda ()
+                                            (interactive)
+                                            (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+                                              ;; Disable on-exit to prevent "Accept changes?" prompt
+                                              (setq agent-shell-on-exit nil)
+                                              (kill-current-buffer)
+                                              (when (buffer-live-p shell-buf)
+                                                (pop-to-buffer shell-buf)))))
                 (use-local-map map))
               (setq header-line-format
                     (concat "  "
@@ -2299,7 +2315,24 @@ Highlights the actual code content, not just +/- markers."
                 (lambda (&rest _)
                   (dolist (buf (buffer-list))
                     (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name buf))
+                      ;; Disable on-exit before killing to prevent prompt
+                      (with-current-buffer buf
+                        (setq agent-shell-on-exit nil))
                       (kill-buffer buf)))))
+    
+    ;; Fix: Override 'q' in agent-shell diff buffers to exit cleanly
+    ;; Prevents the "Accept changes? y or n" prompt loop
+    (defun mr-x/agent-shell-diff-clean-exit ()
+      "Exit diff buffer cleanly without triggering on-exit prompt."
+      (interactive)
+      (setq agent-shell-on-exit nil)
+      (kill-current-buffer))
+    
+    ;; Apply clean exit to all agent-shell diff buffers
+    (add-hook 'diff-mode-hook
+              (lambda ()
+                (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name))
+                  (local-set-key (kbd "q") #'mr-x/agent-shell-diff-clean-exit))))
     ;; Use existing Claude CLI login
     (setq agent-shell-anthropic-authentication
           (agent-shell-anthropic-make-authentication :login t))
