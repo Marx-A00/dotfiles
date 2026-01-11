@@ -1784,6 +1784,18 @@ Creates a frame named 'Dev: {project}' with:
     (add-to-list 'lsp-tailwindcss-major-modes 'tsx-ts-mode)
     (add-to-list 'lsp-tailwindcss-major-modes 'typescript-ts-mode))
 
+
+    ;; Add the tree-sitter grammar source
+  (add-to-list 'treesit-language-source-alist
+               '(prisma "https://github.com/victorhqc/tree-sitter-prisma"))
+
+  ;; Install the mode from GitHub
+  (use-package prisma-ts-mode
+    :ensure (:host github :repo "nverno/prisma-ts-mode")
+    :mode "\\.prisma\\'")
+
+
+
 #+end_src
 
 
@@ -2329,19 +2341,42 @@ Highlights the actual code content, not just +/- markers."
                         (setq agent-shell-on-exit nil))
                       (kill-buffer buf)))))
     
-    ;; Fix: Override 'q' in agent-shell diff buffers to exit cleanly
-    ;; Prevents the "Accept changes? y or n" prompt loop
+    ;; Fix: Override keys in agent-shell diff buffers to exit cleanly and return to shell
     (defun mr-x/agent-shell-diff-clean-exit ()
-      "Exit diff buffer cleanly without triggering on-exit prompt."
+      "Exit diff buffer cleanly and return to agent-shell."
       (interactive)
-      (setq agent-shell-on-exit nil)
-      (kill-current-buffer))
+      (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+        (setq agent-shell-on-exit nil)
+        (kill-current-buffer)
+        (when (buffer-live-p shell-buf)
+          (pop-to-buffer shell-buf))))
     
-    ;; Apply clean exit to all agent-shell diff buffers
+    ;; Apply clean exit and action keys to all agent-shell diff buffers
     (add-hook 'diff-mode-hook
               (lambda ()
                 (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name))
-                  (local-set-key (kbd "q") #'mr-x/agent-shell-diff-clean-exit))))
+                  (local-set-key (kbd "q") #'mr-x/agent-shell-diff-clean-exit)
+                  (local-set-key (kbd "y") (lambda () (interactive)
+                                             (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+                                               (setq agent-shell-on-exit nil)
+                                               (kill-current-buffer)
+                                               (mr-x/agent-shell-allow)
+                                               (when (buffer-live-p shell-buf)
+                                                 (pop-to-buffer shell-buf)))))
+                  (local-set-key (kbd "!") (lambda () (interactive)
+                                             (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+                                               (setq agent-shell-on-exit nil)
+                                               (kill-current-buffer)
+                                               (mr-x/agent-shell-allow-always)
+                                               (when (buffer-live-p shell-buf)
+                                                 (pop-to-buffer shell-buf)))))
+                  (local-set-key (kbd "r") (lambda () (interactive)
+                                             (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+                                               (setq agent-shell-on-exit nil)
+                                               (kill-current-buffer)
+                                               (mr-x/agent-shell-deny)
+                                               (when (buffer-live-p shell-buf)
+                                                 (pop-to-buffer shell-buf))))))))
     ;; Use existing Claude CLI login
     (setq agent-shell-anthropic-authentication
           (agent-shell-anthropic-make-authentication :login t))
