@@ -719,7 +719,16 @@
     :config
     ;; Commented out to prevent modeline shrinking when frame loses focus
     ;; (set-face-attribute 'mode-line nil :height 0.9)
-    ;; (set-face-attribute 'mode-line-inactive nil :height 0.9))
+    ;; (set-face-attribute 'mode-line-inactive nil :height 0.9)
+    
+    ;; Minimal modeline for agent-shell (just evil state, buffer name, line number)
+    (doom-modeline-def-modeline 'agent-shell-minimal
+      '(bar modals buffer-info)
+      '(buffer-position))
+    
+    (add-hook 'agent-shell-mode-hook
+              (lambda ()
+                (doom-modeline-set-modeline 'agent-shell-minimal))))
 
 
   ;; (set-face-attribute 'default nil :font "JuliaMono" :height 280)
@@ -2326,7 +2335,8 @@ Highlights the actual code content, not just +/- markers."
                            map)))
              ;; Separator line for hybrid/separator styles
              (separator (when (memq style '(separator hybrid))
-                          "\n   ─────────────────────────────\n")))
+                          (propertize "\n   ─────────────────────────────\n"
+                                      'font-lock-face '(:foreground "#fe8019")))))
         ;; Build the permission text
         (concat
          ;; Header
