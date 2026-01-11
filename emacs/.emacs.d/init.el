@@ -734,8 +734,7 @@
   ;; (set-face-attribute 'default nil :font "JuliaMono" :height 280)
 
   (defun mr-x/general-setup ()
-    (display-line-numbers-mode 1)
-    (set-frame-parameter (selected-frame) 'alpha '(80 50)))
+    (display-line-numbers-mode 1))
 
   (defun mr-x/surf-web ()
     "Open xwidget-webkit with Google."
@@ -780,8 +779,8 @@
   :ensure t
   :after xwwp)
 
-					  ; opacity
-  (set-frame-parameter (selected-frame) 'alpha '(100 50))
+					  ; opacity - same value for focused and unfocused (consistent transparency)
+  (set-frame-parameter (selected-frame) 'alpha '(80 80))
   (add-to-list 'default-frame-alist '(alpha-background . 20))
 					  ; keybindings section
   (global-unset-key (kbd "s-t")) ; Disable macOS font panel (ns-popup-font-panel)
@@ -2422,24 +2421,25 @@ Highlights the actual code content, not just +/- markers."
 
 
   ;; Adjust frame transparency for focused reading/viewing
-  (defun mr-x/adjust-frame-alpha-for-focus ()
-    "Make frame opaque when viewing focused content (Claude, PDF, markdown preview), transparent otherwise."
-    (let ((should-be-opaque nil))
-      ;; Check all windows in the current frame
-      (walk-windows
-       (lambda (win)
-         (let ((buf (window-buffer win)))
-           (when (or (string-match-p "\\*claude" (buffer-name buf))
-                     (with-current-buffer buf (eq major-mode 'pdf-view-mode))
-                     (with-current-buffer buf (eq major-mode 'xwidget-webkit-mode)))
-             (setq should-be-opaque t))))
-       nil 'visible)
-      ;; Set alpha based on whether Claude or book is showing
-      (if should-be-opaque
-          (set-frame-parameter nil 'alpha '(100 100))   ;; opaque when reading
-        (set-frame-parameter nil 'alpha '(80 50)))))    ;; transparent otherwise
-
-  (add-hook 'window-configuration-change-hook #'mr-x/adjust-frame-alpha-for-focus)
+  ;; DISABLED - using consistent transparency (80 80) instead
+  ;; (defun mr-x/adjust-frame-alpha-for-focus ()
+  ;;   "Make frame opaque when viewing focused content (Claude, PDF, markdown preview), transparent otherwise."
+  ;;   (let ((should-be-opaque nil))
+  ;;     ;; Check all windows in the current frame
+  ;;     (walk-windows
+  ;;      (lambda (win)
+  ;;        (let ((buf (window-buffer win)))
+  ;;          (when (or (string-match-p "\\*claude" (buffer-name buf))
+  ;;                    (with-current-buffer buf (eq major-mode 'pdf-view-mode))
+  ;;                    (with-current-buffer buf (eq major-mode 'xwidget-webkit-mode)))
+  ;;            (setq should-be-opaque t))))
+  ;;      nil 'visible)
+  ;;     ;; Set alpha based on whether Claude or book is showing
+  ;;     (if should-be-opaque
+  ;;         (set-frame-parameter nil 'alpha '(100 100))   ;; opaque when reading
+  ;;       (set-frame-parameter nil 'alpha '(80 50)))))    ;; transparent otherwise
+  ;;
+  ;; (add-hook 'window-configuration-change-hook #'mr-x/adjust-frame-alpha-for-focus)
 
 (use-package ledger-mode
   :ensure t
