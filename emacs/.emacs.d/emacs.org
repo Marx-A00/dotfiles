@@ -1149,6 +1149,65 @@
       (mr-x/leader-def
         "x" '(:keymap perspective-map :wk "perspective"))
 
+      (mr-x/leader-def
+        "P" '(:ignore t :wk "Project Dashboard")
+        "P p" '(project-dashboard-launch :wk "Launch project")
+        "P a" '(project-dashboard-add-project :wk "Add project")
+        "P d" '(project-dashboard-open :wk "Dashboard for current"))
+
+      ;; Claude task output viewer
+      (defun mr-x/claude-watch-task (task-id)
+        "Watch output from a Claude background task in real-time.
+TASK-ID is the ID shown when Claude runs a background command."
+        (interactive "sTask ID: ")
+        (let ((output-file (format "/tmp/claude/tasks/%s.output" task-id)))
+          (if (file-exists-p output-file)
+              (let ((buf (get-buffer-create (format "*claude-task:%s*" task-id))))
+                (with-current-buffer buf
+                  (read-only-mode -1)
+                  (erase-buffer)
+                  (insert-file-contents output-file)
+                  (goto-char (point-max))
+                  (ansi-color-apply-on-region (point-min) (point-max))
+                  ;; Auto-revert to follow updates
+                  (setq-local auto-revert-interval 1)
+                  (auto-revert-mode 1)
+                  (read-only-mode 1))
+                (display-buffer buf)
+                (message "Watching task %s (auto-refreshes every 1s)" task-id))
+            (message "Task output file not found: %s" output-file))))
+
+      (defun mr-x/claude-watch-latest-task ()
+        "Watch the most recent Claude background task."
+        (interactive)
+        (let* ((task-dir "/tmp/claude/tasks/")
+               (files (and (file-directory-p task-dir)
+                           (directory-files task-dir nil "\\.output$" t))))
+          (if files
+              (let* ((latest (car (last (sort files #'string<))))
+                     (task-id (file-name-sans-extension latest)))
+                (mr-x/claude-watch-task task-id))
+            (message "No Claude task output files found"))))
+
+      (mr-x/leader-def
+        "c o" '(mr-x/claude-watch-task :wk "Watch task output")
+        "c O" '(mr-x/claude-watch-latest-task :wk "Watch latest task"))
+
+      ;; SANDBOX TEST: Quick test environment setup
+      (defun mr-x/sandbox-test-env ()
+        "Spawn agent-shell on left, dired ~/roaming/sandbox on right."
+        (interactive)
+        (delete-other-windows)
+        ;; Open dired on the right first (will become right after split)
+        (dired "~/roaming/sandbox")
+        ;; Split and put agent-shell on left
+        (split-window-horizontally)
+        (agent-shell)
+        ;; Balance windows
+        (balance-windows))
+
+      (mr-x/leader-def
+        "t" '(mr-x/sandbox-test-env :wk "Test environment"))
 
   )
 
@@ -1447,6 +1506,9 @@
 ** Projectile
 #+begin_src emacs-lisp
 
+  ;; Load project-dashboard from lisp directory
+  (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+
   (use-package projectile
     :ensure t
     :init
@@ -1456,7 +1518,7 @@
     (setq projectile-completion-system 'ivy)
     ;; Configure project search paths
     (setq projectile-project-search-path '("~/roaming" "~/work"))
-    ;; Set default action when switching projects
+    ;; Set default action when switching projects (overridden below after project-dashboard loads)
     (setq projectile-switch-project-action #'projectile-dired)
     ;; Use the hybrid indexing method for better performance
     (setq projectile-indexing-method 'hybrid)
@@ -1473,7 +1535,11 @@
 
   ;; Add dev environment keybinding to projectile-command-map
   (with-eval-after-load 'projectile
-    (define-key projectile-command-map (kbd "C-d") #'mr-x/spawn-dev-environment))
+    (define-key projectile-command-map (kbd "C-d") #'mr-x/spawn-dev-environment)
+    ;; Load project-dashboard
+    (require 'project-dashboard)
+    ;; Use project dashboard when switching projects (for other projectile commands)
+    (setq projectile-switch-project-action #'project-dashboard--projectile-switch-action))
 
   ;; dedicated vterm for project
       (defun mr-x/spawn-project-terminal-frame ()

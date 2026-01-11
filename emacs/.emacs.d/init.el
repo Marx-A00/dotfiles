@@ -887,157 +887,216 @@
 # Clear your mind young one.")
 
 (use-package general
-    :ensure t
-    :demand t
-    :config
-    ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
-    (general-evil-setup t)
+      :ensure t
+      :demand t
+      :config
+      ;; allow for shorter bindings -- e.g., just using things like nmap alone without general-* prefix
+      (general-evil-setup t)
 
-    ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
-    ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
-    ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
-    ;; will only have an effect for general.el key definers. The advice can later be removed with
-    ;; (general-auto-unbind-keys t).
-    (general-auto-unbind-keys))
+      ;; To automatically prevent Key sequence starts with a non-prefix key errors without the need to
+      ;; explicitly unbind non-prefix keys, you can add (general-auto-unbind-keys) to your configuration
+      ;; file. This will advise define-key to unbind any bound subsequence of the KEY. Currently, this
+      ;; will only have an effect for general.el key definers. The advice can later be removed with
+      ;; (general-auto-unbind-keys t).
+      (general-auto-unbind-keys))
 
-  (with-eval-after-load 'general
-    (general-create-definer mr-x/leader-def
-      :states '(normal visual motion emacs insert)
-      :keymaps 'override
-      :prefix "SPC"
-      :global-prefix "C-SPC"))
+    (with-eval-after-load 'general
+      (general-create-definer mr-x/leader-def
+        :states '(normal visual motion emacs insert)
+        :keymaps 'override
+        :prefix "SPC"
+        :global-prefix "C-SPC"))
 
-  (with-eval-after-load 'general
-    (mr-x/leader-def
-      "a" 'mr-x/org-agenda-custom
-      ;; "m" 'mu4e
-      "f" 'link-hint-open-link
-      "p" 'projectile-command-map
-      "w" '(:keymap evil-window-map :package evil :wk "window")
-      "h" 'winner-undo
-      "l" 'winner-redo
-      ;; "s" 'mr-x/toggle-shortcuts
-      ;; "S" 'mr-x/scratch
-      ;; "v" 'multi-vterm
-      "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
-      "1" (lambda () (interactive) (persp-switch-by-number 1))
-      "2" (lambda () (interactive) (persp-switch-by-number 2))
-      "3" (lambda () (interactive) (persp-switch-by-number 3))
-      "4" (lambda () (interactive) (persp-switch-by-number 4))
-      "5" (lambda () (interactive) (persp-switch-by-number 5))
-      "t" '(mr-x/test-environment :wk "Test environment"))
-
-    (defun mr-x/test-environment ()
-      "Spawn agent-shell on left, dired ~/roaming/sandbox on right."
-      (interactive)
-      (delete-other-windows)
-      (dired "~/roaming/sandbox")
-      (split-window-horizontally)
-      (agent-shell)
-      (balance-windows))
-
-    (mr-x/leader-def
-      "d" '(:ignore t :wk "Dired")
-      "d d" '(dired :wk "Open Dired")
-      "d j" '(dired-jump :wk "Dired jump to current")
-      "d h" '((lambda () (interactive) (dired "~/")) :wk "Dired home")
-      "d r" '((lambda () (interactive) (dired "~/roaming")) :wk "Dired roaming")
-      "d e" '((lambda () (interactive) (dired "~/.dotfiles")) :wk "Dired dotfiles")
-      "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
-
-    (mr-x/leader-def
-      "b" '(:ignore t :wk "buffer")
-      "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
-      "b k" '(kill-this-buffer :wk "kill this buffer")
-      "b r" '(revert-buffer :wk "revert buffer"))
-    
-    (mr-x/leader-def
-      "v" '(:ignore t :wk "vterm")
-      "v v" '(multi-vterm :wk "multi-vterm")
-      "v n" '(multi-vterm-next :wk "multi-vterm-next")
-      "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
-      "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
-      "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame"))
-
-    (mr-x/leader-def
-      "c" '(:ignore t :wk "Agent Shell")
-      "c c" '(agent-shell :wk "Start Agent Shell")
-      "c n" '(agent-shell-new-shell :wk "New shell")
-      "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
-      "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
-      "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
-      "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
-      "c j" '(agent-shell-attention-jump :wk "Jump to pending")
-      "c p" '(:ignore t :wk "Prompts")
-      "c p p" '(agent-shell-prompt-compose :wk "Compose prompt")
-      "c p r" '(mr-x/agent-shell-test-prompt :wk "Random test prompt")
-      "c p t" '(:ignore t :wk "Taskmaster")
-      "c p t n" '(mr-x/taskmaster-next-task :wk "Next task")
-      "c p t s" '(mr-x/taskmaster-summary :wk "Summary")
-      "c r" '(mr-x/agent-shell-send-region-no-switch :wk "Send region (stay)")
-      "c R" '(agent-shell-send-region :wk "Send region (go)")
-      "c y" '(mr-x/agent-shell-send-clipboard :wk "Send clipboard")
-      "c f" '(agent-shell-send-file :wk "Send file")
-      "c F" '(agent-shell-send-other-file :wk "Send other file")
-      "c d" '(agent-shell-send-dwim :wk "Send DWIM (region/error)")
-      "c s" '(agent-shell-send-screenshot :wk "Send screenshot")
-      "c i" '(agent-shell-interrupt :wk "Interrupt")
-      "c o" '(agent-shell-other-buffer :wk "Other buffer (viewport/shell)")
-      "c m" '(agent-shell-set-session-mode :wk "Set mode")
-      "c M" '(agent-shell-cycle-session-mode :wk "Cycle mode")
-      "c ." '(agent-shell-set-session-model :wk "Set model")
-      "c T" '(agent-shell-open-transcript :wk "Open transcript")
-      "c q" '(agent-shell-queue-request :wk "Queue request")
-      "c l" '(:ignore t :wk "Logs")
-      "c l l" '(agent-shell-toggle-logging :wk "Toggle logging")
-      "c l v" '(agent-shell-view-traffic :wk "View traffic")
-      "c l a" '(agent-shell-view-acp-logs :wk "View ACP logs")
-      "c l r" '(agent-shell-reset-logs :wk "Reset logs")
-      "c 1" '(mr-x/agent-shell-allow :wk "Allow")
-      "c 2" '(mr-x/agent-shell-deny :wk "Deny")
-      "c 3" '(mr-x/agent-shell-allow-always :wk "Allow always")
-      "c 0" '(mr-x/agent-shell-view-diff :wk "View diff"))
-
-
-    (mr-x/leader-def
-      "s" '(:ignore t :wk "surf")
-      "s s" '(mr-x/surf-web :wk "Surf web (Google)")
-      "s S" '(mr-x/surf-web-other-window :wk "Surf web (other window)")
-      "s u" '(xwidget-webkit-browse-url :wk "Surf URL")
-      "s U" '(mr-x/surf-url-other-window :wk "Surf URL (other window)")
-      "s l" '(mr-x/surf-link-at-point :wk "Surf link at point"))
-
-    (mr-x/leader-def
-      "g" '(:ignore t :wk "git")
-      "g g" '(magit-status :wk "magit status (fullframe)")
-      "g G" '(mr-x/magit-status-side-window :wk "magit status (side window)")
-      "g d" '(magit-diff-unstaged :wk "diff unstaged")
-      "g c" '(magit-branch-or-checkout :wk "branch or checkout")
-      "g l" '(magit-log-current :wk "log current")
-      "g L" '(magit-log-oneline :wk "log oneline")
-      "g b" '(magit-blame :wk "blame")
-      "g p" '(magit-push-current :wk "push current")
-      "g P" '(magit-pull-branch :wk "pull branch")
-      "g f" '(magit-fetch :wk "fetch"))
-
-    ;; Bind after agent-shell loads
-    (with-eval-after-load 'agent-shell
+    (with-eval-after-load 'general
       (mr-x/leader-def
-        "g m" '(mr-x/ai-commit-message :wk "AI commit message")))
+        "a" 'mr-x/org-agenda-custom
+        ;; "m" 'mu4e
+        "f" 'link-hint-open-link
+        "p" 'projectile-command-map
+        "w" '(:keymap evil-window-map :package evil :wk "window")
+        "h" 'winner-undo
+        "l" 'winner-redo
+        ;; "s" 'mr-x/toggle-shortcuts
+        ;; "S" 'mr-x/scratch
+        ;; "v" 'multi-vterm
+        "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
+        "1" (lambda () (interactive) (persp-switch-by-number 1))
+        "2" (lambda () (interactive) (persp-switch-by-number 2))
+        "3" (lambda () (interactive) (persp-switch-by-number 3))
+        "4" (lambda () (interactive) (persp-switch-by-number 4))
+        "5" (lambda () (interactive) (persp-switch-by-number 5))
+        "t" '(mr-x/test-environment :wk "Test environment"))
 
-    (mr-x/leader-def
-      "x" '(:keymap perspective-map :wk "perspective"))
+      (defun mr-x/test-environment ()
+        "Spawn agent-shell on left, dired ~/roaming/sandbox on right."
+        (interactive)
+        (delete-other-windows)
+        (dired "~/roaming/sandbox")
+        (split-window-horizontally)
+        (agent-shell)
+        (balance-windows))
+
+      (mr-x/leader-def
+        "d" '(:ignore t :wk "Dired")
+        "d d" '(dired :wk "Open Dired")
+        "d j" '(dired-jump :wk "Dired jump to current")
+        "d h" '((lambda () (interactive) (dired "~/")) :wk "Dired home")
+        "d r" '((lambda () (interactive) (dired "~/roaming")) :wk "Dired roaming")
+        "d e" '((lambda () (interactive) (dired "~/.dotfiles")) :wk "Dired dotfiles")
+        "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
+
+      (mr-x/leader-def
+        "b" '(:ignore t :wk "buffer")
+        "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
+        "b k" '(kill-this-buffer :wk "kill this buffer")
+        "b r" '(revert-buffer :wk "revert buffer"))
+      
+      (mr-x/leader-def
+        "v" '(:ignore t :wk "vterm")
+        "v v" '(multi-vterm :wk "multi-vterm")
+        "v n" '(multi-vterm-next :wk "multi-vterm-next")
+        "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
+        "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
+        "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame"))
+
+      (mr-x/leader-def
+        "c" '(:ignore t :wk "Agent Shell")
+        "c c" '(agent-shell :wk "Start Agent Shell")
+        "c n" '(agent-shell-new-shell :wk "New shell")
+        "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
+        "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
+        "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
+        "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
+        "c j" '(agent-shell-attention-jump :wk "Jump to pending")
+        "c p" '(:ignore t :wk "Prompts")
+        "c p p" '(agent-shell-prompt-compose :wk "Compose prompt")
+        "c p r" '(mr-x/agent-shell-test-prompt :wk "Random test prompt")
+        "c p t" '(:ignore t :wk "Taskmaster")
+        "c p t n" '(mr-x/taskmaster-next-task :wk "Next task")
+        "c p t s" '(mr-x/taskmaster-summary :wk "Summary")
+        "c r" '(mr-x/agent-shell-send-region-no-switch :wk "Send region (stay)")
+        "c R" '(agent-shell-send-region :wk "Send region (go)")
+        "c y" '(mr-x/agent-shell-send-clipboard :wk "Send clipboard")
+        "c f" '(agent-shell-send-file :wk "Send file")
+        "c F" '(agent-shell-send-other-file :wk "Send other file")
+        "c d" '(agent-shell-send-dwim :wk "Send DWIM (region/error)")
+        "c s" '(agent-shell-send-screenshot :wk "Send screenshot")
+        "c i" '(agent-shell-interrupt :wk "Interrupt")
+        "c o" '(agent-shell-other-buffer :wk "Other buffer (viewport/shell)")
+        "c m" '(agent-shell-set-session-mode :wk "Set mode")
+        "c M" '(agent-shell-cycle-session-mode :wk "Cycle mode")
+        "c ." '(agent-shell-set-session-model :wk "Set model")
+        "c T" '(agent-shell-open-transcript :wk "Open transcript")
+        "c q" '(agent-shell-queue-request :wk "Queue request")
+        "c l" '(:ignore t :wk "Logs")
+        "c l l" '(agent-shell-toggle-logging :wk "Toggle logging")
+        "c l v" '(agent-shell-view-traffic :wk "View traffic")
+        "c l a" '(agent-shell-view-acp-logs :wk "View ACP logs")
+        "c l r" '(agent-shell-reset-logs :wk "Reset logs")
+        "c 1" '(mr-x/agent-shell-allow :wk "Allow")
+        "c 2" '(mr-x/agent-shell-deny :wk "Deny")
+        "c 3" '(mr-x/agent-shell-allow-always :wk "Allow always")
+        "c 0" '(mr-x/agent-shell-view-diff :wk "View diff"))
 
 
-)
+      (mr-x/leader-def
+        "s" '(:ignore t :wk "surf")
+        "s s" '(mr-x/surf-web :wk "Surf web (Google)")
+        "s S" '(mr-x/surf-web-other-window :wk "Surf web (other window)")
+        "s u" '(xwidget-webkit-browse-url :wk "Surf URL")
+        "s U" '(mr-x/surf-url-other-window :wk "Surf URL (other window)")
+        "s l" '(mr-x/surf-link-at-point :wk "Surf link at point"))
 
-  (defun mr-x/org-agenda-day ()
-    (interactive)
-    (org-agenda nil "a"))
+      (mr-x/leader-def
+        "g" '(:ignore t :wk "git")
+        "g g" '(magit-status :wk "magit status (fullframe)")
+        "g G" '(mr-x/magit-status-side-window :wk "magit status (side window)")
+        "g d" '(magit-diff-unstaged :wk "diff unstaged")
+        "g c" '(magit-branch-or-checkout :wk "branch or checkout")
+        "g l" '(magit-log-current :wk "log current")
+        "g L" '(magit-log-oneline :wk "log oneline")
+        "g b" '(magit-blame :wk "blame")
+        "g p" '(magit-push-current :wk "push current")
+        "g P" '(magit-pull-branch :wk "pull branch")
+        "g f" '(magit-fetch :wk "fetch"))
 
-  (defun mr-x/org-agenda-custom ()
-    (interactive)
-    (org-agenda nil "c"))
+      ;; Bind after agent-shell loads
+      (with-eval-after-load 'agent-shell
+        (mr-x/leader-def
+          "g m" '(mr-x/ai-commit-message :wk "AI commit message")))
+
+      (mr-x/leader-def
+        "x" '(:keymap perspective-map :wk "perspective"))
+
+      (mr-x/leader-def
+        "P" '(:ignore t :wk "Project Dashboard")
+        "P p" '(project-dashboard-launch :wk "Launch project")
+        "P a" '(project-dashboard-add-project :wk "Add project")
+        "P d" '(project-dashboard-open :wk "Dashboard for current"))
+
+      ;; Claude task output viewer
+      (defun mr-x/claude-watch-task (task-id)
+        "Watch output from a Claude background task in real-time.
+TASK-ID is the ID shown when Claude runs a background command."
+        (interactive "sTask ID: ")
+        (let ((output-file (format "/tmp/claude/tasks/%s.output" task-id)))
+          (if (file-exists-p output-file)
+              (let ((buf (get-buffer-create (format "*claude-task:%s*" task-id))))
+                (with-current-buffer buf
+                  (read-only-mode -1)
+                  (erase-buffer)
+                  (insert-file-contents output-file)
+                  (goto-char (point-max))
+                  (ansi-color-apply-on-region (point-min) (point-max))
+                  ;; Auto-revert to follow updates
+                  (setq-local auto-revert-interval 1)
+                  (auto-revert-mode 1)
+                  (read-only-mode 1))
+                (display-buffer buf)
+                (message "Watching task %s (auto-refreshes every 1s)" task-id))
+            (message "Task output file not found: %s" output-file))))
+
+      (defun mr-x/claude-watch-latest-task ()
+        "Watch the most recent Claude background task."
+        (interactive)
+        (let* ((task-dir "/tmp/claude/tasks/")
+               (files (and (file-directory-p task-dir)
+                           (directory-files task-dir nil "\\.output$" t))))
+          (if files
+              (let* ((latest (car (last (sort files #'string<))))
+                     (task-id (file-name-sans-extension latest)))
+                (mr-x/claude-watch-task task-id))
+            (message "No Claude task output files found"))))
+
+      (mr-x/leader-def
+        "c o" '(mr-x/claude-watch-task :wk "Watch task output")
+        "c O" '(mr-x/claude-watch-latest-task :wk "Watch latest task"))
+
+      ;; SANDBOX TEST: Quick test environment setup
+      (defun mr-x/sandbox-test-env ()
+        "Spawn agent-shell on left, dired ~/roaming/sandbox on right."
+        (interactive)
+        (delete-other-windows)
+        ;; Open dired on the right first (will become right after split)
+        (dired "~/roaming/sandbox")
+        ;; Split and put agent-shell on left
+        (split-window-horizontally)
+        (agent-shell)
+        ;; Balance windows
+        (balance-windows))
+
+      (mr-x/leader-def
+        "t" '(mr-x/sandbox-test-env :wk "Test environment"))
+
+  )
+
+    (defun mr-x/org-agenda-day ()
+      (interactive)
+      (org-agenda nil "a"))
+
+    (defun mr-x/org-agenda-custom ()
+      (interactive)
+      (org-agenda nil "c"))
 
 (winner-mode 1)
 
@@ -1260,7 +1319,10 @@
   ;; Optional: extra delta args for side-by-side
   (setq diff-ansi-tool-delta-args '("--side-by-side" "--width" "180")))
 
-(use-package projectile
+;; Load project-dashboard from lisp directory
+  (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+
+  (use-package projectile
     :ensure t
     :init
     (projectile-mode +1)
@@ -1269,7 +1331,7 @@
     (setq projectile-completion-system 'ivy)
     ;; Configure project search paths
     (setq projectile-project-search-path '("~/roaming" "~/work"))
-    ;; Set default action when switching projects
+    ;; Set default action when switching projects (overridden below after project-dashboard loads)
     (setq projectile-switch-project-action #'projectile-dired)
     ;; Use the hybrid indexing method for better performance
     (setq projectile-indexing-method 'hybrid)
@@ -1286,7 +1348,11 @@
 
   ;; Add dev environment keybinding to projectile-command-map
   (with-eval-after-load 'projectile
-    (define-key projectile-command-map (kbd "C-d") #'mr-x/spawn-dev-environment))
+    (define-key projectile-command-map (kbd "C-d") #'mr-x/spawn-dev-environment)
+    ;; Load project-dashboard
+    (require 'project-dashboard)
+    ;; Use project dashboard when switching projects (for other projectile commands)
+    (setq projectile-switch-project-action #'project-dashboard--projectile-switch-action))
 
   ;; dedicated vterm for project
       (defun mr-x/spawn-project-terminal-frame ()

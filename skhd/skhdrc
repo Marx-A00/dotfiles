@@ -5,6 +5,7 @@
 
 # Emacs
 cmd + shift - e : /opt/homebrew/opt/emacs-plus@30/bin/emacsclient -c -n -a ""
+cmd - e : ~/.dotfiles/scripts/emacs-cycle.sh
 
 # Claude permissions (Worklouder macro pad)
 f13 : emacsclient --eval "(mr-x/agent-shell-allow)"
