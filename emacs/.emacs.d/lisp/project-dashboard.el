@@ -14,6 +14,7 @@
 
 (require 'json)
 (require 'projectile)
+(require 'project-dashboard-art)
 
 ;;; Customization
 
@@ -40,6 +41,16 @@
 (defcustom project-dashboard-todo-files '("TODO.org" "TODO.md")
   "List of TODO file names to search for in project root."
   :type '(repeat string)
+  :group 'project-dashboard)
+
+(defcustom project-dashboard-auto-refresh t
+  "Whether to automatically refresh the dashboard."
+  :type 'boolean
+  :group 'project-dashboard)
+
+(defcustom project-dashboard-refresh-interval 5
+  "Seconds between auto-refresh when `project-dashboard-auto-refresh' is enabled."
+  :type 'integer
   :group 'project-dashboard)
 
 ;;; Faces (Gruvbox-compatible)
@@ -100,7 +111,23 @@
 (defvar-local project-dashboard--todo-data nil
   "Cached TODO file data for this dashboard.")
 
+(defvar-local project-dashboard--refresh-timer nil
+  "Timer for auto-refreshing this dashboard buffer.")
+
 ;;; Data Layer - Task Master
+
+(defun project-dashboard--get-active-tag (project-root)
+  "Get the active Task Master tag for PROJECT-ROOT.
+Returns the tag name from state.json, or \"master\" as fallback."
+  (let ((state-file (expand-file-name ".taskmaster/state.json" project-root)))
+    (if (file-exists-p state-file)
+        (condition-case nil
+            (let* ((json-object-type 'alist)
+                   (json-key-type 'symbol)
+                   (state (json-read-file state-file)))
+              (or (alist-get 'currentTag state) "master"))
+          (error "master"))
+      "master")))
 
 (defun project-dashboard--read-taskmaster-json (project-root)
   "Read and parse Task Master tasks.json from PROJECT-ROOT.
@@ -111,14 +138,18 @@ Returns nil if file doesn't exist or is invalid."
           (let* ((json-object-type 'alist)
                  (json-array-type 'list)
                  (json-key-type 'symbol)
-                 (data (json-read-file tasks-file)))
-            ;; Task Master stores tasks under tag name (default: "master")
-            (let ((tags (alist-get 'tags data)))
-              (if tags
-                  ;; New format with tags
-                  (alist-get 'tasks (cdar tags))
-                ;; Try legacy format
-                (alist-get 'tasks data))))
+                 (data (json-read-file tasks-file))
+                 (active-tag (project-dashboard--get-active-tag project-root))
+                 (tag-symbol (intern active-tag)))
+            ;; Task Master stores tasks under tag name
+            ;; Structure is: { "tagname": { "tasks": [...] } }
+            (or
+             ;; Try active tag
+             (alist-get 'tasks (alist-get tag-symbol data))
+             ;; Fallback to master
+             (alist-get 'tasks (alist-get 'master data))
+             ;; Try legacy format: { "tasks": [...] }
+             (alist-get 'tasks data)))
         (error
          (message "project-dashboard: Error reading tasks.json: %s" err)
          nil)))))
@@ -195,9 +226,19 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
 
 ;;; Rendering Layer
 
+(defvar-local project-dashboard--current-art nil
+  "The current ASCII art displayed in this dashboard buffer.")
+
 (defun project-dashboard--render-header (project-name)
   "Render the dashboard header with PROJECT-NAME."
   (insert "\n")
+  ;; Render ASCII art (use cached art or pick new random one)
+  (unless project-dashboard--current-art
+    (setq project-dashboard--current-art (project-dashboard-art-random)))
+  (dolist (line project-dashboard--current-art)
+    (insert (propertize (format "  %s\n" line) 'face 'project-dashboard-header-face)))
+  (insert "\n")
+  ;; Project name
   (insert (propertize (format "  %s" project-name) 'face 'project-dashboard-header-face))
   (insert "\n")
   (insert (propertize (format "  %s" (make-string (min 60 (+ 2 (length project-name))) ?─))
@@ -237,7 +278,7 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
             (insert (project-dashboard--render-status status))
             (insert (project-dashboard--render-priority priority))
             (insert " ")
-            (insert (propertize (truncate-string-to-width (or title "") 45 nil nil "...")
+            (insert (propertize (truncate-string-to-width (or title "") 70 nil nil "...")
                                 'face 'project-dashboard-task-title-face))
             (insert "\n"))
           (cl-incf count)))))
@@ -399,9 +440,43 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
   (project-dashboard--render)
   (message "Dashboard refreshed"))
 
+(defun project-dashboard-new-art ()
+  "Pick a new random ASCII art and refresh."
+  (interactive)
+  (setq project-dashboard--current-art (project-dashboard-art-random))
+  (project-dashboard--render)
+  (message "New art!"))
+
+(defun project-dashboard--auto-refresh ()
+  "Auto-refresh the dashboard if buffer is visible."
+  (when (and (buffer-live-p (current-buffer))
+             (get-buffer-window (current-buffer)))
+    (let ((inhibit-message t))  ; Suppress "Dashboard refreshed" message
+      (project-dashboard--render))))
+
+(defun project-dashboard--start-auto-refresh ()
+  "Start the auto-refresh timer for current dashboard buffer."
+  (when (and project-dashboard-auto-refresh
+             (not project-dashboard--refresh-timer))
+    (setq project-dashboard--refresh-timer
+          (run-with-timer project-dashboard-refresh-interval
+                          project-dashboard-refresh-interval
+                          (let ((buf (current-buffer)))
+                            (lambda ()
+                              (when (buffer-live-p buf)
+                                (with-current-buffer buf
+                                  (project-dashboard--auto-refresh)))))))))
+
+(defun project-dashboard--stop-auto-refresh ()
+  "Stop the auto-refresh timer for current dashboard buffer."
+  (when project-dashboard--refresh-timer
+    (cancel-timer project-dashboard--refresh-timer)
+    (setq project-dashboard--refresh-timer nil)))
+
 (defun project-dashboard-quit ()
   "Quit the dashboard and return to previous buffer."
   (interactive)
+  (project-dashboard--stop-auto-refresh)
   (quit-window))
 
 ;;; Major Mode
@@ -439,6 +514,7 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
     (kbd "f") #'project-dashboard-find-file
     (kbd "t") #'project-dashboard-open-tasks-file
     (kbd "r") #'project-dashboard-refresh
+    (kbd "R") #'project-dashboard-new-art
     (kbd "gr") #'project-dashboard-refresh
     (kbd "q") #'project-dashboard-quit
     (kbd "RET") #'project-dashboard-find-file))
@@ -460,7 +536,8 @@ If PROJECT-ROOT is nil, use current projectile project."
       (unless (eq major-mode 'project-dashboard-mode)
         (project-dashboard-mode))
       (setq project-dashboard--project-root root)
-      (project-dashboard--render))
+      (project-dashboard--render)
+      (project-dashboard--start-auto-refresh))
     (switch-to-buffer buf)))
 
 ;;;###autoload

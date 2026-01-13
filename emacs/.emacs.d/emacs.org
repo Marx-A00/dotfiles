@@ -362,6 +362,21 @@
     :commands toc-org-enable
     :hook (org-mode . toc-org-mode))
 
+  ;; Org HTML Preview with xwidget-webkit
+  (defvar mr-x/org-preview-css-file
+    (expand-file-name "etc/org-gruvbox.css" user-emacs-directory)
+    "CSS file to use for org HTML preview.")
+
+  (defun mr-x/org-preview-html ()
+    "Export current org buffer to HTML and preview in xwidget-webkit."
+    (interactive)
+    (let* ((org-file (buffer-file-name))
+           (html-file (concat (file-name-sans-extension org-file) ".html"))
+           (org-html-head (format "<link rel=\"stylesheet\" type=\"text/css\" href=\"file://%s\" />"
+                                  mr-x/org-preview-css-file))
+           (org-html-head-include-default-style nil))
+      (org-export-to-file 'html html-file nil nil nil nil nil)
+      (xwidget-webkit-browse-url (concat "file://" html-file))))
 
 #+end_src
 
@@ -780,7 +795,89 @@
     (use-package doom-themes
       :ensure t
       :config
-      (load-theme 'doom-gruvbox))
+      (load-theme 'doom-gruvbox)
+      ;; Match VSCode gruvbox JSX/TSX highlighting
+      ;; Reference: https://github.com/jdinhify/vscode-theme-gruvbox
+      ;; Colors: aqua2=#8ec07c, blue2=#83a598, yellow2=#fabd2f, fg2=#d5c4a1, fg4=#a89984
+      (custom-set-faces
+       ;; JSX tags should be aqua like VSCode (entity.name.tag -> aqua2)
+       '(typescript-ts-jsx-tag-face ((t (:foreground "#8ec07c"))))
+       ;; JSX attributes (type, placeholder, onChange) should be yellow (yellow2)
+       '(typescript-ts-jsx-attribute-face ((t (:foreground "#fabd2f"))))
+       ;; Functions aqua in VSCode gruvbox (entity.name.function -> yellow2, but called -> aqua2)
+       '(font-lock-function-name-face ((t (:foreground "#8ec07c"))))
+       '(font-lock-function-call-face ((t (:foreground "#8ec07c"))))
+       ;; Properties/members (e.target.value) should be blue (blue2)
+       '(font-lock-property-use-face ((t (:foreground "#83a598"))))
+       '(font-lock-property-name-face ((t (:foreground "#83a598"))))
+       ;; Variable references (isActive, count, etc.) should be blue (variable -> blue2)
+       '(font-lock-variable-use-face ((t (:foreground "#83a598"))))
+       ;; Operators (=, =>, etc.) should be aqua (keyword.operator -> aqua2)
+       '(font-lock-operator-face ((t (:foreground "#8ec07c"))))
+       ;; Brackets/braces {} should be lighter (brace -> fg2)
+       '(font-lock-bracket-face ((t (:foreground "#d5c4a1"))))
+       ;; General punctuation (fg4)
+       '(font-lock-punctuation-face ((t (:foreground "#a89984"))))
+       '(font-lock-delimiter-face ((t (:foreground "#a89984"))))
+       ;; JSX tag delimiters <, >, </,  /> should be blue (punctuation.definition.tag -> blue2)
+       '(jsx-tag-delimiter-face ((t (:foreground "#83a598")))))
+
+    ;; Define custom face for JSX tag delimiters
+    (defface jsx-tag-delimiter-face
+      '((t (:foreground "#83a598")))
+      "Face for JSX tag delimiters like < > /> </"
+      :group 'font-lock-faces)
+
+    ;; Enable extra tree-sitter font-lock features for TSX/TS (like VSCode)
+    (defun mr-x/tsx-ts-mode-setup ()
+      "Enable additional font-lock features for tsx-ts-mode."
+      ;; Enable extra font-lock features (function, bracket, delimiter, operator)
+      (treesit-font-lock-recompute-features '(function bracket delimiter operator) nil)
+      ;; Add custom tree-sitter rules
+      (let ((lang (if (eq major-mode 'tsx-ts-mode) 'tsx 'typescript)))
+        (setq treesit-font-lock-settings
+          (append treesit-font-lock-settings
+            (treesit-font-lock-rules
+              ;; Member access properties (e.target.value)
+              :language lang
+              :feature 'property
+              :override t
+              '((member_expression
+                 property: (property_identifier) @font-lock-property-use-face))
+              ;; Variable references should be blue (like VSCode gruvbox)
+              :language lang
+              :feature 'variable-reference
+              :override nil
+              '((identifier) @font-lock-variable-use-face))
+            ;; JSX tag delimiters - only for tsx
+            (when (eq lang 'tsx)
+              (treesit-font-lock-rules
+                :language 'tsx
+                :feature 'jsx-delimiter
+                :override t
+                '(;; Opening tag: <div>
+                  (jsx_opening_element "<" @jsx-tag-delimiter-face)
+                  (jsx_opening_element ">" @jsx-tag-delimiter-face)
+                  ;; Closing tag: </div>
+                  (jsx_closing_element "</" @jsx-tag-delimiter-face)
+                  (jsx_closing_element ">" @jsx-tag-delimiter-face)
+                  ;; Self-closing: <Input />
+                  (jsx_self_closing_element "<" @jsx-tag-delimiter-face)
+                  (jsx_self_closing_element "/>" @jsx-tag-delimiter-face)))))))
+      ;; Add custom features to feature list level 3
+      (unless (memq 'variable-reference (nth 2 treesit-font-lock-feature-list))
+        (setf (nth 2 treesit-font-lock-feature-list)
+              (cons 'variable-reference (nth 2 treesit-font-lock-feature-list))))
+      (treesit-font-lock-recompute-features '(variable-reference) nil)
+      ;; Enable jsx-delimiter feature (tsx only)
+      (when (eq major-mode 'tsx-ts-mode)
+        (unless (memq 'jsx-delimiter (nth 2 treesit-font-lock-feature-list))
+          (setf (nth 2 treesit-font-lock-feature-list)
+                (cons 'jsx-delimiter (nth 2 treesit-font-lock-feature-list))))
+        (treesit-font-lock-recompute-features '(jsx-delimiter) nil))
+      (font-lock-flush))
+    (add-hook 'tsx-ts-mode-hook #'mr-x/tsx-ts-mode-setup)
+    (add-hook 'typescript-ts-mode-hook #'mr-x/tsx-ts-mode-setup)
 
     (use-package doom-modeline
       :ensure t
@@ -1114,6 +1211,7 @@
         "c l v" '(agent-shell-view-traffic :wk "View traffic")
         "c l a" '(agent-shell-view-acp-logs :wk "View ACP logs")
         "c l r" '(agent-shell-reset-logs :wk "Reset logs")
+        "c l W" '(mr-x/bash-watcher-toggle :wk "Bash watcher")
         "c 1" '(mr-x/agent-shell-allow :wk "Allow")
         "c 2" '(mr-x/agent-shell-deny :wk "Deny")
         "c 3" '(mr-x/agent-shell-allow-always :wk "Allow always")
@@ -1126,7 +1224,8 @@
         "s S" '(mr-x/surf-web-other-window :wk "Surf web (other window)")
         "s u" '(xwidget-webkit-browse-url :wk "Surf URL")
         "s U" '(mr-x/surf-url-other-window :wk "Surf URL (other window)")
-        "s l" '(mr-x/surf-link-at-point :wk "Surf link at point"))
+        "s l" '(mr-x/surf-link-at-point :wk "Surf link at point")
+        "s o" '(mr-x/org-preview-html :wk "Preview org as HTML"))
 
       (mr-x/leader-def
         "g" '(:ignore t :wk "git")
@@ -1533,9 +1632,10 @@ TASK-ID is the ID shown when Claude runs a background command."
     :config 
     (counsel-projectile-mode 1))
 
-  ;; Add dev environment keybinding to projectile-command-map
+  ;; Add dev environment keybindings to projectile-command-map
   (with-eval-after-load 'projectile
     (define-key projectile-command-map (kbd "C-d") #'mr-x/spawn-dev-environment)
+    (define-key projectile-command-map (kbd "C-r") #'mr-x/restart-dev-environment)
     ;; Load project-dashboard
     (require 'project-dashboard)
     ;; Use project dashboard when switching projects (for other projectile commands)
@@ -1587,6 +1687,30 @@ Creates a frame named 'Dev: {project}' with:
           (vterm-send-return)))
       (message "Dev environment spawned for %s" project-name)))
 
+  (defun mr-x/restart-dev-environment ()
+    "Restart rec project dev processes by sending C-c and re-running commands."
+    (interactive)
+    (let ((dev-buf (get-buffer "*rec: dev*"))
+          (queue-buf (get-buffer "*rec: queue*")))
+      (when dev-buf
+        (with-current-buffer dev-buf
+          (vterm-send-C-c)
+          (run-at-time "0.5 sec" nil
+            (lambda (buf)
+              (with-current-buffer buf
+                (vterm-send-string "pnpm run dev")
+                (vterm-send-return)))
+            dev-buf)))
+      (when queue-buf
+        (with-current-buffer queue-buf
+          (vterm-send-C-c)
+          (run-at-time "0.5 sec" nil
+            (lambda (buf)
+              (with-current-buffer buf
+                (vterm-send-string "pnpm queue:dev")
+                (vterm-send-return)))
+            queue-buf)))
+      (message "Restarting rec dev environment")))
 
 #+end_src
 
@@ -1862,7 +1986,14 @@ Creates a frame named 'Dev: {project}' with:
 
 
 #+end_src
+*** Misc
+#+begin_src emacs-lisp
 
+
+  (use-package dotenv-mode
+    :ensure t
+    :mode ("\\.env\\..*\\'" . dotenv-mode))
+#+end_src
 
 ** AI Overlord
 #+begin_src emacs-lisp
@@ -2202,6 +2333,46 @@ Focuses Emacs and the agent-shell window."
       (shell-maker-submit))
 
     ;; ============================================
+    ;; Bash Command Watcher
+    ;; ============================================
+
+    (defvar mr-x/bash-watcher-buffer "*Bash Watcher*"
+      "Buffer name for watching Bash commands.")
+
+    (defun mr-x/bash-watcher-log (type &rest args)
+      "Log to bash watcher buffer. TYPE is 'command, 'output, or 'separator."
+      (let ((buf (get-buffer-create mr-x/bash-watcher-buffer)))
+        (with-current-buffer buf
+          (goto-char (point-max))
+          (let ((inhibit-read-only t))
+            (pcase type
+              ('command
+               (insert (propertize (format "\n[%s] " (format-time-string "%H:%M:%S"))
+                                   'face 'font-lock-comment-face))
+               (insert (propertize "$ " 'face 'font-lock-keyword-face))
+               (insert (propertize (car args) 'face 'font-lock-string-face))
+               (insert "\n"))
+              ('output
+               (insert (car args))
+               (unless (string-suffix-p "\n" (car args))
+                 (insert "\n")))
+              ('separator
+               (insert (propertize (make-string 60 ?─) 'face 'font-lock-comment-face))
+               (insert "\n"))))
+          (unless (derived-mode-p 'special-mode)
+            (special-mode)))))
+
+    (defun mr-x/bash-watcher-toggle ()
+      "Toggle the Bash watcher buffer."
+      (interactive)
+      (if-let ((win (get-buffer-window mr-x/bash-watcher-buffer)))
+          (delete-window win)
+        (display-buffer (get-buffer-create mr-x/bash-watcher-buffer)
+                        '((display-buffer-in-side-window)
+                          (side . bottom)
+                          (window-height . 0.3)))))
+
+    ;; ============================================
     ;; Custom Permission System (no buttons needed)
     ;; ============================================
     
@@ -2221,7 +2392,15 @@ Each entry is (TOOL-CALL-ID . PLIST) where PLIST contains:
         (let-alist request
           (if (equal .method "session/request_permission")
               (let ((tool-call-id .params.toolCall.toolCallId)
+                    (tool-title .params.toolCall.title)
+                    (tool-input .params.toolCall.input)
                     (buffer (map-elt state :buffer)))
+                ;; Log Bash commands to watcher (title starts with "Bash")
+                (when (and tool-title (string-prefix-p "Bash" tool-title))
+                  (mr-x/bash-watcher-log 'command 
+                    (or (alist-get 'command tool-input) 
+                        (format "%s" tool-input))))
+                
                 ;; Store the full context BEFORE calling original
                 (push (cons tool-call-id
                             (list :request request
