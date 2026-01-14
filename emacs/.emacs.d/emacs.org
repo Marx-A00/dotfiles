@@ -1198,6 +1198,7 @@
         "c p t" '(:ignore t :wk "Taskmaster")
         "c p t n" '(mr-x/taskmaster-next-task :wk "Next task")
         "c p t s" '(mr-x/taskmaster-summary :wk "Summary")
+        "c p t a" '(mr-x/taskmaster-add-task :wk "Add task")
         "c r" '(mr-x/agent-shell-send-region-no-switch :wk "Send region (stay)")
         "c R" '(agent-shell-send-region :wk "Send region (go)")
         "c y" '(mr-x/agent-shell-send-clipboard :wk "Send clipboard")
@@ -1591,6 +1592,16 @@ TASK-ID is the ID shown when Claude runs a background command."
     :hook (magit-mode . magit-delta-mode)
     :config
     (setq magit-delta-delta-args '("--syntax-theme" "gruvbox-dark")))
+
+  ;; Forge - GitHub/GitLab PR and issue management
+  (use-package forge
+    :ensure t
+    :after magit
+    :config
+    ;; Use gh CLI for authentication (recommended)
+    (setq forge-add-default-bindings t)
+    ;; Pull topics when entering repo
+    (setq forge-pull-notifications t))
 
 #+end_src
 
@@ -2329,6 +2340,56 @@ Focuses Emacs and the agent-shell window."
       (goto-char (point-max))
       (insert "Please provide a succinct summary of the current taskmaster tags and their corresponding status.")
       (shell-maker-submit))
+
+    (defun mr-x/taskmaster-get-project-root ()
+      "Get project root, prompting if detection fails."
+      (let ((root (projectile-project-root)))
+        (if (and root (not (string-match-p "roaming/$\\|roaming/projects/$" root)))
+            root
+          (read-directory-name "Select project root: "))))
+
+    (defun mr-x/taskmaster-get-tags (project-root)
+      "Get list of Task Master tags for PROJECT-ROOT."
+      (let* ((default-directory project-root)
+             (output (shell-command-to-string
+                      "task-master list-tags 2>/dev/null | grep -E '^\\s+\\w' | awk '{print $1}'")))
+        (if (string-empty-p output)
+            '("master")
+          (split-string output "\n" t))))
+
+    (defun mr-x/get-agent-shell-for-project (project-root)
+      "Get agent-shell buffer for PROJECT-ROOT, or prompt to select."
+      (let* ((all-shells (seq-filter
+                          (lambda (b)
+                            (with-current-buffer b (eq major-mode 'agent-shell-mode)))
+                          (buffer-list)))
+             (project-shell (seq-find
+                             (lambda (b)
+                               (string-prefix-p project-root
+                                                (buffer-local-value 'default-directory b)))
+                             all-shells)))
+        (cond
+         (project-shell project-shell)
+         ((= (length all-shells) 1) (car all-shells))
+         ((> (length all-shells) 1)
+          (get-buffer (ivy-read "Select agent-shell: " (mapcar #'buffer-name all-shells))))
+         (t (error "No agent-shell buffers found. Start one first.")))))
+
+    (defun mr-x/taskmaster-add-task ()
+      "Add a new task to Task Master via agent-shell."
+      (interactive)
+      (let* ((project-root (mr-x/taskmaster-get-project-root))
+             (tags (mr-x/taskmaster-get-tags project-root))
+             (selected-tag (ivy-read "Select tag: " tags))
+             (task-description (read-string "Task description: "))
+             (shell-buffer (mr-x/get-agent-shell-for-project project-root)))
+        (with-current-buffer shell-buffer
+          (goto-char (point-max))
+          (insert (format "Add a new task to tag '%s' with the following description: %s"
+                          selected-tag task-description))
+          (shell-maker-submit))
+        (display-buffer shell-buffer)))
+
 
     (defun mr-x/agent-shell-test-prompt ()
       "Send a random test prompt to exercise agent-shell functionality."
