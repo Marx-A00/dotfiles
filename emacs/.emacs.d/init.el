@@ -43,6 +43,10 @@
   ;; Enable Elpaca support for use-package's :ensure keyword.
   (elpaca-use-package-mode))
 
+;; cond-let is required by magit-section but not on MELPA
+(use-package cond-let
+  :ensure (:host github :repo "tarsius/cond-let"))
+
 ;; Load org early to avoid version conflicts
 (elpaca org)
 (elpaca-wait)
@@ -672,7 +676,7 @@
     
     ;; CMD+Enter to send/execute in both modes
     (evil-define-key 'normal vterm-mode-map (kbd "s-<return>") #'vterm-send-return)
-    (evil-define-key 'insert vterm-mode-map (kbd "s-<return>") #'vterm-send-return))))
+    (evil-define-key 'insert vterm-mode-map (kbd "s-<return>") #'vterm-send-return)))
 
 
 
@@ -724,7 +728,7 @@
      '(font-lock-punctuation-face ((t (:foreground "#a89984"))))
      '(font-lock-delimiter-face ((t (:foreground "#a89984"))))
      ;; JSX tag delimiters <, >, </,  /> should be blue (punctuation.definition.tag -> blue2)
-     '(jsx-tag-delimiter-face ((t (:foreground "#83a598")))))
+     '(jsx-tag-delimiter-face ((t (:foreground "#83a598"))))))
 
   ;; Define custom face for JSX tag delimiters
   (defface jsx-tag-delimiter-face
@@ -812,8 +816,8 @@
     ;; Performance
     (doom-modeline-checker-simple-format t)  ; Simpler error format
     (doom-modeline-env-version nil)  ; Don't show environment version
-    (doom-modeline-unicode-fallback t))  ; Use unicode when icons unavailable
-    
+    (doom-modeline-unicode-fallback t)  ; Use unicode when icons unavailable
+
     :config
     ;; Commented out to prevent modeline shrinking when frame loses focus
     ;; (set-face-attribute 'mode-line nil :height 0.9)
@@ -863,11 +867,13 @@
 
    (use-package xwwp
      :ensure t
+     :after evil
      :custom
      (xwwp-follow-link-completion-system 'ivy)
      :config
      (evil-define-key 'normal xwidget-webkit-mode-map
        "f" 'xwwp-follow-link))
+
 
   (add-hook 'text-mode-hook #'mr-x/general-setup)
   (add-hook 'prog-mode-hook #'mr-x/general-setup)
@@ -2699,6 +2705,3 @@ Highlights the actual code content, not just +/- markers."
 	(when (buffer-modified-p)
 	  (with-demoted-errors (ledger-mode-clean-buffer))
 	  (save-buffer)))))
-
-(use-package page-break-lines
-  :ensure t)
