@@ -374,61 +374,61 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
       (propertize "!" 'face 'project-dashboard-priority-high-face)
     " "))
 
-(defvar-local project-dashboard--next-task nil
-  "Cached next task data for this dashboard buffer.")
-
-(defvar-local project-dashboard--next-task-loading nil
-  "Whether next task is currently being fetched.")
-
 (defvar-local project-dashboard--active-tag nil
   "The active Task Master tag for this dashboard.")
 
-(defun project-dashboard--fetch-next-task-async (project-root buffer)
-  "Fetch next task asynchronously for PROJECT-ROOT and update BUFFER."
-  (let* ((default-directory project-root)
-         (output-buf (generate-new-buffer " *task-master-next*"))
-         (proc (make-process
-                :name "task-master-next"
-                :buffer output-buf
-                :command '("npx" "task-master" "next")
-                :sentinel
-                (lambda (proc _event)
-                  (when (eq (process-status proc) 'exit)
-                    (let ((output (with-current-buffer (process-buffer proc)
-                                    (buffer-string))))
-                      (kill-buffer (process-buffer proc))
-                      (when (buffer-live-p buffer)
-                        (with-current-buffer buffer
-                          (setq project-dashboard--next-task-loading nil)
-                          (when (string-match "Next Task: #\\([0-9.]+\\) - \\([^│\n]+\\)" output)
-                            (setq project-dashboard--next-task
-                                  (list :id (match-string 1 output)
-                                        :title (string-trim (match-string 2 output)))))
-                          (project-dashboard--render))))))
-                :stderr nil)))
-    proc))
+(defun project-dashboard--find-next-task (tasks)
+  "Find the next task to work on from TASKS (raw alist format).
+Returns a plist with :id, :title, :is-in-progress, or nil.
+Priority: in-progress task first, then first pending with deps satisfied."
+  (when tasks
+    (let* ((done-ids (mapcar (lambda (t)
+                               (format "%s" (alist-get 'id t)))
+                             (seq-filter (lambda (t)
+                                           (string= (alist-get 'status t) "done"))
+                                         tasks)))
+           ;; First check for in-progress task
+           (in-progress (seq-find (lambda (t)
+                                    (string= (alist-get 'status t) "in-progress"))
+                                  tasks))
+           ;; Then find first pending task with all deps satisfied
+           (next-pending (and (not in-progress)
+                              (seq-find
+                               (lambda (t)
+                                 (and (string= (alist-get 'status t) "pending")
+                                      (let ((deps (alist-get 'dependencies t)))
+                                        (or (null deps)
+                                            (seq-every-p
+                                             (lambda (dep)
+                                               (member (format "%s" dep) done-ids))
+                                             deps)))))
+                               tasks)))
+           (result (or in-progress next-pending)))
+      (when result
+        (list :id (alist-get 'id result)
+              :title (alist-get 'title result)
+              :is-in-progress (string= (alist-get 'status result) "in-progress"))))))
 
-(defun project-dashboard--render-next-task ()
-  "Render the Next Task section using cached data."
-  (insert (propertize "  Next Task" 'face 'project-dashboard-section-face))
-  (when project-dashboard--active-tag
-    (insert (propertize (format " (%s)" project-dashboard--active-tag)
-                        'face 'project-dashboard-separator-face)))
-  (insert "\n\n")
-  (cond
-   (project-dashboard--next-task-loading
-    (insert (propertize "    Loading...\n" 'face 'project-dashboard-status-pending-face)))
-   (project-dashboard--next-task
-    (let* ((id (plist-get project-dashboard--next-task :id))
-           (title (plist-get project-dashboard--next-task :title)))
-      (insert "    ")
-      (insert (propertize (format "#%-4s" id) 'face 'project-dashboard-separator-face))
-      (insert (propertize (truncate-string-to-width title 70 nil nil "...")
-                          'face 'project-dashboard-task-title-face))
-      (insert "\n")))
-   (t
-    (insert (propertize "    No next task\n" 'face 'project-dashboard-status-pending-face))))
-  (insert "\n"))
+(defun project-dashboard--render-next-task (next-task)
+  "Render the Next Task or In Progress section for NEXT-TASK plist."
+  (let ((header (if (plist-get next-task :is-in-progress)
+                    "In Progress"
+                  "Next Task")))
+    (insert (propertize (format "  %s" header) 'face 'project-dashboard-section-face))
+    (when project-dashboard--active-tag
+      (insert (propertize (format " (%s)" project-dashboard--active-tag)
+                          'face 'project-dashboard-separator-face)))
+    (insert "\n\n")
+    (if next-task
+        (let* ((id (plist-get next-task :id))
+               (title (plist-get next-task :title)))
+          (insert "    ")
+          (insert (propertize (format "#%-4s" id) 'face 'project-dashboard-separator-face))
+          (insert (propertize (truncate-string-to-width title 70 nil nil "...")
+                              'face 'project-dashboard-task-title-face))
+          (insert "\n"))
+      (insert (propertize "    No next task\n" 'face 'project-dashboard-status-pending-face)))
+    (insert "\n")))
 
 (defun project-dashboard--render-tasks-section (tasks)
   "Render the Task Master TASKS section."
@@ -524,13 +524,14 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
     (when project-dashboard-show-taskmaster
       (let* ((active-tag (project-dashboard--get-active-tag project-root))
              (tasks (project-dashboard--read-taskmaster-json project-root))
+             (next-task (project-dashboard--find-next-task tasks))
              (filtered (project-dashboard--parse-tasks tasks '("in-progress" "pending"))))
         (setq project-dashboard--active-tag active-tag)
         (setq project-dashboard--taskmaster-data filtered)
         (when tasks
           (setq has-taskmaster t)
-          ;; Next task section (async)
-          (project-dashboard--render-next-task)
+          ;; Next task / In Progress section
+          (project-dashboard--render-next-task next-task)
           (project-dashboard--render-tasks-section filtered))))
     
     ;; TODO file section
@@ -714,10 +715,6 @@ If PROJECT-ROOT is nil, use current projectile project."
       (unless (eq major-mode 'project-dashboard-mode)
         (project-dashboard-mode))
       (setq project-dashboard--project-root root)
-      ;; Start async fetch for next task
-      (setq project-dashboard--next-task-loading t)
-      (setq project-dashboard--next-task nil)
-      (project-dashboard--fetch-next-task-async root buf)
       (project-dashboard--render)
       (project-dashboard--start-auto-refresh))
     (switch-to-buffer buf)))
