@@ -772,6 +772,15 @@
 
     ;; Optional: set the shell explicitly if needed
     ;; (setq vterm-shell "/bin/zsh")
+    
+    ;; Wrapper to open vterm in popper's popup position from the start
+    (defun mr-x/vterm-popup ()
+      "Open multi-vterm in popper's popup position."
+      (interactive)
+      (let ((buf (save-window-excursion
+                   (multi-vterm)
+                   (current-buffer))))
+        (display-buffer buf)))
 
 
   ;; (use-package multi-vterm
@@ -1177,7 +1186,7 @@
       
       (mr-x/leader-def
         "v" '(:ignore t :wk "vterm")
-        "v v" '(multi-vterm :wk "multi-vterm")
+        "v v" '(mr-x/vterm-popup :wk "vterm popup")
         "v n" '(multi-vterm-next :wk "multi-vterm-next")
         "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
         "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
@@ -2352,7 +2361,7 @@ Focuses Emacs and the agent-shell window."
       "Get list of Task Master tags for PROJECT-ROOT."
       (let* ((default-directory project-root)
              (output (shell-command-to-string
-                      "task-master list-tags 2>/dev/null | grep -E '^\\s+\\w' | awk '{print $1}'")))
+                      "task-master tags 2>/dev/null | grep -E '^│ [●○]' | sed 's/.*[●○] //' | sed 's/ .*//' | tr -d ' '")))
         (if (string-empty-p output)
             '("master")
           (split-string output "\n" t))))
