@@ -48,6 +48,22 @@
   :type 'boolean
   :group 'project-dashboard)
 
+(defcustom project-dashboard-project-styles
+  '(("rec" . (:title-color "#fb4934" :art-color "#F1BE49" :separator-color "#FFFBEB")))
+  "Alist mapping project names to style overrides.
+Each entry is (PROJECT-NAME . PLIST) where PLIST can contain:
+  :title-color    - color for the project title
+  :art-color      - color for the ASCII art
+  :art-index      - specific ASCII art index (0-based)
+  :separator-char - character for separator lines
+  :separator-color - color for separator lines"
+  :type '(alist :key-type string
+                :value-type (plist :options ((:title-color string)
+                                             (:art-color string)
+                                             (:art-index integer)
+                                             (:separator-char character))))
+  :group 'project-dashboard)
+
 (defcustom project-dashboard-refresh-interval 5
   "Seconds between auto-refresh when `project-dashboard-auto-refresh' is enabled."
   :type 'integer
@@ -157,7 +173,7 @@ Returns nil if file doesn't exist or is invalid."
 (defun project-dashboard--parse-tasks (tasks &optional filter-statuses)
   "Parse TASKS and optionally filter by FILTER-STATUSES.
 FILTER-STATUSES is a list of status strings like (\"pending\" \"in-progress\").
-Returns a list of task plists with :id, :title, :status, :priority."
+Returns a list of task plists with :id, :title, :status, :priority, :dependencies."
   (let ((filtered-tasks
          (if filter-statuses
              (seq-filter (lambda (task)
@@ -169,8 +185,41 @@ Returns a list of task plists with :id, :title, :status, :priority."
                     :title (alist-get 'title task)
                     :status (alist-get 'status task)
                     :priority (alist-get 'priority task)
+                    :dependencies (alist-get 'dependencies task)
                     :description (alist-get 'description task)))
             filtered-tasks)))
+
+(defun project-dashboard--find-next-task (all-tasks)
+  "Find the next task to work on from ALL-TASKS (raw alist format).
+Returns a plist for the first in-progress task, or first pending task
+whose dependencies are all done, or nil."
+  (let* ((done-ids (mapcar (lambda (t)
+                             (format "%s" (alist-get 'id t)))
+                           (seq-filter (lambda (t)
+                                         (string= (alist-get 'status t) "done"))
+                                       all-tasks)))
+         ;; First check for in-progress tasks
+         (in-progress (seq-find (lambda (t)
+                                  (string= (alist-get 'status t) "in-progress"))
+                                all-tasks))
+         ;; Then find first pending task with all deps satisfied
+         (next-pending (seq-find
+                        (lambda (t)
+                          (and (string= (alist-get 'status t) "pending")
+                               (let ((deps (alist-get 'dependencies t)))
+                                 (or (null deps)
+                                     (seq-every-p
+                                      (lambda (dep)
+                                        (member (format "%s" dep) done-ids))
+                                      deps)))))
+                        all-tasks))
+         (result (or in-progress next-pending)))
+    (when result
+      (list :id (alist-get 'id result)
+            :title (alist-get 'title result)
+            :status (alist-get 'status result)
+            :priority (alist-get 'priority result)
+            :description (alist-get 'description result)))))
 
 ;;; Data Layer - TODO Files
 
@@ -229,21 +278,86 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
 (defvar-local project-dashboard--current-art nil
   "The current ASCII art displayed in this dashboard buffer.")
 
+(defun project-dashboard--get-project-style (project-name)
+  "Get the style plist for PROJECT-NAME, or nil if none defined."
+  (cdr (assoc project-name project-dashboard-project-styles)))
+
+(defun project-dashboard--string-pixel-width (str)
+  "Return the width of STR in pixels."
+  (if (fboundp #'string-pixel-width)
+      (string-pixel-width str)
+    (require 'shr)
+    (shr-string-pixel-width str)))
+
+(defun project-dashboard--str-len (str)
+  "Calculate STR length in character units from pixel width."
+  (let ((width (frame-char-width))
+        (len (project-dashboard--string-pixel-width str)))
+    (+ (/ len width)
+       (if (zerop (% len width)) 0 1))))
+
+(defun project-dashboard--center-text (start end)
+  "Center the text between START and END using display properties."
+  (let* ((max-width (project-dashboard--find-max-width start end))
+         (prefix (propertize " " 'display
+                             `(space . (:align-to (- center ,(/ (float max-width) 2)))))))
+    (add-text-properties start end
+                         `(line-prefix ,prefix wrap-prefix ,prefix))))
+
+(defun project-dashboard--find-max-width (start end)
+  "Find the maximum line width between START and END."
+  (let ((max-width 0))
+    (save-excursion
+      (goto-char start)
+      (while (< (point) end)
+        (let* ((line-str (buffer-substring (line-beginning-position) (line-end-position)))
+               (line-width (project-dashboard--str-len line-str)))
+          (when (> line-width max-width)
+            (setq max-width line-width)))
+        (forward-line 1)))
+    max-width))
+
+(defun project-dashboard--insert-centered (&rest strings)
+  "Insert STRINGS centered in the buffer."
+  (let ((start (point)))
+    (apply #'insert strings)
+    (project-dashboard--center-text start (point))))
+
 (defun project-dashboard--render-header (project-name)
   "Render the dashboard header with PROJECT-NAME."
-  (insert "\n")
-  ;; Render ASCII art (use cached art or pick new random one)
-  (unless project-dashboard--current-art
-    (setq project-dashboard--current-art (project-dashboard-art-random)))
-  (dolist (line project-dashboard--current-art)
-    (insert (propertize (format "  %s\n" line) 'face 'project-dashboard-header-face)))
-  (insert "\n")
-  ;; Project name
-  (insert (propertize (format "  %s" project-name) 'face 'project-dashboard-header-face))
-  (insert "\n")
-  (insert (propertize (format "  %s" (make-string (min 60 (+ 2 (length project-name))) ?─))
-                      'face 'project-dashboard-separator-face))
-  (insert "\n\n"))
+  (let* ((style (project-dashboard--get-project-style project-name))
+         (art-color (or (plist-get style :art-color) "#fabd2f"))
+         (title-color (plist-get style :title-color))
+         (separator-char (or (plist-get style :separator-char) ?─))
+         (separator-color (plist-get style :separator-color))
+         (art-index (plist-get style :art-index)))
+    (insert "\n")
+    ;; Render ASCII art (use cached art, specific index, or pick random)
+    (unless project-dashboard--current-art
+      (setq project-dashboard--current-art
+            (if art-index
+                (project-dashboard-art-by-index art-index)
+              (project-dashboard-art-random))))
+    (let ((art-start (point)))
+      (dolist (line project-dashboard--current-art)
+        (insert (propertize (format "%s\n" line)
+                            'face `(:foreground ,art-color))))
+      (project-dashboard--center-text art-start (point)))
+    (insert "\n")
+    ;; Project name (centered) - use custom color or default face
+    (project-dashboard--insert-centered
+     (propertize (format "%s\n" project-name)
+                 'face (if title-color
+                           `(:foreground ,title-color :weight bold :height 1.4)
+                         'project-dashboard-header-face)))
+    ;; Separator (centered)
+    (let ((separator (make-string (min 60 (+ 2 (length project-name))) separator-char)))
+      (project-dashboard--insert-centered
+       (propertize (format "%s\n" separator)
+                   'face (if separator-color
+                             `(:foreground ,separator-color)
+                           'project-dashboard-separator-face))))
+    (insert "\n")))
 
 (defun project-dashboard--render-status (status)
   "Render STATUS with appropriate face."
@@ -260,9 +374,68 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
       (propertize "!" 'face 'project-dashboard-priority-high-face)
     " "))
 
+(defvar-local project-dashboard--next-task nil
+  "Cached next task data for this dashboard buffer.")
+
+(defvar-local project-dashboard--next-task-loading nil
+  "Whether next task is currently being fetched.")
+
+(defvar-local project-dashboard--active-tag nil
+  "The active Task Master tag for this dashboard.")
+
+(defun project-dashboard--fetch-next-task-async (project-root buffer)
+  "Fetch next task asynchronously for PROJECT-ROOT and update BUFFER."
+  (let* ((default-directory project-root)
+         (output-buf (generate-new-buffer " *task-master-next*"))
+         (proc (make-process
+                :name "task-master-next"
+                :buffer output-buf
+                :command '("npx" "task-master" "next")
+                :sentinel
+                (lambda (proc _event)
+                  (when (eq (process-status proc) 'exit)
+                    (let ((output (with-current-buffer (process-buffer proc)
+                                    (buffer-string))))
+                      (kill-buffer (process-buffer proc))
+                      (when (buffer-live-p buffer)
+                        (with-current-buffer buffer
+                          (setq project-dashboard--next-task-loading nil)
+                          (when (string-match "Next Task: #\\([0-9.]+\\) - \\([^│\n]+\\)" output)
+                            (setq project-dashboard--next-task
+                                  (list :id (match-string 1 output)
+                                        :title (string-trim (match-string 2 output)))))
+                          (project-dashboard--render))))))
+                :stderr nil)))
+    proc))
+
+(defun project-dashboard--render-next-task ()
+  "Render the Next Task section using cached data."
+  (insert (propertize "  Next Task" 'face 'project-dashboard-section-face))
+  (when project-dashboard--active-tag
+    (insert (propertize (format " (%s)" project-dashboard--active-tag)
+                        'face 'project-dashboard-separator-face)))
+  (insert "\n\n")
+  (cond
+   (project-dashboard--next-task-loading
+    (insert (propertize "    Loading...\n" 'face 'project-dashboard-status-pending-face)))
+   (project-dashboard--next-task
+    (let* ((id (plist-get project-dashboard--next-task :id))
+           (title (plist-get project-dashboard--next-task :title)))
+      (insert "    ")
+      (insert (propertize (format "#%-4s" id) 'face 'project-dashboard-separator-face))
+      (insert (propertize (truncate-string-to-width title 70 nil nil "...")
+                          'face 'project-dashboard-task-title-face))
+      (insert "\n")))
+   (t
+    (insert (propertize "    No next task\n" 'face 'project-dashboard-status-pending-face))))
+  (insert "\n"))
+
 (defun project-dashboard--render-tasks-section (tasks)
   "Render the Task Master TASKS section."
   (insert (propertize "  Tasks" 'face 'project-dashboard-section-face))
+  (when project-dashboard--active-tag
+    (insert (propertize (format " (%s)" project-dashboard--active-tag)
+                        'face 'project-dashboard-separator-face)))
   (insert "\n\n")
   (if (null tasks)
       (insert (propertize "    No tasks found\n" 'face 'project-dashboard-status-pending-face))
@@ -314,22 +487,21 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
   (insert "\n"))
 
 (defun project-dashboard--render-actions-legend ()
-  "Render the quick actions legend at the bottom."
-  (insert (propertize (format "  %s" (make-string 60 ?─)) 'face 'project-dashboard-separator-face))
-  (insert "\n\n")
-  (insert (propertize "  Quick Actions" 'face 'project-dashboard-section-face))
-  (insert "\n\n")
-  (let ((actions '(("a" . "Agent Shell")
-                   ("d" . "Dired")
-                   ("m" . "Magit")
-                   ("f" . "Find File")
-                   ("t" . "Tasks File")
-                   ("r" . "Refresh")
-                   ("q" . "Quit"))))
-    (dolist (action actions)
-      (insert "    ")
-      (insert (propertize (car action) 'face 'project-dashboard-key-face))
-      (insert (format "  %s\n" (cdr action))))))
+  "Render the quick actions legend horizontally at the bottom."
+  (project-dashboard--insert-centered
+   (propertize (format "%s\n" (make-string 60 ?─)) 'face 'project-dashboard-separator-face))
+  (insert "\n")
+  ;; Build horizontal legend string
+  (let* ((actions '(("a" . "Agent") ("d" . "Dired") ("m" . "Magit") ("f" . "Find")
+                    ("t" . "Tasks") ("r" . "Refresh") ("q" . "Quit")))
+         (legend-parts
+          (mapcar (lambda (action)
+                    (concat (propertize (format "[%s]" (car action)) 
+                                        'face 'project-dashboard-key-face)
+                            (cdr action)))
+                  actions))
+         (legend-str (string-join legend-parts "  ")))
+    (project-dashboard--insert-centered (format "%s\n" legend-str))))
 
 (defun project-dashboard--render ()
   "Render the complete dashboard for the current project."
@@ -340,16 +512,25 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
          (has-todo nil))
     (erase-buffer)
     
-    ;; Header
+    ;; Header (ASCII art + project name)
     (project-dashboard--render-header project-name)
+    
+    ;; Actions legend (right below title)
+    (project-dashboard--render-actions-legend)
+    
+    (insert "\n")
     
     ;; Task Master section
     (when project-dashboard-show-taskmaster
-      (let* ((tasks (project-dashboard--read-taskmaster-json project-root))
+      (let* ((active-tag (project-dashboard--get-active-tag project-root))
+             (tasks (project-dashboard--read-taskmaster-json project-root))
              (filtered (project-dashboard--parse-tasks tasks '("in-progress" "pending"))))
+        (setq project-dashboard--active-tag active-tag)
         (setq project-dashboard--taskmaster-data filtered)
         (when tasks
           (setq has-taskmaster t)
+          ;; Next task section (async)
+          (project-dashboard--render-next-task)
           (project-dashboard--render-tasks-section filtered))))
     
     ;; TODO file section
@@ -369,9 +550,6 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
     (when (and (not has-taskmaster) (not has-todo))
       (insert (propertize "  No tasks or TODO files found in this project\n\n"
                           'face 'project-dashboard-status-pending-face)))
-    
-    ;; Actions legend
-    (project-dashboard--render-actions-legend)
     
     (goto-char (point-min))))
 
@@ -536,6 +714,10 @@ If PROJECT-ROOT is nil, use current projectile project."
       (unless (eq major-mode 'project-dashboard-mode)
         (project-dashboard-mode))
       (setq project-dashboard--project-root root)
+      ;; Start async fetch for next task
+      (setq project-dashboard--next-task-loading t)
+      (setq project-dashboard--next-task nil)
+      (project-dashboard--fetch-next-task-async root buf)
       (project-dashboard--render)
       (project-dashboard--start-auto-refresh))
     (switch-to-buffer buf)))

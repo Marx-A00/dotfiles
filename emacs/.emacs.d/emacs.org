@@ -943,6 +943,18 @@
     (defun mr-x/general-setup ()
       (display-line-numbers-mode 1))
 
+    (defun mr-x/new-scratch ()
+      "Create a new scratch buffer with a unique name."
+      (interactive)
+      (let ((n 1)
+            bufname)
+        (while (progn
+                 (setq bufname (format "*scratch<%d>*" n))
+                 (get-buffer bufname))
+          (setq n (1+ n)))
+        (switch-to-buffer (get-buffer-create bufname))
+        (org-mode)))
+
     (defun mr-x/surf-web ()
       "Open xwidget-webkit with Google."
       (interactive)
