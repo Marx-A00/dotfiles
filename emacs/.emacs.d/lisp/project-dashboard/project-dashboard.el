@@ -130,6 +130,9 @@ Each entry is (PROJECT-NAME . PLIST) where PLIST can contain:
 (defvar-local project-dashboard--refresh-timer nil
   "Timer for auto-refreshing this dashboard buffer.")
 
+(defvar-local project-dashboard--tags-list nil
+  "Ordered list of tag names for number-based switching.")
+
 ;;; Data Layer - Task Master
 
 (defun project-dashboard--get-active-tag (project-root)
@@ -144,6 +147,25 @@ Returns the tag name from state.json, or \"master\" as fallback."
               (or (alist-get 'currentTag state) "master"))
           (error "master"))
       "master")))
+
+(defun project-dashboard--set-active-tag (project-root tag-name)
+  "Set the active Task Master tag for PROJECT-ROOT to TAG-NAME.
+Writes to state.json file."
+  (let ((state-file (expand-file-name ".taskmaster/state.json" project-root)))
+    (condition-case err
+        (let* ((json-object-type 'alist)
+               (json-key-type 'symbol)
+               (state (if (file-exists-p state-file)
+                          (json-read-file state-file)
+                        '()))
+               (new-state (cons (cons 'currentTag tag-name)
+                                (assq-delete-all 'currentTag state))))
+          (with-temp-file state-file
+            (insert (json-encode new-state)))
+          t)
+      (error
+       (message "project-dashboard: Error setting tag: %s" err)
+       nil))))
 
 (defun project-dashboard--read-taskmaster-json (project-root)
   "Read and parse Task Master tasks.json from PROJECT-ROOT.
@@ -264,6 +286,25 @@ Returns list of plists with :name, :pending, :in-progress, :done counts."
                        :pending pending
                        :in-progress in-progress
                        :done done)))
+             data))
+        (error nil)))))
+
+(defun project-dashboard--get-all-tasks-by-tag (project-root)
+  "Get all tasks from all tags in PROJECT-ROOT.
+Returns list of plists with :tag, :tasks where :tasks is list of task alists."
+  (let ((tasks-file (expand-file-name ".taskmaster/tasks/tasks.json" project-root)))
+    (when (file-exists-p tasks-file)
+      (condition-case nil
+          (let* ((json-object-type 'alist)
+                 (json-array-type 'list)
+                 (json-key-type 'symbol)
+                 (data (json-read-file tasks-file)))
+            (mapcar
+             (lambda (tag-entry)
+               (let* ((tag-name (symbol-name (car tag-entry)))
+                      (tag-data (cdr tag-entry))
+                      (tasks (alist-get 'tasks tag-data)))
+                 (list :tag tag-name :tasks tasks)))
              data))
         (error nil)))))
 
@@ -457,10 +498,12 @@ Priority: in-progress task first, then first pending with deps satisfied."
 
 (defun project-dashboard--render-next-task (next-task)
   "Render the Next Task or In Progress section for NEXT-TASK plist."
-  (let ((header (if (plist-get next-task :is-in-progress)
-                    "In Progress"
-                  "Next Task")))
-    (insert (propertize (format "  %s" header) 'face 'project-dashboard-section-face))
+  (let* ((is-in-progress (plist-get next-task :is-in-progress))
+         (header (if is-in-progress "In Progress" "Next Task"))
+         (header-face (if is-in-progress
+                          'project-dashboard-status-in-progress-face
+                        'project-dashboard-section-face)))
+    (insert (propertize (format "  %s" header) 'face header-face))
     (when project-dashboard--active-tag
       (insert (propertize (format " (%s)" project-dashboard--active-tag)
                           'face 'project-dashboard-separator-face)))
@@ -474,6 +517,70 @@ Priority: in-progress task first, then first pending with deps satisfied."
                               'face 'project-dashboard-task-title-face))
           (insert "\n"))
       (insert (propertize "    No next task\n" 'face 'project-dashboard-status-pending-face)))
+    (insert "\n")))
+
+(defun project-dashboard--render-recently-completed (tasks)
+  "Render the Recently Completed section with TASKS.
+TASKS is a list of task alists with 'id and 'title keys."
+  (when tasks
+    (insert (propertize "  Recently Completed" 'face 'project-dashboard-section-face))
+    (insert "\n\n")
+    (dolist (task tasks)
+      (let ((id (alist-get 'id task))
+            (title (alist-get 'title task)))
+        (insert "    ")
+        (insert (propertize (format "#%-4s" id) 
+                            'face '(:foreground "#928374" :strike-through t)))
+        (insert (propertize (truncate-string-to-width (or title "") 70 nil nil "...")
+                            'face '(:foreground "#928374" :strike-through t)))
+        (insert "\n")))
+    (insert "\n")))
+
+(defun project-dashboard--render-tags-section (tags-stats active-tag)
+  "Render the Tags Overview section with TAGS-STATS.
+TAGS-STATS is a list of plists from `project-dashboard--get-all-tags-with-stats'.
+ACTIVE-TAG is the currently active tag name to highlight.
+Also stores tag names in `project-dashboard--tags-list' for number-based switching."
+  (when tags-stats
+    ;; Store tags list for keybinding lookup
+    (setq project-dashboard--tags-list
+          (mapcar (lambda (tag) (plist-get tag :name)) tags-stats))
+    (insert (propertize "  Tags" 'face 'project-dashboard-section-face))
+    (insert "\n\n")
+    (let ((idx 1))
+      (dolist (tag tags-stats)
+        (let* ((name (plist-get tag :name))
+               (pending (plist-get tag :pending))
+               (in-progress (plist-get tag :in-progress))
+               (done (plist-get tag :done))
+               (total (+ pending in-progress done))
+               (is-active (string= name active-tag)))
+          (insert "    ")
+          ;; Key for switching (1-9, then !@#$%^&*( for 10-18)
+          (let ((key-chars "123456789!@#$%^&*("))
+            (if (<= idx (length key-chars))
+                (insert (propertize (format "[%c] " (aref key-chars (1- idx))) 
+                                    'face 'project-dashboard-key-face))
+              (insert "    ")))  ; no key for 19+
+          ;; Tag name - highlight if active, truncate if too long
+          (let ((display-name (truncate-string-to-width name 20 nil nil "…")))
+            (insert (propertize (format "%-21s" display-name)
+                                'face (if is-active
+                                          'project-dashboard-status-in-progress-face
+                                        'project-dashboard-task-title-face))))
+          ;; Stats: pending/in-progress/done
+          (insert (propertize (format "%d" pending) 'face 'project-dashboard-status-pending-face))
+          (insert (propertize "/" 'face 'project-dashboard-separator-face))
+          (insert (propertize (format "%d" in-progress) 'face 'project-dashboard-status-in-progress-face))
+          (insert (propertize "/" 'face 'project-dashboard-separator-face))
+          (insert (propertize (format "%d" done) 'face 'project-dashboard-status-done-face))
+          ;; Total in parentheses
+          (insert (propertize (format " (%d)" total) 'face 'project-dashboard-separator-face))
+          ;; Active indicator
+          (when is-active
+            (insert (propertize " ◀" 'face 'project-dashboard-status-in-progress-face)))
+          (insert "\n")
+          (cl-incf idx))))
     (insert "\n")))
 
 (defun project-dashboard--render-tasks-section (tasks)
@@ -566,19 +673,24 @@ Priority: in-progress task first, then first pending with deps satisfied."
     
     (insert "\n")
     
-    ;; Task Master section
+    ;; Task Master sections (new layout)
     (when project-dashboard-show-taskmaster
       (let* ((active-tag (project-dashboard--get-active-tag project-root))
              (tasks (project-dashboard--read-taskmaster-json project-root))
              (next-task (project-dashboard--find-next-task tasks))
+             (recently-completed (project-dashboard--get-recently-completed tasks 5))
+             (all-tags-stats (project-dashboard--get-all-tags-with-stats project-root))
              (filtered (project-dashboard--parse-tasks tasks '("in-progress" "pending"))))
         (setq project-dashboard--active-tag active-tag)
         (setq project-dashboard--taskmaster-data filtered)
         (when tasks
           (setq has-taskmaster t)
-          ;; Next task / In Progress section
+          ;; 1. Focus Task (In Progress / Next Task) at top
           (project-dashboard--render-next-task next-task)
-          (project-dashboard--render-tasks-section filtered))))
+          ;; 2. Recently Completed section
+          (project-dashboard--render-recently-completed recently-completed)
+          ;; 3. Tags overview at bottom
+          (project-dashboard--render-tags-section all-tags-stats active-tag))))
     
     ;; TODO file section
     (when project-dashboard-show-todo-files
@@ -704,7 +816,47 @@ Priority: in-progress task first, then first pending with deps satisfied."
   (project-dashboard--stop-auto-refresh)
   (quit-window))
 
+(defun project-dashboard-switch-tag (n)
+  "Switch to tag number N (1-indexed) from the tags list."
+  (interactive "p")
+  (if (and project-dashboard--tags-list
+           (> n 0)
+           (<= n (length project-dashboard--tags-list)))
+      (let ((tag-name (nth (1- n) project-dashboard--tags-list)))
+        (when (project-dashboard--set-active-tag project-dashboard--project-root tag-name)
+          (message "Switched to tag: %s" tag-name)
+          (project-dashboard-refresh)))
+    (message "Invalid tag number: %d" n)))
+
+(defun project-dashboard-switch-tag-1 () "Switch to tag 1." (interactive) (project-dashboard-switch-tag 1))
+(defun project-dashboard-switch-tag-2 () "Switch to tag 2." (interactive) (project-dashboard-switch-tag 2))
+(defun project-dashboard-switch-tag-3 () "Switch to tag 3." (interactive) (project-dashboard-switch-tag 3))
+(defun project-dashboard-switch-tag-4 () "Switch to tag 4." (interactive) (project-dashboard-switch-tag 4))
+(defun project-dashboard-switch-tag-5 () "Switch to tag 5." (interactive) (project-dashboard-switch-tag 5))
+(defun project-dashboard-switch-tag-6 () "Switch to tag 6." (interactive) (project-dashboard-switch-tag 6))
+(defun project-dashboard-switch-tag-7 () "Switch to tag 7." (interactive) (project-dashboard-switch-tag 7))
+(defun project-dashboard-switch-tag-8 () "Switch to tag 8." (interactive) (project-dashboard-switch-tag 8))
+(defun project-dashboard-switch-tag-9 () "Switch to tag 9." (interactive) (project-dashboard-switch-tag 9))
+;; Shift+number for tags 10-18
+(defun project-dashboard-switch-tag-10 () "Switch to tag 10." (interactive) (project-dashboard-switch-tag 10))
+(defun project-dashboard-switch-tag-11 () "Switch to tag 11." (interactive) (project-dashboard-switch-tag 11))
+(defun project-dashboard-switch-tag-12 () "Switch to tag 12." (interactive) (project-dashboard-switch-tag 12))
+(defun project-dashboard-switch-tag-13 () "Switch to tag 13." (interactive) (project-dashboard-switch-tag 13))
+(defun project-dashboard-switch-tag-14 () "Switch to tag 14." (interactive) (project-dashboard-switch-tag 14))
+(defun project-dashboard-switch-tag-15 () "Switch to tag 15." (interactive) (project-dashboard-switch-tag 15))
+(defun project-dashboard-switch-tag-16 () "Switch to tag 16." (interactive) (project-dashboard-switch-tag 16))
+(defun project-dashboard-switch-tag-17 () "Switch to tag 17." (interactive) (project-dashboard-switch-tag 17))
+(defun project-dashboard-switch-tag-18 () "Switch to tag 18." (interactive) (project-dashboard-switch-tag 18))
+
 ;;; Major Mode
+
+(defvar project-dashboard-tasks-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "t") #'project-dashboard-open-tag-tasks)
+    (define-key map (kbd "T") #'project-dashboard-open-all-tasks)
+    (define-key map (kbd "f") #'project-dashboard-open-tasks-file)
+    map)
+  "Keymap for task-related commands under 't' prefix.")
 
 (defvar project-dashboard-mode-map
   (let ((map (make-sparse-keymap)))
@@ -712,11 +864,31 @@ Priority: in-progress task first, then first pending with deps satisfied."
     (define-key map (kbd "d") #'project-dashboard-open-dired)
     (define-key map (kbd "m") #'project-dashboard-open-magit)
     (define-key map (kbd "f") #'project-dashboard-find-file)
-    (define-key map (kbd "t") #'project-dashboard-open-tasks-file)
+    (define-key map (kbd "t") project-dashboard-tasks-map)
     (define-key map (kbd "r") #'project-dashboard-refresh)
     (define-key map (kbd "g") #'project-dashboard-refresh)
     (define-key map (kbd "q") #'project-dashboard-quit)
     (define-key map (kbd "RET") #'project-dashboard-find-file)
+    ;; Tag switching (1-9)
+    (define-key map (kbd "1") #'project-dashboard-switch-tag-1)
+    (define-key map (kbd "2") #'project-dashboard-switch-tag-2)
+    (define-key map (kbd "3") #'project-dashboard-switch-tag-3)
+    (define-key map (kbd "4") #'project-dashboard-switch-tag-4)
+    (define-key map (kbd "5") #'project-dashboard-switch-tag-5)
+    (define-key map (kbd "6") #'project-dashboard-switch-tag-6)
+    (define-key map (kbd "7") #'project-dashboard-switch-tag-7)
+    (define-key map (kbd "8") #'project-dashboard-switch-tag-8)
+    (define-key map (kbd "9") #'project-dashboard-switch-tag-9)
+    ;; Tag switching (shift+1-9 for 10-18)
+    (define-key map (kbd "!") #'project-dashboard-switch-tag-10)
+    (define-key map (kbd "@") #'project-dashboard-switch-tag-11)
+    (define-key map (kbd "#") #'project-dashboard-switch-tag-12)
+    (define-key map (kbd "$") #'project-dashboard-switch-tag-13)
+    (define-key map (kbd "%") #'project-dashboard-switch-tag-14)
+    (define-key map (kbd "^") #'project-dashboard-switch-tag-15)
+    (define-key map (kbd "&") #'project-dashboard-switch-tag-16)
+    (define-key map (kbd "*") #'project-dashboard-switch-tag-17)
+    (define-key map (kbd "(") #'project-dashboard-switch-tag-18)
     map)
   "Keymap for `project-dashboard-mode'.")
 
@@ -737,12 +909,235 @@ Priority: in-progress task first, then first pending with deps satisfied."
     (kbd "d") #'project-dashboard-open-dired
     (kbd "m") #'project-dashboard-open-magit
     (kbd "f") #'project-dashboard-find-file
-    (kbd "t") #'project-dashboard-open-tasks-file
+    (kbd "t t") #'project-dashboard-open-tag-tasks
+    (kbd "t T") #'project-dashboard-open-all-tasks
+    (kbd "t f") #'project-dashboard-open-tasks-file
     (kbd "r") #'project-dashboard-refresh
     (kbd "R") #'project-dashboard-new-art
     (kbd "gr") #'project-dashboard-refresh
     (kbd "q") #'project-dashboard-quit
-    (kbd "RET") #'project-dashboard-find-file))
+    (kbd "RET") #'project-dashboard-find-file
+    ;; Tag switching (1-9)
+    (kbd "1") #'project-dashboard-switch-tag-1
+    (kbd "2") #'project-dashboard-switch-tag-2
+    (kbd "3") #'project-dashboard-switch-tag-3
+    (kbd "4") #'project-dashboard-switch-tag-4
+    (kbd "5") #'project-dashboard-switch-tag-5
+    (kbd "6") #'project-dashboard-switch-tag-6
+    (kbd "7") #'project-dashboard-switch-tag-7
+    (kbd "8") #'project-dashboard-switch-tag-8
+    (kbd "9") #'project-dashboard-switch-tag-9
+    ;; Tag switching (shift+1-9 for 10-18)
+    (kbd "!") #'project-dashboard-switch-tag-10
+    (kbd "@") #'project-dashboard-switch-tag-11
+    (kbd "#") #'project-dashboard-switch-tag-12
+    (kbd "$") #'project-dashboard-switch-tag-13
+    (kbd "%") #'project-dashboard-switch-tag-14
+    (kbd "^") #'project-dashboard-switch-tag-15
+    (kbd "&") #'project-dashboard-switch-tag-16
+    (kbd "*") #'project-dashboard-switch-tag-17
+    (kbd "(") #'project-dashboard-switch-tag-18))
+
+;;; All Tasks View
+
+(defvar-local project-dashboard-all-tasks--project-root nil
+  "Project root for the all-tasks buffer.")
+
+(defun project-dashboard--render-all-tasks-buffer (project-root)
+  "Render the all-tasks buffer for PROJECT-ROOT."
+  (let ((inhibit-read-only t)
+        (all-tags-tasks (project-dashboard--get-all-tasks-by-tag project-root))
+        (project-name (file-name-nondirectory (directory-file-name project-root))))
+    (erase-buffer)
+    (insert "\n")
+    (insert (propertize (format "  All Tasks: %s\n" project-name)
+                        'face 'project-dashboard-header-face))
+    (insert (propertize (format "  %s\n\n" (make-string 50 ?─))
+                        'face 'project-dashboard-separator-face))
+    (if (null all-tags-tasks)
+        (insert (propertize "  No tasks found\n" 'face 'project-dashboard-status-pending-face))
+      (dolist (tag-group all-tags-tasks)
+        (let ((tag-name (plist-get tag-group :tag))
+              (tasks (plist-get tag-group :tasks)))
+          ;; Tag header
+          (insert (propertize (format "  %s" tag-name) 'face 'project-dashboard-section-face))
+          (insert (propertize (format " (%d tasks)\n\n" (length tasks))
+                              'face 'project-dashboard-separator-face))
+          ;; Tasks under this tag
+          (if (null tasks)
+              (insert (propertize "    No tasks\n" 'face 'project-dashboard-status-pending-face))
+            (dolist (task tasks)
+              (let* ((id (alist-get 'id task))
+                     (title (alist-get 'title task))
+                     (status (alist-get 'status task))
+                     (priority (alist-get 'priority task))
+                     (status-face (pcase status
+                                    ("in-progress" 'project-dashboard-status-in-progress-face)
+                                    ("done" 'project-dashboard-status-done-face)
+                                    (_ 'project-dashboard-status-pending-face))))
+                (insert "    ")
+                (insert (propertize (format "#%-4s" id) 'face 'project-dashboard-separator-face))
+                (insert (propertize (format "%-12s" status) 'face status-face))
+                (when (and priority (string= priority "high"))
+                  (insert (propertize "! " 'face 'project-dashboard-priority-high-face)))
+                (unless (and priority (string= priority "high"))
+                  (insert "  "))
+                (insert (propertize (truncate-string-to-width (or title "") 60 nil nil "...")
+                                    'face 'project-dashboard-task-title-face))
+                (insert "\n"))))
+          (insert "\n"))))
+    (insert (propertize (format "  %s\n" (make-string 50 ?─))
+                        'face 'project-dashboard-separator-face))
+    (insert "\n")
+    (insert (propertize "  [q] Back to dashboard\n" 'face 'project-dashboard-key-face))
+    (goto-char (point-min))))
+
+(defvar project-dashboard-all-tasks-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "q") #'project-dashboard-all-tasks-quit)
+    (define-key map (kbd "g") #'project-dashboard-all-tasks-refresh)
+    (define-key map (kbd "r") #'project-dashboard-all-tasks-refresh)
+    map)
+  "Keymap for `project-dashboard-all-tasks-mode'.")
+
+(define-derived-mode project-dashboard-all-tasks-mode special-mode "AllTasks"
+  "Major mode for displaying all tasks across all tags."
+  (setq buffer-read-only t)
+  (setq truncate-lines t))
+
+(with-eval-after-load 'evil
+  (evil-set-initial-state 'project-dashboard-all-tasks-mode 'normal)
+  (evil-define-key 'normal project-dashboard-all-tasks-mode-map
+    (kbd "q") #'project-dashboard-all-tasks-quit
+    (kbd "g") #'project-dashboard-all-tasks-refresh
+    (kbd "gr") #'project-dashboard-all-tasks-refresh))
+
+(defun project-dashboard-all-tasks-quit ()
+  "Quit the all-tasks view and return to dashboard."
+  (interactive)
+  (let ((project-root project-dashboard-all-tasks--project-root))
+    (quit-window)
+    (when project-root
+      (project-dashboard-open project-root))))
+
+(defun project-dashboard-all-tasks-refresh ()
+  "Refresh the all-tasks view."
+  (interactive)
+  (project-dashboard--render-all-tasks-buffer project-dashboard-all-tasks--project-root)
+  (message "All tasks refreshed"))
+
+(defun project-dashboard-open-all-tasks ()
+  "Open the all-tasks view for the current project."
+  (interactive)
+  (let* ((project-root project-dashboard--project-root)
+         (buf-name (format "*All Tasks: %s*"
+                           (file-name-nondirectory (directory-file-name project-root))))
+         (buf (get-buffer-create buf-name)))
+    (with-current-buffer buf
+      (unless (eq major-mode 'project-dashboard-all-tasks-mode)
+        (project-dashboard-all-tasks-mode))
+      (setq project-dashboard-all-tasks--project-root project-root)
+      (project-dashboard--render-all-tasks-buffer project-root))
+    (switch-to-buffer buf)))
+
+(defvar-local project-dashboard-tag-tasks--tag-name nil
+  "Tag name for the tag-tasks buffer.")
+
+(defun project-dashboard--render-tag-tasks-buffer (project-root tag-name)
+  "Render the tag-tasks buffer for TAG-NAME in PROJECT-ROOT."
+  (let* ((inhibit-read-only t)
+         (all-tags-tasks (project-dashboard--get-all-tasks-by-tag project-root))
+         (tag-data (seq-find (lambda (t) (string= (plist-get t :tag) tag-name)) all-tags-tasks))
+         (tasks (plist-get tag-data :tasks))
+         (project-name (file-name-nondirectory (directory-file-name project-root))))
+    (erase-buffer)
+    (insert "\n")
+    (insert (propertize (format "  Tasks: %s" tag-name)
+                        'face 'project-dashboard-header-face))
+    (insert (propertize (format " (%s)\n" project-name)
+                        'face 'project-dashboard-separator-face))
+    (insert (propertize (format "  %s\n\n" (make-string 50 ?─))
+                        'face 'project-dashboard-separator-face))
+    (if (null tasks)
+        (insert (propertize "  No tasks in this tag\n" 'face 'project-dashboard-status-pending-face))
+      (dolist (task tasks)
+        (let* ((id (alist-get 'id task))
+               (title (alist-get 'title task))
+               (status (alist-get 'status task))
+               (priority (alist-get 'priority task))
+               (status-face (pcase status
+                              ("in-progress" 'project-dashboard-status-in-progress-face)
+                              ("done" 'project-dashboard-status-done-face)
+                              (_ 'project-dashboard-status-pending-face))))
+          (insert "    ")
+          (insert (propertize (format "#%-4s" id) 'face 'project-dashboard-separator-face))
+          (insert (propertize (format "%-12s" status) 'face status-face))
+          (when (and priority (string= priority "high"))
+            (insert (propertize "! " 'face 'project-dashboard-priority-high-face)))
+          (unless (and priority (string= priority "high"))
+            (insert "  "))
+          (insert (propertize (truncate-string-to-width (or title "") 60 nil nil "...")
+                              'face 'project-dashboard-task-title-face))
+          (insert "\n"))))
+    (insert "\n")
+    (insert (propertize (format "  %s\n" (make-string 50 ?─))
+                        'face 'project-dashboard-separator-face))
+    (insert "\n")
+    (insert (propertize "  [q] Back to dashboard\n" 'face 'project-dashboard-key-face))
+    (goto-char (point-min))))
+
+(defvar project-dashboard-tag-tasks-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "q") #'project-dashboard-tag-tasks-quit)
+    (define-key map (kbd "g") #'project-dashboard-tag-tasks-refresh)
+    (define-key map (kbd "r") #'project-dashboard-tag-tasks-refresh)
+    map)
+  "Keymap for `project-dashboard-tag-tasks-mode'.")
+
+(define-derived-mode project-dashboard-tag-tasks-mode special-mode "TagTasks"
+  "Major mode for displaying tasks for a specific tag."
+  (setq buffer-read-only t)
+  (setq truncate-lines t))
+
+(with-eval-after-load 'evil
+  (evil-set-initial-state 'project-dashboard-tag-tasks-mode 'normal)
+  (evil-define-key 'normal project-dashboard-tag-tasks-mode-map
+    (kbd "q") #'project-dashboard-tag-tasks-quit
+    (kbd "g") #'project-dashboard-tag-tasks-refresh
+    (kbd "gr") #'project-dashboard-tag-tasks-refresh))
+
+(defun project-dashboard-tag-tasks-quit ()
+  "Quit the tag-tasks view and return to dashboard."
+  (interactive)
+  (let ((project-root project-dashboard-all-tasks--project-root))
+    (quit-window)
+    (when project-root
+      (project-dashboard-open project-root))))
+
+(defun project-dashboard-tag-tasks-refresh ()
+  "Refresh the tag-tasks view."
+  (interactive)
+  (project-dashboard--render-tag-tasks-buffer 
+   project-dashboard-all-tasks--project-root
+   project-dashboard-tag-tasks--tag-name)
+  (message "Tag tasks refreshed"))
+
+(defun project-dashboard-open-tag-tasks ()
+  "Open the tasks view for the currently active tag."
+  (interactive)
+  (let* ((project-root project-dashboard--project-root)
+         (tag-name project-dashboard--active-tag)
+         (buf-name (format "*Tasks: %s (%s)*"
+                           tag-name
+                           (file-name-nondirectory (directory-file-name project-root))))
+         (buf (get-buffer-create buf-name)))
+    (with-current-buffer buf
+      (unless (eq major-mode 'project-dashboard-tag-tasks-mode)
+        (project-dashboard-tag-tasks-mode))
+      (setq project-dashboard-all-tasks--project-root project-root)
+      (setq project-dashboard-tag-tasks--tag-name tag-name)
+      (project-dashboard--render-tag-tasks-buffer project-root tag-name))
+    (switch-to-buffer buf)))
 
 ;;; Entry Points
 
