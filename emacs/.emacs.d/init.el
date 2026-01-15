@@ -1459,6 +1459,7 @@ TASK-ID is the ID shown when Claude runs a background command."
 
 ;; Load project-dashboard from lisp directory
   (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+  (add-to-list 'load-path (expand-file-name "lisp/project-dashboard" user-emacs-directory))
 
   (use-package projectile
     :ensure t
