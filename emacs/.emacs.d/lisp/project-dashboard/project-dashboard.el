@@ -236,6 +236,37 @@ Returns list of completed task alists ordered by ID descending (higher = more re
                          done-tasks)))
       (seq-take sorted-done (or limit 5)))))
 
+(defun project-dashboard--get-all-tags-with-stats (project-root)
+  "Get all tags with task statistics from PROJECT-ROOT.
+Returns list of plists with :name, :pending, :in-progress, :done counts."
+  (let ((tasks-file (expand-file-name ".taskmaster/tasks/tasks.json" project-root)))
+    (when (file-exists-p tasks-file)
+      (condition-case nil
+          (let* ((json-object-type 'alist)
+                 (json-array-type 'list)
+                 (json-key-type 'symbol)
+                 (data (json-read-file tasks-file)))
+            (mapcar
+             (lambda (tag-entry)
+               (let* ((tag-name (symbol-name (car tag-entry)))
+                      (tag-data (cdr tag-entry))
+                      (tasks (alist-get 'tasks tag-data))
+                      (pending (length (seq-filter
+                                        (lambda (t) (string= (alist-get 'status t) "pending"))
+                                        tasks)))
+                      (in-progress (length (seq-filter
+                                            (lambda (t) (string= (alist-get 'status t) "in-progress"))
+                                            tasks)))
+                      (done (length (seq-filter
+                                     (lambda (t) (string= (alist-get 'status t) "done"))
+                                     tasks))))
+                 (list :name tag-name
+                       :pending pending
+                       :in-progress in-progress
+                       :done done)))
+             data))
+        (error nil)))))
+
 ;;; Data Layer - TODO Files
 
 (defun project-dashboard--read-todo-org (file-path)
