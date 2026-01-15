@@ -221,6 +221,21 @@ whose dependencies are all done, or nil."
             :priority (alist-get 'priority result)
             :description (alist-get 'description result)))))
 
+(defun project-dashboard--get-recently-completed (tasks &optional limit)
+  "Get recently completed tasks from TASKS, up to LIMIT (default 5).
+Returns list of completed task alists ordered by ID descending (higher = more recent)."
+  (when tasks
+    (let* ((done-tasks (seq-filter
+                        (lambda (task)
+                          (string= (alist-get 'status task) "done"))
+                        tasks))
+           (sorted-done (seq-sort
+                         (lambda (a b)
+                           (> (string-to-number (format "%s" (alist-get 'id a)))
+                              (string-to-number (format "%s" (alist-get 'id b)))))
+                         done-tasks)))
+      (seq-take sorted-done (or limit 5)))))
+
 ;;; Data Layer - TODO Files
 
 (defun project-dashboard--read-todo-org (file-path)
