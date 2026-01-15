@@ -9,7 +9,18 @@
      "48042425e84cd92184837e01d0b4fe9f912d875c43021c3bcb7eeb51f1be5710"
      "0d2c5679b6d087686dcfd4d7e57ed8e8aedcccc7f1a478cd69704c02e4ee36fe"
      default))
- '(doom-modeline-check-simple-format t nil nil "Customized with use-package doom-modeline"))
+ '(doom-modeline-check-simple-format t nil nil "Customized with use-package doom-modeline")
+ '(project-dashboard-projects
+   '(("dotfiles" . "~/.dotfiles") ("sandbox" . "~/.emacs-sandbox")
+     ("roaming/claude" . "~/roaming/claude")
+     ("roaming/code" . "~/roaming/code")
+     ("roaming/notes" . "~/roaming/notes")
+     ("roaming/personal" . "~/roaming/personal")
+     ("work/cloudburst" . "~/work/cloudburst")
+     ("work/experian" . "~/work/experian")
+     ("work/omi-live" . "~/work/omi-live")
+     ("work/virtual-bid" . "~/work/virtual-bid")
+     ("work/york" . "~/work/york") ("rec" . "~/roaming/projects/rec/"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
