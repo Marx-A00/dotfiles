@@ -2371,13 +2371,18 @@ Focuses Emacs and the agent-shell window."
           (read-directory-name "Select project root: "))))
 
     (defun mr-x/taskmaster-get-tags (project-root)
-      "Get list of Task Master tags for PROJECT-ROOT."
-      (let* ((default-directory project-root)
-             (output (shell-command-to-string
-                      "task-master tags 2>/dev/null | grep -E '^│ [●○]' | sed 's/.*[●○] //' | sed 's/ .*//' | tr -d ' '")))
-        (if (string-empty-p output)
-            '("master")
-          (split-string output "\n" t))))
+      "Get list of Task Master tags for PROJECT-ROOT.
+Parses tasks.json directly instead of using CLI."
+      (let ((tasks-file (expand-file-name ".taskmaster/tasks/tasks.json" project-root)))
+        (if (file-exists-p tasks-file)
+            (condition-case nil
+                (let* ((json-object-type 'alist)
+                       (json-key-type 'symbol)
+                       (data (json-read-file tasks-file)))
+                  (or (mapcar (lambda (entry) (symbol-name (car entry))) data)
+                      '("master")))
+              (error '("master")))
+          '("master"))))
 
     (defun mr-x/get-agent-shell-for-project (project-root)
       "Get agent-shell buffer for PROJECT-ROOT, or prompt to select."
