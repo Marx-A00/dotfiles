@@ -464,33 +464,66 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
 (defvar-local project-dashboard--active-tag nil
   "The active Task Master tag for this dashboard.")
 
+(defun project-dashboard--priority-value (priority)
+  "Convert PRIORITY string to numeric value for sorting (higher = more important)."
+  (pcase priority
+    ("high" 3)
+    ("medium" 2)
+    ("low" 1)
+    (_ 2)))  ; default to medium
+
 (defun project-dashboard--find-next-task (tasks)
   "Find the next task to work on from TASKS (raw alist format).
 Returns a plist with :id, :title, :is-in-progress, or nil.
-Priority: in-progress task first, then first pending with deps satisfied."
+Algorithm matches Task Master: priority, then dependency count, then ID."
   (when tasks
-    (let* ((done-ids (mapcar (lambda (t)
+    (let* (;; Build set of completed task IDs
+           (done-ids (mapcar (lambda (t)
                                (format "%s" (alist-get 'id t)))
                              (seq-filter (lambda (t)
-                                           (string= (alist-get 'status t) "done"))
+                                           (member (alist-get 'status t) '("done" "completed")))
                                          tasks)))
-           ;; First check for in-progress task
-           (in-progress (seq-find (lambda (t)
-                                    (string= (alist-get 'status t) "in-progress"))
-                                  tasks))
-           ;; Then find first pending task with all deps satisfied
-           (next-pending (and (not in-progress)
-                              (seq-find
-                               (lambda (t)
-                                 (and (string= (alist-get 'status t) "pending")
-                                      (let ((deps (alist-get 'dependencies t)))
-                                        (or (null deps)
-                                            (seq-every-p
-                                             (lambda (dep)
-                                               (member (format "%s" dep) done-ids))
-                                             deps)))))
-                               tasks)))
-           (result (or in-progress next-pending)))
+           ;; Check if deps are satisfied
+           (deps-satisfied-p (lambda (task)
+                               (let ((deps (alist-get 'dependencies task)))
+                                 (or (null deps)
+                                     (seq-every-p
+                                      (lambda (dep)
+                                        (member (format "%s" dep) done-ids))
+                                      deps)))))
+           ;; Get eligible tasks (in-progress or pending with deps satisfied)
+           (eligible (seq-filter
+                      (lambda (t)
+                        (let ((status (alist-get 'status t)))
+                          (and (member status '("in-progress" "pending"))
+                               (funcall deps-satisfied-p t))))
+                      tasks))
+           ;; Sort by: status (in-progress first), priority (high->low), 
+           ;; dep count (fewer first), ID (lower first)
+           (sorted (seq-sort
+                    (lambda (a b)
+                      (let ((a-in-progress (string= (alist-get 'status a) "in-progress"))
+                            (b-in-progress (string= (alist-get 'status b) "in-progress"))
+                            (a-priority (project-dashboard--priority-value (alist-get 'priority a)))
+                            (b-priority (project-dashboard--priority-value (alist-get 'priority b)))
+                            (a-deps (length (or (alist-get 'dependencies a) '())))
+                            (b-deps (length (or (alist-get 'dependencies b) '())))
+                            (a-id (string-to-number (format "%s" (alist-get 'id a))))
+                            (b-id (string-to-number (format "%s" (alist-get 'id b)))))
+                        (cond
+                         ;; In-progress tasks first
+                         ((and a-in-progress (not b-in-progress)) t)
+                         ((and b-in-progress (not a-in-progress)) nil)
+                         ;; Then by priority (higher first)
+                         ((> a-priority b-priority) t)
+                         ((< a-priority b-priority) nil)
+                         ;; Then by dependency count (fewer first)
+                         ((< a-deps b-deps) t)
+                         ((> a-deps b-deps) nil)
+                         ;; Then by ID (lower first)
+                         (t (< a-id b-id)))))
+                    eligible))
+           (result (car sorted)))
       (when result
         (list :id (alist-get 'id result)
               :title (alist-get 'title result)
@@ -784,12 +817,24 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
   (project-dashboard--render)
   (message "New art!"))
 
+(defmacro project-dashboard--with-preserved-position (&rest body)
+  "Execute BODY while preserving window scroll position and point."
+  `(let ((win (get-buffer-window (current-buffer)))
+         (saved-point (point))
+         (saved-window-start (when (get-buffer-window (current-buffer))
+                               (window-start (get-buffer-window (current-buffer))))))
+     ,@body
+     (when (and win saved-window-start)
+       (set-window-start win saved-window-start)
+       (goto-char saved-point))))
+
 (defun project-dashboard--auto-refresh ()
-  "Auto-refresh the dashboard if buffer is visible."
+  "Auto-refresh the dashboard if buffer is visible, preserving scroll position."
   (when (and (buffer-live-p (current-buffer))
              (get-buffer-window (current-buffer)))
     (let ((inhibit-message t))  ; Suppress "Dashboard refreshed" message
-      (project-dashboard--render))))
+      (project-dashboard--with-preserved-position
+       (project-dashboard--render)))))
 
 (defun project-dashboard--start-auto-refresh ()
   "Start the auto-refresh timer for current dashboard buffer."
@@ -825,7 +870,8 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
       (let ((tag-name (nth (1- n) project-dashboard--tags-list)))
         (when (project-dashboard--set-active-tag project-dashboard--project-root tag-name)
           (message "Switched to tag: %s" tag-name)
-          (project-dashboard-refresh)))
+          (project-dashboard--with-preserved-position
+           (project-dashboard--render))))
     (message "Invalid tag number: %d" n)))
 
 (defun project-dashboard-switch-tag-1 () "Switch to tag 1." (interactive) (project-dashboard-switch-tag 1))

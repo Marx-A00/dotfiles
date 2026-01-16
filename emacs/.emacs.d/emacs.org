@@ -2412,10 +2412,10 @@ Parses tasks.json directly instead of using CLI."
              (shell-buffer (mr-x/get-agent-shell-for-project project-root)))
         (with-current-buffer shell-buffer
           (goto-char (point-max))
-          (insert (format "Add a new task to tag '%s' with the following description: %s"
+          (insert (format "Use mcp__task-master-ai__add_task with tag=\"%s\" to add this task: %s"
                           selected-tag task-description))
           (shell-maker-submit))
-        (display-buffer shell-buffer)))
+        (message "Task submitted to %s" (buffer-name shell-buffer))))
 
 
     (defun mr-x/agent-shell-test-prompt ()
