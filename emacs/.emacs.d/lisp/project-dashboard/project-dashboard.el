@@ -169,7 +169,8 @@ Writes to state.json file."
 
 (defun project-dashboard--read-taskmaster-json (project-root)
   "Read and parse Task Master tasks.json from PROJECT-ROOT.
-Returns nil if file doesn't exist or is invalid."
+Returns nil if file doesn't exist or is invalid.
+Only returns tasks for the active tag - no fallback to other tags."
   (let ((tasks-file (expand-file-name ".taskmaster/tasks/tasks.json" project-root)))
     (when (file-exists-p tasks-file)
       (condition-case err
@@ -181,13 +182,8 @@ Returns nil if file doesn't exist or is invalid."
                  (tag-symbol (intern active-tag)))
             ;; Task Master stores tasks under tag name
             ;; Structure is: { "tagname": { "tasks": [...] } }
-            (or
-             ;; Try active tag
-             (alist-get 'tasks (alist-get tag-symbol data))
-             ;; Fallback to master
-             (alist-get 'tasks (alist-get 'master data))
-             ;; Try legacy format: { "tasks": [...] }
-             (alist-get 'tasks data)))
+            ;; Only return tasks for active tag - no fallback
+            (alist-get 'tasks (alist-get tag-symbol data)))
         (error
          (message "project-dashboard: Error reading tasks.json: %s" err)
          nil)))))
@@ -679,7 +675,7 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
   (insert "\n")
   ;; Build horizontal legend string
   (let* ((actions '(("a" . "Agent") ("d" . "Dired") ("m" . "Magit") ("f" . "Find")
-                    ("t" . "Tasks") ("r" . "Refresh") ("q" . "Quit")))
+                    ("v" . "Vterm") ("t" . "Tasks") ("r" . "Refresh") ("q" . "Quit")))
          (legend-parts
           (mapcar (lambda (action)
                     (concat (propertize (format "[%s]" (car action)) 
@@ -710,19 +706,29 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
     (when project-dashboard-show-taskmaster
       (let* ((active-tag (project-dashboard--get-active-tag project-root))
              (tasks (project-dashboard--read-taskmaster-json project-root))
-             (next-task (project-dashboard--find-next-task tasks))
-             (recently-completed (project-dashboard--get-recently-completed tasks 5))
-             (all-tags-stats (project-dashboard--get-all-tags-with-stats project-root))
-             (filtered (project-dashboard--parse-tasks tasks '("in-progress" "pending"))))
+             (all-tags-stats (project-dashboard--get-all-tags-with-stats project-root)))
         (setq project-dashboard--active-tag active-tag)
-        (setq project-dashboard--taskmaster-data filtered)
-        (when tasks
+        ;; Always show tags section if we have any tags
+        (when all-tags-stats
           (setq has-taskmaster t)
-          ;; 1. Focus Task (In Progress / Next Task) at top
-          (project-dashboard--render-next-task next-task)
-          ;; 2. Recently Completed section
-          (project-dashboard--render-recently-completed recently-completed)
-          ;; 3. Tags overview at bottom
+          (if (null tasks)
+              ;; Empty tag - show placeholder message
+              (progn
+                (insert (propertize "  Next Task" 'face 'project-dashboard-section-face))
+                (insert (propertize (format " (%s)" active-tag) 'face 'project-dashboard-separator-face))
+                (insert "\n\n")
+                (insert (propertize "    Tag is empty — time to add some tasks\n\n" 
+                                    'face 'project-dashboard-status-pending-face)))
+            ;; Has tasks - render normally
+            (let ((next-task (project-dashboard--find-next-task tasks))
+                  (recently-completed (project-dashboard--get-recently-completed tasks 5))
+                  (filtered (project-dashboard--parse-tasks tasks '("in-progress" "pending"))))
+              (setq project-dashboard--taskmaster-data filtered)
+              ;; 1. Focus Task (In Progress / Next Task) at top
+              (project-dashboard--render-next-task next-task)
+              ;; 2. Recently Completed section
+              (project-dashboard--render-recently-completed recently-completed)))
+          ;; 3. Tags overview at bottom (always show)
           (project-dashboard--render-tags-section all-tags-stats active-tag))))
     
     ;; TODO file section
@@ -803,6 +809,14 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
       (find-file todo-file))
      (t
       (message "No tasks file found in project")))))
+
+(defun project-dashboard-open-vterm ()
+  "Open a new vterm buffer in the project root directory."
+  (interactive)
+  (let ((default-directory project-dashboard--project-root))
+    (if (fboundp 'vterm)
+        (vterm t)  ; t means create a new buffer
+      (message "vterm not available"))))
 
 (defun project-dashboard-refresh ()
   "Refresh the dashboard."
@@ -910,6 +924,7 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
     (define-key map (kbd "d") #'project-dashboard-open-dired)
     (define-key map (kbd "m") #'project-dashboard-open-magit)
     (define-key map (kbd "f") #'project-dashboard-find-file)
+    (define-key map (kbd "v") #'project-dashboard-open-vterm)
     (define-key map (kbd "t") project-dashboard-tasks-map)
     (define-key map (kbd "r") #'project-dashboard-refresh)
     (define-key map (kbd "g") #'project-dashboard-refresh)
@@ -955,6 +970,7 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
     (kbd "d") #'project-dashboard-open-dired
     (kbd "m") #'project-dashboard-open-magit
     (kbd "f") #'project-dashboard-find-file
+    (kbd "v") #'project-dashboard-open-vterm
     (kbd "t t") #'project-dashboard-open-tag-tasks
     (kbd "t T") #'project-dashboard-open-all-tasks
     (kbd "t f") #'project-dashboard-open-tasks-file
