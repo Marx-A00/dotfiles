@@ -1307,6 +1307,13 @@ TASK-ID is the ID shown when Claude runs a background command."
   (require 'evil-org-agenda)
   (evil-org-agenda-set-keys))
 
+(use-package evil-snipe
+  :ensure t
+  :after evil
+  :config
+  (evil-snipe-mode +1)
+  (evil-snipe-override-mode +1))  ;; Replace default f/F/t/T with snipe
+
 (use-package dired
   :ensure nil  
   :commands (dired dired-jump)
