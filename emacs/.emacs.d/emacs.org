@@ -1090,6 +1090,7 @@
   ;; Popper for popup buffer management
   (use-package popper
     :ensure t
+    :demand t  ;; Load at startup so popup rules are active immediately
     :bind (("C-`"     . popper-toggle)
            ("C-<tab>" . popper-cycle)
            ("C-M-`"   . popper-toggle-type))
@@ -1188,12 +1189,14 @@
         "d h" '((lambda () (interactive) (dired "~/")) :wk "Dired home")
         "d r" '((lambda () (interactive) (dired "~/roaming")) :wk "Dired roaming")
         "d e" '((lambda () (interactive) (dired "~/.dotfiles")) :wk "Dired dotfiles")
-        "d H" '(dired-omit-mode :wk "Dired Omit Mode"))
+        "d H" '(dired-omit-mode :wk "Dired Omit Mode")
+        "d p" '(dired-preview-global-mode :wk "Toggle preview"))
 
       (mr-x/leader-def
         "b" '(:ignore t :wk "buffer")
         "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
-        "b k" '(kill-this-buffer :wk "kill this buffer")
+        "b k" '(kill-current-buffer :wk "kill this buffer")
+        "b K" '(kill-buffer-and-window :wk "kill buffer and window")
         "b r" '(revert-buffer :wk "revert buffer"))
       
       (mr-x/leader-def
@@ -1480,7 +1483,8 @@ TASK-ID is the ID shown when Claude runs a background command."
     (setq dired-listing-switches "-al --group-directories-first")
     (evil-define-key 'normal dired-mode-map
       "h" 'dired-up-directory
-      "l" 'dired-find-file)
+      "l" 'dired-find-file
+      "Y" (lambda () (interactive) (dired-copy-filename-as-kill 0)))
 
     (add-hook 'dired-mode-hook
   	  (lambda ()
@@ -1503,6 +1507,15 @@ TASK-ID is the ID shown when Claude runs a background command."
     (use-package all-the-icons-dired
       :ensure t
       :hook (dired-mode . all-the-icons-dired-mode))
+
+    (use-package dired-preview
+      :ensure t
+      :config
+      (setq dired-preview-delay 0.2)
+      (setq dired-preview-display-action-alist
+            '((display-buffer-in-side-window)
+              (side . right)
+              (window-width . 0.5))))
 
     (setq display-line-numbers-type 'relative)
     (dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
@@ -1797,7 +1810,42 @@ Creates a frame named 'Dev: {project}' with:
 #+begin_src emacs-lisp
   (use-package markdown-mode
     :ensure t
-    :mode ("\\.md\\'" . markdown-mode))
+    ;; Don't register .md here - poly-markdown-mode handles it (with code block highlighting)
+    :config
+    ;; Gruvbox-styled markdown faces (matches preview CSS)
+    (custom-set-faces
+     ;; Headings - orange
+     '(markdown-header-face-1 ((t (:foreground "#fe8019" :weight bold :height 1.4))))
+     '(markdown-header-face-2 ((t (:foreground "#fe8019" :weight bold :height 1.3))))
+     '(markdown-header-face-3 ((t (:foreground "#fe8019" :weight bold :height 1.2))))
+     '(markdown-header-face-4 ((t (:foreground "#fabd2f" :weight bold :height 1.1))))
+     '(markdown-header-face-5 ((t (:foreground "#fabd2f" :weight bold))))
+     '(markdown-header-face-6 ((t (:foreground "#928374" :weight bold))))
+     ;; Code - aqua
+     '(markdown-code-face ((t (:foreground "#8ec07c" :background "#3c3836"))))
+     '(markdown-inline-code-face ((t (:foreground "#8ec07c" :background "#3c3836"))))
+     '(markdown-pre-face ((t (:foreground "#8ec07c" :background "#3c3836"))))
+     ;; Links - blue
+     '(markdown-link-face ((t (:foreground "#83a598"))))
+     '(markdown-url-face ((t (:foreground "#83a598" :underline t))))
+     ;; Bold/Italic - yellow/purple
+     '(markdown-bold-face ((t (:foreground "#fabd2f" :weight bold))))
+     '(markdown-italic-face ((t (:foreground "#d3869b" :slant italic))))
+     ;; Lists - green
+     '(markdown-list-face ((t (:foreground "#b8bb26"))))
+     ;; Blockquote - gray
+     '(markdown-blockquote-face ((t (:foreground "#928374" :slant italic))))
+     ;; Markup characters - dimmed
+     '(markdown-markup-face ((t (:foreground "#665c54"))))))
+
+  ;; Syntax highlighting in markdown code blocks
+  (use-package polymode
+    :ensure t)
+  
+  (use-package poly-markdown
+    :ensure t
+    :after (polymode markdown-mode)
+    :mode ("\\.md\\'" . poly-markdown-mode))
 
   (use-package markdown-xwidget
     :ensure (:host github
@@ -1808,22 +1856,63 @@ Creates a frame named 'Dev: {project}' with:
            ("C-c C-c x" . markdown-xwidget-preview-mode))
     :custom
     (markdown-xwidget-code-block-theme "gruvbox-dark-medium")
+    (markdown-xwidget-github-theme "dark")
     :config
-    ;; Load custom CSS into header content (file:// has cross-origin issues)
+    ;; Custom gruvbox CSS for markdown preview
     (defvar mr-x/markdown-gruvbox-css-file
       (expand-file-name "etc/markdown-gruvbox-claude.css" user-emacs-directory))
     
-    (defun mr-x/markdown-xwidget-setup ()
-      "Setup markdown-xwidget with inline Gruvbox CSS."
-      (let ((css (with-temp-buffer
-                   (insert-file-contents mr-x/markdown-gruvbox-css-file)
-                   (buffer-string))))
-        (setq markdown-xhtml-header-content
-              (concat markdown-xhtml-header-content
-                      "\n<style>\n" css "\n</style>\n"))))
+    ;; Override the enable function to include gruvbox CSS
+    ;; The original function overwrites markdown-css-paths with only 2 files,
+    ;; so we must override it to include our custom CSS from the start
+    (defun markdown-xwidget-preview-mode--enable ()
+      "Enable `markdown-xwidget-preview-mode' with gruvbox CSS included."
+      (let ((github-theme (markdown-xwidget-github-css-path
+                           markdown-xwidget-github-theme))
+            (code-block-theme (markdown-xwidget-highlightjs-css-path
+                               markdown-xwidget-code-block-theme))
+            (header-html (markdown-xwidget-header-html
+                          markdown-xwidget-mermaid-theme))
+            (command (or markdown-xwidget-command markdown-command)))
+        
+        (if (not (featurep 'xwidget-internal))
+            (user-error "This Emacs does not support xwidgets!"))
+        
+        ;; Save original and set CSS paths INCLUDING gruvbox
+        (setq markdown-xwidget--markdown-css-paths-original markdown-css-paths)
+        (setq markdown-css-paths (list github-theme code-block-theme mr-x/markdown-gruvbox-css-file))
+        
+        ;; Temporarily set markdown-command
+        (setq markdown-xwidget--markdown-command-original markdown-command)
+        (setq markdown-command command)
+        
+        ;; Temporarily set markdown-live-preview-window-function
+        (setq markdown-xwidget--markdown-live-preview-window-function-original
+              markdown-live-preview-window-function)
+        (setq markdown-live-preview-window-function #'markdown-xwidget-preview)
+        
+        ;; Temporarily set markdown-xhtml-header-content
+        (setq markdown-xwidget--markdown-xhtml-header-content-original
+              markdown-xhtml-header-content)
+        (setq markdown-xhtml-header-content header-html))
+      
+      (markdown-live-preview-mode 1))
     
-    (advice-add 'markdown-xwidget-preview-mode--enable :before
-                #'mr-x/markdown-xwidget-setup))
+    ;; Redirect preview HTML files to a dedicated directory
+    (defvar mr-x/markdown-preview-directory
+      (expand-file-name "var/markdown-previews" user-emacs-directory)
+      "Directory for markdown preview HTML files.")
+    
+    (defun mr-x/markdown-export-file-name-redirect (orig-fn &optional extension)
+      "Redirect markdown export files to `mr-x/markdown-preview-directory'."
+      (when-let ((original (funcall orig-fn extension)))
+        (unless (file-exists-p mr-x/markdown-preview-directory)
+          (make-directory mr-x/markdown-preview-directory t))
+        (expand-file-name (file-name-nondirectory original)
+                          mr-x/markdown-preview-directory)))
+    
+    (advice-add 'markdown-export-file-name :around
+                #'mr-x/markdown-export-file-name-redirect))
 
 
 
@@ -2024,6 +2113,7 @@ Creates a frame named 'Dev: {project}' with:
 
 
 
+
 #+end_src
 *** Misc
 #+begin_src emacs-lisp
@@ -2077,6 +2167,8 @@ Creates a frame named 'Dev: {project}' with:
 
   ;;; Agent Shell - Native Emacs buffer for Claude Code
   ;; ACP (Agent Client Protocol) implementation for Emacs
+  ;; Permission keys (1/2/3/0) only activate when a permission is pending;
+  ;; otherwise they pass through to evil's digit-argument for motion counts (e.g., 13j).
   (use-package acp
     :ensure (:host github :repo "xenodium/acp.el"))
 
@@ -2090,7 +2182,6 @@ Creates a frame named 'Dev: {project}' with:
     :after (acp shell-maker)
     :hook ((agent-shell-mode . orgtbl-mode)  ;; Auto-align org tables
            (agent-shell-mode . display-line-numbers-mode)  ;; Show line numbers
-           (agent-shell-mode . (lambda () (corfu-mode -1)))  ;; Disable corfu (no backend)
            (agent-shell-mode . (lambda ()
                                  ;; Make sent input text green like strings
                                  (face-remap-add-relative 'comint-highlight-input
@@ -2134,23 +2225,24 @@ Creates a frame named 'Dev: {project}' with:
 
     ;; Context-sensitive permission keys in normal mode
     ;; When permission pending: respond directly
-    ;; When no permission: self-insert (type the character)
-    (defun mr-x/agent-shell-permission-or-insert (key action)
-      "If permission pending in current buffer, run ACTION. Otherwise insert KEY."
+    ;; When no permission: pass to evil's digit-argument for motion counts
+    (defun mr-x/agent-shell-permission-or-digit (key action)
+      "If permission pending in current buffer, run ACTION. Otherwise pass KEY as digit-argument."
       (if (and mr-x/pending-permissions
                (eq (current-buffer) (plist-get (cdar mr-x/pending-permissions) :buffer)))
           (funcall action)
-        ;; No permission pending - insert the character
-        (insert key)))
+        ;; No permission pending - let evil handle as count prefix
+        (let ((last-command-event (string-to-char key)))
+          (call-interactively #'digit-argument))))
 
     (evil-define-key 'normal agent-shell-mode-map (kbd "1")
-      (lambda () (interactive) (mr-x/agent-shell-permission-or-insert "1" #'mr-x/agent-shell-allow)))
+      (lambda () (interactive) (mr-x/agent-shell-permission-or-digit "1" #'mr-x/agent-shell-allow)))
     (evil-define-key 'normal agent-shell-mode-map (kbd "2")
-      (lambda () (interactive) (mr-x/agent-shell-permission-or-insert "2" #'mr-x/agent-shell-deny)))
+      (lambda () (interactive) (mr-x/agent-shell-permission-or-digit "2" #'mr-x/agent-shell-deny)))
     (evil-define-key 'normal agent-shell-mode-map (kbd "3")
-      (lambda () (interactive) (mr-x/agent-shell-permission-or-insert "3" #'mr-x/agent-shell-allow-always)))
+      (lambda () (interactive) (mr-x/agent-shell-permission-or-digit "3" #'mr-x/agent-shell-allow-always)))
     (evil-define-key 'normal agent-shell-mode-map (kbd "0")
-      (lambda () (interactive) (mr-x/agent-shell-permission-or-insert "0" #'mr-x/agent-shell-view-diff)))
+      (lambda () (interactive) (mr-x/agent-shell-permission-or-digit "0" #'mr-x/agent-shell-view-diff)))
 
     ;; Clear prompt with CMD+backspace
     (defun mr-x/agent-shell-clear-prompt ()
@@ -2191,6 +2283,9 @@ Creates a frame named 'Dev: {project}' with:
     ;; (nil header + nil modeline = no feedback when session is initializing = errors)
     (setq agent-shell-header-style 'text)
     (setq agent-shell-show-welcome-message nil)
+    
+    ;; Enable @ and / completion (file paths and slash commands)
+    (setq agent-shell-file-completion-enabled t)
     
     ;; Disable modeline info (header is enough for init feedback)
     (defun agent-shell--mode-line-format () nil)
@@ -3016,6 +3111,68 @@ Highlights the actual code content, not just +/- markers."
   ;; (add-hook 'window-configuration-change-hook #'mr-x/adjust-frame-alpha-for-focus)
 
 
+  ;;; GPTel - Quick AI queries without launching a full agent
+  ;; Posframe for popup display (used by gptel-quick)
+  (use-package posframe :ensure t)
+
+  (use-package gptel
+    :ensure t
+    :config
+    ;; Use Ollama (local, free)
+    (setq gptel-backend (gptel-make-ollama "Ollama"
+                          :host "localhost:11434"
+                          :stream t
+                          :models '(llama3.2)))
+    (setq gptel-model 'llama3.2))
+
+
+  ;; GPTel-Quick - Instant word/region lookup in popup or echo area
+  (use-package gptel-quick
+    :ensure (:host github :repo "karthink/gptel-quick")
+    :after gptel
+    :config
+    (setq gptel-quick-timeout 15)
+    (setq gptel-quick-word-count 50))
+
+  ;; Quick ask - type a question, get answer in popup
+  (defvar mr-x/gptel-ask-history nil)
+
+  (defun mr-x/gptel-ask (question)
+    "Ask a quick question, get answer in a posframe popup."
+    (interactive
+     (list (read-string "Ask: " nil 'mr-x/gptel-ask-history)))
+    (when (string-empty-p question)
+      (user-error "No question provided"))
+    (message "Thinking...")
+    (gptel-request question
+      :callback
+      (lambda (response info)
+        (if (not response)
+            (message "Request failed: %s" (plist-get info :status))
+          (if (require 'posframe nil t)
+              (progn
+                (with-current-buffer (get-buffer-create "*gptel-ask*")
+                  (let ((inhibit-read-only t))
+                    (erase-buffer)
+                    (insert response)
+                    (goto-char (point-min))))
+                (posframe-show "*gptel-ask*"
+                               :string response
+                               :poshandler #'posframe-poshandler-frame-center
+                               :background-color (face-attribute 'tooltip :background nil t)
+                               :foreground-color (face-attribute 'tooltip :foreground nil t)
+                               :border-width 1
+                               :border-color (face-attribute 'border :background nil t)
+                               :left-fringe 8
+                               :right-fringe 8
+                               :max-width 80
+                               :max-height 20
+                               :timeout 30)
+                (message "Press any key to dismiss")
+                (read-key)
+                (posframe-hide "*gptel-ask*"))
+            ;; Fallback to message if no posframe
+            (message "%s" response))))))
 
 #+end_src
 
