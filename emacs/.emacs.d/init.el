@@ -1736,7 +1736,7 @@ Creates a frame named 'Dev: {project}' with:
   (corfu-auto-prefix 2)          ;; Minimum length of prefix
   (corfu-auto-delay 0.2)         ;; Delay before auto completion
   (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
-  (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+  (corfu-quit-no-match t)        ;; Quit when there is no match
   (corfu-preview-current nil)    ;; Disable current candidate preview
   (corfu-on-exact-match nil)     ;; Configure handling of exact matches
   :init
@@ -1939,6 +1939,10 @@ Creates a frame named 'Dev: {project}' with:
   ;; ACP (Agent Client Protocol) implementation for Emacs
   ;; Permission keys (1/2/3/0) only activate when a permission is pending;
   ;; otherwise they pass through to evil's digit-argument for motion counts (e.g., 13j).
+
+
+(load-file "~/roaming/projects/MCP servers/ask-user-mcp/emacs/ask-user.el")
+
   (use-package acp
     :ensure (:host github :repo "xenodium/acp.el"))
 
@@ -2587,6 +2591,7 @@ Highlights the actual code content, not just +/- markers."
     (setq agent-shell-anthropic-claude-environment
           (agent-shell-make-environment-variables :inherit-env t))
 
+
     ;; MCP Servers - taskmaster for task management
     ;; Stdio transport requires: name, command, args, env
     ;; env must be a vector [] for proper JSON array serialization
@@ -2594,7 +2599,15 @@ Highlights the actual code content, not just +/- markers."
           `(((name . "task-master-ai")
              (command . "npx")
              (args . ["-y" "--package=task-master-ai" "task-master-ai"])
-             (env . [((name . "TASK_MASTER_TOOLS") (value . "all"))]))))
+             (env . [((name . "TASK_MASTER_TOOLS") (value . "all"))]))
+
+
+	    ((name . "ask-user")
+	     (command . "node")
+	     (args . ["/Users/marcosandrade/roaming/projects/MCP servers/ask-user-mcp/build/index.js"])
+	     (env . []))))
+
+
 
     ;; Custom prompt config
     (setq agent-shell-preferred-agent-config
