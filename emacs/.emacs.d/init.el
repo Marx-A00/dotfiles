@@ -1087,10 +1087,21 @@
         "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
         "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame"))
 
+      ;; Smart new shell: replace window when already in agent-shell
+      (defun mr-x/agent-shell-new-smart ()
+        "Create new agent shell, replacing current window if already in agent-shell."
+        (interactive)
+        (if (derived-mode-p 'agent-shell-mode)
+            ;; Already in agent-shell: create new and switch in same window
+            (let ((display-buffer-overriding-action '(display-buffer-same-window)))
+              (agent-shell-new-shell))
+          ;; Not in agent-shell: use normal display rules
+          (agent-shell-new-shell)))
+
       (mr-x/leader-def
         "c" '(:ignore t :wk "Agent Shell")
         "c c" '(agent-shell :wk "Start Agent Shell")
-        "c n" '(agent-shell-new-shell :wk "New shell")
+        "c n" '(mr-x/agent-shell-new-smart :wk "New shell")
         "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
         "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
         "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
