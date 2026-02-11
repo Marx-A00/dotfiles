@@ -1801,6 +1801,9 @@ Creates a frame named 'Dev: {project}' with:
   (setq lsp-ui-doc-position 'at-point)
   (setq lsp-ui-peek-enable t))
 
+(use-package lsp-ivy
+  :ensure t)
+
 ;; Optional: Kind icon for completion candidates
 (use-package kind-icon
   :ensure t
@@ -2631,7 +2634,50 @@ Highlights the actual code content, not just +/- markers."
            :welcome-function #'agent-shell-anthropic--claude-code-welcome-message
            :client-maker (lambda (buffer)
                            (agent-shell-anthropic-make-claude-client :buffer buffer))
-           :default-model-id (lambda () agent-shell-anthropic-default-model-id))))
+           :default-model-id (lambda () agent-shell-anthropic-default-model-id)))
+
+  ;; Local slash commands for agent-shell
+  (defvar mr-x/agent-shell-local-commands
+    '(("new" . mr-x/agent-shell-new-smart)
+      ("clear" . mr-x/agent-shell-new-smart))
+    "Local slash commands. Keys are names (without /), values are functions.")
+
+  ;; Inject local commands into / completion
+  (defun mr-x/agent-shell-inject-local-commands (orig-fun)
+    "Add local commands to / completion."
+    (when-let ((result (funcall orig-fun)))
+      (let* ((start (nth 0 result))
+             (end (nth 1 result))
+             (candidates (nth 2 result))
+             (local-names (mapcar #'car mr-x/agent-shell-local-commands))
+             (all-candidates (append local-names candidates)))
+        (list start end all-candidates
+              :exclusive t
+              :exit-function (lambda (_s _status) (insert " "))))))
+
+  (advice-add 'agent-shell--command-completion-at-point
+              :around #'mr-x/agent-shell-inject-local-commands)
+
+  ;; Intercept local commands on submit
+  (defun mr-x/agent-shell-intercept-local-commands (orig-fun &rest args)
+    "Run local command instead of sending to Claude."
+    (let* ((prompt-start (save-excursion
+                           (goto-char (point-max))
+                           (re-search-backward comint-prompt-regexp nil t)
+                           (match-end 0)))
+           (input (buffer-substring-no-properties prompt-start (point-max))))
+      (if (and (string-prefix-p "/" input)
+               (let* ((cmd (cadr (split-string input "/")))
+                      (cmd-name (car (split-string cmd " ")))
+                      (handler (cdr (assoc cmd-name mr-x/agent-shell-local-commands))))
+                 (when handler
+                   (delete-region prompt-start (point-max))
+                   (funcall handler)
+                   t)))
+          nil
+        (apply orig-fun args))))
+
+  (advice-add 'shell-maker-submit :around #'mr-x/agent-shell-intercept-local-commands))
 
   ;; Delta-powered syntax highlighting for agent-shell diffs
   (with-eval-after-load 'agent-shell-diff
