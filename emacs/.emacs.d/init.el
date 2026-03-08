@@ -65,6 +65,14 @@
       (with-current-buffer buffer
         (org-mode)))))
 
+(prefer-coding-system 'utf-8)
+(set-default-coding-systems 'utf-8)
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+
+(setq gc-cons-threshold (* 100 1024 1024)) ;; 100MB
+(run-with-idle-timer 5 t #'garbage-collect)
+
 (use-package org
       :ensure nil
       :demand t
@@ -1001,7 +1009,9 @@
           help-mode
           helpful-mode
           compilation-mode
-          vterm-mode))
+          vterm-mode
+          "\\*xref\\*"
+          xref--xref-buffer-mode))
   :config
   (setq popper-display-control t)
   (setq popper-display-function #'popper-select-popup-at-bottom)
@@ -1107,16 +1117,17 @@
         "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
         "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
         "c j" '(agent-shell-attention-jump :wk "Jump to pending")
-        "c p" '(:ignore t :wk "Prompts")
-        "c p p" '(agent-shell-prompt-compose :wk "Compose prompt")
-        "c p r" '(mr-x/agent-shell-test-prompt :wk "Random test prompt")
-        "c p t" '(:ignore t :wk "Taskmaster")
-        "c p t n" '(mr-x/taskmaster-next-task :wk "Next task")
-        "c p t s" '(mr-x/taskmaster-summary :wk "Summary")
-        "c p t a" '(mr-x/taskmaster-add-task :wk "Add task")
+        "c ," '(:ignore t :wk "Prompts")
+        "c , p" '(agent-shell-prompt-compose :wk "Compose prompt")
+        "c , r" '(mr-x/agent-shell-test-prompt :wk "Random test prompt")
+        "c , t" '(:ignore t :wk "Taskmaster")
+        "c , t n" '(mr-x/taskmaster-next-task :wk "Next task")
+        "c , t s" '(mr-x/taskmaster-summary :wk "Summary")
+        "c , t a" '(mr-x/taskmaster-add-task :wk "Add task")
+        "c p" '(mr-x/agent-shell-send-clipboard :wk "Paste (smart)")
         "c r" '(mr-x/agent-shell-send-region-no-switch :wk "Send region (stay)")
         "c R" '(agent-shell-send-region :wk "Send region (go)")
-        "c y" '(mr-x/agent-shell-send-clipboard :wk "Send clipboard")
+        "c y" '(mr-x/agent-shell-send-clipboard :wk "Yank (smart)")
         "c f" '(agent-shell-send-file :wk "Send file")
         "c F" '(agent-shell-send-other-file :wk "Send other file")
         "c d" '(agent-shell-send-dwim :wk "Send DWIM (region/error)")
@@ -1230,6 +1241,31 @@ TASK-ID is the ID shown when Claude runs a background command."
       (mr-x/leader-def
         "t" '(mr-x/sandbox-test-env :wk "Test environment"))
 
+      ;; LSP commands under SPC ;
+      (mr-x/leader-def
+        ";" '(:ignore t :wk "LSP")
+        "; s" '(lsp-ivy-workspace-symbol :wk "Search symbol")
+        "; S" '(lsp-ivy-global-workspace-symbol :wk "Search symbol (global)")
+        "; d" '(lsp-find-definition :wk "Find definition")
+        "; D" '(lsp-find-declaration :wk "Find declaration")
+        "; r" '(lsp-find-references :wk "Find references")
+        "; i" '(lsp-find-implementation :wk "Find implementation")
+        "; t" '(lsp-goto-type-definition :wk "Type definition")
+        "; R" '(lsp-rename :wk "Rename")
+        "; a" '(lsp-execute-code-action :wk "Code action")
+        "; f" '(lsp-format-buffer :wk "Format buffer")
+        "; F" '(lsp-format-region :wk "Format region")
+        "; o" '(lsp-organize-imports :wk "Organize imports")
+        "; h" '(lsp-describe-thing-at-point :wk "Describe at point")
+        "; H" '(lsp-ui-doc-glance :wk "Doc glance")
+        "; e" '(lsp-ui-flycheck-list :wk "Error list")
+        "; p" '(lsp-ui-peek-find-definitions :wk "Peek definition")
+        "; P" '(lsp-ui-peek-find-references :wk "Peek references")
+        "; l" '(lsp :wk "Start LSP")
+        "; q" '(lsp-disconnect :wk "Disconnect LSP")
+        "; w" '(lsp-restart-workspace :wk "Restart workspace")
+        "; I" '(lsp-ui-imenu :wk "Imenu"))
+
   )
 
     (defun mr-x/org-agenda-day ()
@@ -1325,6 +1361,38 @@ TASK-ID is the ID shown when Claude runs a background command."
   (evil-snipe-mode +1)
   (evil-snipe-override-mode +1))  ;; Replace default f/F/t/T with snipe
 
+(use-package evil-visual-mark-mode
+  :ensure t
+  :after evil
+  :config
+  (evil-visual-mark-mode))
+
+(use-package bm
+  :ensure t
+  :demand t
+  :init
+  (setq bm-restore-repository-on-load t)
+  :config
+  (setq bm-cycle-all-buffers t)
+  (setq bm-highlight-style 'bm-highlight-only-fringe)
+  (setq bm-repository-file (expand-file-name "bm-repository" user-emacs-directory))
+  (setq bm-buffer-persistence t)
+  (add-hook 'after-init-hook 'bm-repository-load)
+  (add-hook 'kill-buffer-hook 'bm-buffer-save)
+  (add-hook 'kill-emacs-hook 'bm-buffer-save)
+  (add-hook 'kill-emacs-hook 'bm-repository-save)
+  (add-hook 'after-save-hook 'bm-buffer-save)
+  (add-hook 'find-file-hook 'bm-buffer-restore)
+  (add-hook 'after-revert-hook 'bm-buffer-restore)
+  :config
+  (with-eval-after-load 'general
+    (mr-x/leader-def
+      "m" '(:ignore t :wk "bookmarks")
+      "m m" '(bm-toggle :wk "toggle bookmark")
+      "m n" '(bm-next :wk "next bookmark")
+      "m p" '(bm-previous :wk "prev bookmark")
+      "m l" '(bm-show-all :wk "list all bookmarks"))))
+
 (use-package dired
   :ensure nil  
   :commands (dired dired-jump)
@@ -1336,8 +1404,12 @@ TASK-ID is the ID shown when Claude runs a background command."
   (setq dired-listing-switches "-al --group-directories-first")
   (evil-define-key 'normal dired-mode-map
     "h" 'dired-up-directory
-    "l" 'dired-find-file
-    "Y" (lambda () (interactive) (dired-copy-filename-as-kill 0)))
+    "l" 'dired-find-file)
+
+  ;; Bind Y after evil-collection so it doesn't get overridden
+  (with-eval-after-load 'evil-collection-dired
+    (evil-define-key 'normal dired-mode-map
+      "Y" (lambda () (interactive) (dired-copy-filename-as-kill 0))))
 
   (add-hook 'dired-mode-hook
 	  (lambda ()
@@ -1399,13 +1471,21 @@ TASK-ID is the ID shown when Claude runs a background command."
   (setq ivy-use-virtual-buffers nil)
   (setq ivy-count-format "(%d/%d) "))
 
-;; Taken from emacswiki to search for symbol/word at point
-;; Must be done at end of init I guess
-;; (define-key swiper-map (kbd "C-.")
-;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'symbol))))))
-
-;; (define-key swiper-map (kbd "M-.")
-;; 	    (lambda () (interactive) (insert (format "\\<%s\\>" (with-ivy-window (thing-at-point 'word))))))
+;; Grab symbol/word at point into swiper search (from emacswiki)
+;; C-. inserts full symbol (e.g., org-roam-directory), M-. inserts word (e.g., org)
+(with-eval-after-load 'swiper
+  (define-key swiper-map (kbd "C-.")
+    (lambda () (interactive)
+      (let ((sym (with-ivy-window (thing-at-point 'symbol))))
+        (when sym
+          (delete-minibuffer-contents)
+          (insert (format "\\<%s\\>" sym))))))
+  (define-key swiper-map (kbd "M-.")
+    (lambda () (interactive)
+      (let ((word (with-ivy-window (thing-at-point 'word))))
+        (when word
+          (delete-minibuffer-contents)
+          (insert (format "\\<%s\\>" word)))))))
 
 
 (use-package counsel
@@ -1520,6 +1600,7 @@ TASK-ID is the ID shown when Claude runs a background command."
   (with-eval-after-load 'projectile
     (define-key projectile-command-map (kbd "C-d") #'mr-x/spawn-dev-environment)
     (define-key projectile-command-map (kbd "C-r") #'mr-x/restart-dev-environment)
+    (define-key projectile-command-map (kbd "C-R") #'mr-x/clear-and-restart-dev-environment)
     ;; Load project-dashboard
     (require 'project-dashboard)
     ;; Use project dashboard when switching projects (for other projectile commands)
@@ -1542,13 +1623,13 @@ TASK-ID is the ID shown when Claude runs a background command."
         (delete-other-windows)))
 
   (defun mr-x/spawn-dev-environment ()
-    "Spawn a new frame with two horizontal vterms for dev and queue.
-Creates a frame named 'Dev: {project}' with:
-  - Top: vterm running `pnpm run dev` (named *{project}: dev*)
-  - Bottom: vterm running `pnpm queue:dev` (named *{project}: queue*)"
+    "Spawn a new frame with two horizontal vterms for rec dev and queue.
+Creates a frame named 'Dev: rec' with:
+  - Top: vterm running `pnpm run dev` (named *rec: dev*)
+  - Bottom: vterm running `pnpm queue:dev` (named *rec: queue*)"
     (interactive)
-    (let* ((project-root (or (projectile-project-root) default-directory))
-           (project-name (file-name-nondirectory (directory-file-name project-root)))
+    (let* ((project-root "~/roaming/projects/rec/")
+           (project-name "rec")
            (frame (make-frame `((name . ,(format "Dev: %s" project-name))))))
       (select-frame-set-input-focus frame)
       (let ((default-directory project-root))
@@ -1595,6 +1676,43 @@ Creates a frame named 'Dev: {project}' with:
                 (vterm-send-return)))
             queue-buf)))
       (message "Restarting rec dev environment")))
+
+  (defun mr-x/clear-and-restart-dev-environment ()
+    "Clear both dev terminals and restart dev processes."
+    (interactive)
+    (let ((dev-buf (get-buffer "*rec: dev*"))
+          (queue-buf (get-buffer "*rec: queue*")))
+      (when dev-buf
+        (with-current-buffer dev-buf
+          (vterm-send-C-c)
+          (run-at-time "0.3 sec" nil
+            (lambda (buf)
+              (with-current-buffer buf
+                (vterm-send-string "clear")
+                (vterm-send-return)
+                (run-at-time "0.3 sec" nil
+                  (lambda (buf2)
+                    (with-current-buffer buf2
+                      (vterm-send-string "pnpm run dev")
+                      (vterm-send-return)))
+                  buf)))
+            dev-buf)))
+      (when queue-buf
+        (with-current-buffer queue-buf
+          (vterm-send-C-c)
+          (run-at-time "0.3 sec" nil
+            (lambda (buf)
+              (with-current-buffer buf
+                (vterm-send-string "clear")
+                (vterm-send-return)
+                (run-at-time "0.3 sec" nil
+                  (lambda (buf2)
+                    (with-current-buffer buf2
+                      (vterm-send-string "pnpm queue:dev")
+                      (vterm-send-return)))
+                  buf)))
+            queue-buf)))
+      (message "Clearing and restarting rec dev environment")))
 
 (use-package ox-hugo
   :ensure t
@@ -1956,6 +2074,7 @@ Creates a frame named 'Dev: {project}' with:
 
 
 (load-file "~/roaming/projects/MCP servers/ask-user-mcp/emacs/ask-user.el")
+(load-file "~/roaming/projects/MCP servers/ask-user-mcp/emacs/ask-user-popup.el")
 
   (use-package acp
     :ensure (:host github :repo "xenodium/acp.el"))
@@ -2176,24 +2295,28 @@ INDENT-STRING defaults to two spaces."
        :no-focus t))
 
     (defun mr-x/agent-shell-send-clipboard ()
-      "Send system clipboard contents to agent-shell.
-Works from anywhere - doesn't require project context.
-Focuses Emacs and the agent-shell window."
+      "Send clipboard contents to agent-shell (text or image).
+If the clipboard contains an image, saves it to
+.agent-shell/screenshots/ and inserts it with a thumbnail preview.
+Otherwise, inserts the clipboard text.
+Requires `pngpaste' for image support (brew install pngpaste)."
       (interactive)
-      (let* ((clipboard (gui-get-selection 'CLIPBOARD))
-             (shell-buffer (or (agent-shell--current-shell)
-                               (car (agent-shell-buffers)))))
-        (unless shell-buffer
-          (user-error "No agent shell buffers available"))
-        ;; Focus Emacs frame
-        (select-frame-set-input-focus (selected-frame))
-        ;; Switch to or display agent-shell buffer
-        (if-let ((win (get-buffer-window shell-buffer t)))
-            (select-window win)
-          (pop-to-buffer shell-buffer))
-        ;; Insert clipboard at end
-        (goto-char (point-max))
-        (insert clipboard)))
+      (let* ((screenshots-dir (expand-file-name ".agent-shell/screenshots"
+                                                (agent-shell-cwd)))
+             (screenshot-path (expand-file-name
+                               (format-time-string "clipboard-%Y%m%d-%H%M%S.png")
+                               screenshots-dir)))
+        (make-directory screenshots-dir t)
+        (if (and (executable-find "pngpaste")
+                 (zerop (call-process "pngpaste" nil nil nil screenshot-path)))
+            ;; Clipboard has an image — insert via agent-shell's file pipeline
+            (agent-shell-insert
+             :text (agent-shell--processed-files :files (list screenshot-path)))
+          ;; No image — fall back to text clipboard
+          (let ((clipboard (gui-get-selection 'CLIPBOARD)))
+            (if (and clipboard (not (string-empty-p clipboard)))
+                (agent-shell-insert :text clipboard)
+              (user-error "Clipboard is empty (no image or text)"))))))
 
     (defun mr-x/agent-shell-toggle ()
       "Toggle agent shell display (fixed to find project shells)."
@@ -2599,6 +2722,7 @@ Highlights the actual code content, not just +/- markers."
                                                (when (buffer-live-p shell-buf)
                                                  (pop-to-buffer shell-buf))))))))
     ;; Use existing Claude CLI login
+    (setq agent-shell-anthropic-default-model-id "claude-opus-4-6")
     (setq agent-shell-anthropic-authentication
           (agent-shell-anthropic-make-authentication :login t))
     ;; Inherit environment (gets PATH, ANTHROPIC_API_KEY, etc.)
