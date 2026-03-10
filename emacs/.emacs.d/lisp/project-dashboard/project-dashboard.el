@@ -356,6 +356,20 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
                  (cons file-path
                        (if (string-suffix-p ".org" filename) 'org 'md))))))))
 
+;;; Data Layer - Git
+
+(defun project-dashboard--get-git-branch (project-root)
+  "Get the current git branch for PROJECT-ROOT, or nil."
+  (let ((default-directory project-root))
+    (condition-case nil
+        (if (fboundp 'magit-get-current-branch)
+            (magit-get-current-branch)
+          (let ((branch (string-trim
+                         (shell-command-to-string
+                          "git rev-parse --abbrev-ref HEAD 2>/dev/null"))))
+            (unless (string-empty-p branch) branch)))
+      (error nil))))
+
 ;;; Rendering Layer
 
 (defvar-local project-dashboard--current-art nil
@@ -440,6 +454,12 @@ Returns (FILE-PATH . TYPE) where TYPE is `org' or `md', or nil."
                    'face (if separator-color
                              `(:foreground ,separator-color)
                            'project-dashboard-separator-face))))
+    ;; Git branch (centered, gruvbox green with git icon, below separator)
+    (let ((branch (project-dashboard--get-git-branch project-dashboard--project-root)))
+      (when branch
+        (project-dashboard--insert-centered
+         (propertize (format "%c %s\n" #xe725 branch)
+                     'face '(:foreground "#b8bb26")))))
     (insert "\n")))
 
 (defun project-dashboard--render-status (status)
