@@ -1418,33 +1418,10 @@ TASK-ID is the ID shown when Claude runs a background command."
 
 #+begin_src emacs-lisp
 
-  (defun my/check-scratch-buffers-before-quit ()
-    "Check if any scratch buffers have content and offer to save them."
-    (let ((scratch-buffers (seq-filter
-                            (lambda (buf)
-                              (and (string-match-p "\\*scratch\\*" (buffer-name buf))
-                                   (with-current-buffer buf
-                                     (> (buffer-size) 0)
-                                     ;; Check if it's not just the default message
-                                     (not (string-match-p "^# Clear your mind"
-                                                          (buffer-string))))))
-                            (buffer-list))))
-      (if scratch-buffers
-          (let ((response (read-char-choice
-                           (format "You have %d non-empty scratch buffer(s). [s]ave, [d]iscard, [c]ancel quit? "
-                                   (length scratch-buffers))
-                           '(?s ?d ?c))))
-            (cond
-             ((eq response ?s)
-              (dolist (buf scratch-buffers)
-                (with-current-buffer buf
-                  (write-file (read-file-name (format "Save %s to: " (buffer-name buf))))))
-              t)  ;; allow quit
-             ((eq response ?d) t)  ;; discard and quit
-             ((eq response ?c) nil)))  ;; cancel quit
-        t)))  ;; no scratch buffers, allow quit
-
-  (add-hook 'kill-emacs-query-functions #'my/check-scratch-buffers-before-quit)
+  (use-package persistent-scratch
+    :ensure t
+    :config
+    (persistent-scratch-setup-default))
 
 #+end_src
 
@@ -1579,10 +1556,11 @@ TASK-ID is the ID shown when Claude runs a background command."
       "h" 'dired-up-directory
       "l" 'dired-find-file)
 
-    ;; Bind Y after evil-collection so it doesn't get overridden
-    (with-eval-after-load 'evil-collection-dired
-      (evil-define-key 'normal dired-mode-map
-        "Y" (lambda () (interactive) (dired-copy-filename-as-kill 0))))
+    ;; Bind Y in dired-mode-hook so it always wins over evil-collection
+    (add-hook 'dired-mode-hook
+      (lambda ()
+        (evil-local-set-key 'normal "Y"
+          (lambda () (interactive) (dired-copy-filename-as-kill 0)))))
 
     (add-hook 'dired-mode-hook
   	  (lambda ()
