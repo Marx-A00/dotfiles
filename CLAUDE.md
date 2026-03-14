@@ -120,6 +120,21 @@ M-x elpaca-rebuild
 M-x elpaca-log
 ```
 
+#### Config Tests (IMPORTANT)
+An ERT smoke test suite lives at `emacs/.emacs.d/tests/config-tests.el`. **After modifying `emacs.org` or `init.el`, always run the tests to verify nothing broke.**
+
+```bash
+/opt/homebrew/opt/emacs-plus@30/bin/emacs --batch -l ~/.emacs.d/init.el -l ~/.emacs.d/tests/config-tests.el -f ert-run-tests-batch-and-exit
+```
+
+Tests cover:
+- Core packages loaded (evil, general, ivy, counsel, org, projectile, etc.)
+- Deferred packages autoloaded (magit, lsp, flycheck, vterm)
+- SPC leader key and all key groups (a/b/c/d/e/f/g/p/s/v/w/x/P)
+- Critical `mr-x/` and `my/` custom functions defined
+
+If adding a new package or custom function to the config, consider adding a corresponding test.
+
 ### Window Manager Services
 
 #### Yabai
