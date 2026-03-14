@@ -1,6 +1,7 @@
 #+begin_src emacs-lisp
   ;;; -*- lexical-binding: t; -*-
 
+
 #+end_src
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el
 
@@ -1244,6 +1245,7 @@
         "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
         "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
         "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
+        "c S" '(agent-shell-manager-spawn-test-env :wk "Spawn test env")
         "c j" '(agent-shell-attention-jump :wk "Jump to pending")
         "c ," '(:ignore t :wk "Prompts")
         "c , p" '(agent-shell-prompt-compose :wk "Compose prompt")
@@ -1711,6 +1713,14 @@ TASK-ID is the ID shown when Claude runs a background command."
     :config
     (setq magit-delta-delta-args '("--syntax-theme" "gruvbox-dark")))
 
+  ;; Side-by-side diffs in magit
+  (use-package vdiff-magit
+    :ensure t
+    :after magit
+    :config
+    (define-key magit-mode-map "e" #'vdiff-magit-dwim)
+    (define-key magit-mode-map "E" #'vdiff-magit-popup))
+
   ;; Forge - GitHub/GitLab PR and issue management
   (use-package forge
     :ensure t
@@ -2009,9 +2019,12 @@ Creates a frame named 'Dev: rec' with:
         (setq markdown-command command)
         
         ;; Temporarily set markdown-live-preview-window-function
+        ;; Use same-window display so preview replaces the markdown source buffer
         (setq markdown-xwidget--markdown-live-preview-window-function-original
               markdown-live-preview-window-function)
-        (setq markdown-live-preview-window-function #'markdown-xwidget-preview)
+        (setq markdown-live-preview-window-function
+              (lambda (buf)
+                (display-buffer buf '(display-buffer-same-window))))
         
         ;; Temporarily set markdown-xhtml-header-content
         (setq markdown-xwidget--markdown-xhtml-header-content-original
@@ -3133,16 +3146,20 @@ Creates a frame named 'Dev: rec' with:
 
     ;; Agent Shell Manager - Dashboard for managing multiple agent sessions
     (use-package agent-shell-manager
-      :ensure (:host github :repo "jethrokuan/agent-shell-manager")
+      :ensure (:host github :repo "Marx-A00/agent-shell-manager")
       :after agent-shell
       :config
       ;; Position manager window (options: left, right, top, bottom, nil for no auto-display)
-      (setq agent-shell-manager-window-side 'bottom)
-      ;; Fix evil-mode conflict - bind keys in normal state
+      (setq agent-shell-manager-side 'bottom)
+      ;; Evil keybindings — preview, filter, and navigation all built-in now
       (evil-define-key 'normal agent-shell-manager-mode-map
-        (kbd "RET") #'agent-shell-manager-goto
+        (kbd "p") #'agent-shell-manager-enter-preview
+        (kbd "RET") #'agent-shell-manager-select
+        (kbd "q") #'agent-shell-manager-quit
+        (kbd "f") #'agent-shell-manager-cycle-filter
+        (kbd "C-n") #'next-line
+        (kbd "C-p") #'previous-line
         (kbd "gr") #'agent-shell-manager-refresh
-        (kbd "q") #'quit-window
         (kbd "K") #'agent-shell-manager-kill
         (kbd "c") #'agent-shell-manager-new
         (kbd "r") #'agent-shell-manager-restart
