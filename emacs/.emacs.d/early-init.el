@@ -4,6 +4,10 @@
 ;; Use 'undecorated' for sharp corners or 'undecorated-round' for rounded
 (add-to-list 'default-frame-alist '(undecorated-round . t))
 
+;; Suppress native-comp warnings from popping up
+(setq native-comp-async-report-warnings-errors 'silent)
+(setq native-comp-warning-on-missing-source nil)
+
 ;; Performance optimizations
 (setq gc-cons-threshold most-positive-fixnum)
 (setq gc-cons-percentage 0.6)
