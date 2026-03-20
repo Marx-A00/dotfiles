@@ -49,3 +49,4 @@ node_modules/
 .taskmaster/
 
 .mcp.json
+/emacs/.emacs.d/bm-repository
