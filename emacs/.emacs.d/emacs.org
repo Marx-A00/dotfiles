@@ -222,13 +222,30 @@
   	(custom-set-faces
   	 '(org-level-3 ((t (:foreground "#67c0de"))))))
 
-      (use-package org-superstar
+      ;; DISABLED — org-modern replaces org-superstar for Mdox reader
+      ;; (use-package org-superstar
+      ;; 	:ensure t
+      ;; 	:hook (org-mode . org-superstar-mode)
+      ;; 	:config
+      ;; 	(setq org-superstar-headline-bullets-list
+      ;; 	      '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
+      ;; 	(setq org-ellipsis " ‧"))
+
+      ;; Pretty org rendering for Mdox reader
+      (use-package org-modern
   	:ensure t
-  	:hook (org-mode . org-superstar-mode)
-  	:config
-  	(setq org-superstar-headline-bullets-list
-  	      '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
-  	(setq org-ellipsis " ‧"))
+  	:defer t
+  	:custom
+  	(org-modern-hide-stars nil)
+  	(org-modern-table nil))
+
+      ;; Distraction-free centered reading for Mdox reader
+      (use-package olivetti
+  	:ensure t
+  	:defer t
+  	:custom
+  	(olivetti-body-width 80)
+  	(olivetti-minimum-body-width 72))
 
 
       ;; org agenda
@@ -635,6 +652,87 @@
     org-roam-ui-update-on-save t
     org-roam-ui-open-on-start t))
 #+end_src
+*** Mdox Cheatsheet
+#+begin_src emacs-lisp
+  ;;; ============================================
+  ;;; Mdox Cheatsheet System
+  ;;; ============================================
+
+  (define-minor-mode mr-x/mdox-reader-mode
+    "Clean, distraction-free reading mode for Mdox documentation."
+    :lighter " Mdox"
+    (if mr-x/mdox-reader-mode
+        (progn
+          (read-only-mode 1)
+          (org-modern-mode 1)
+          (olivetti-mode 1)
+          (setq-local olivetti-body-width 80)
+          (display-line-numbers-mode -1)
+          (visual-line-mode 1)
+          (setq-local org-hide-emphasis-markers t)
+          (setq-local header-line-format
+                      (propertize " Mdox  [q] quit  [n/p] navigate  [/] search  [TAB] fold"
+                                  'face 'font-lock-comment-face))
+          ;; Evil keybindings — buffer-local so they override org-mode's
+          (when (bound-and-true-p evil-mode)
+            (evil-normal-state)
+            (evil-local-set-key 'normal (kbd "q") #'quit-window)
+            (evil-local-set-key 'normal (kbd "n") #'org-next-visible-heading)
+            (evil-local-set-key 'normal (kbd "p") #'org-previous-visible-heading)
+            (evil-local-set-key 'normal (kbd "/") #'swiper)
+            (evil-local-set-key 'normal (kbd "TAB") #'org-cycle)))
+      ;; Teardown
+      (read-only-mode -1)
+      (org-modern-mode -1)
+      (olivetti-mode -1)
+      (setq-local header-line-format nil)))
+
+  (defun mr-x/mdox-view (id)
+    "Open an org-roam node by ID in a pretty popper popup."
+    (interactive)
+    (let* ((node (org-roam-node-from-id id))
+           (file (org-roam-node-file node))
+           (buf (find-file-noselect file)))
+      (with-current-buffer buf
+        (goto-char (point-min))
+        (mr-x/mdox-reader-mode 1))
+      (select-window
+       (display-buffer buf
+                       '((display-buffer-in-side-window)
+                         (side . bottom)
+                         (window-height . 0.45))))))
+
+  (defun mr-x/mdox-search ()
+    "Fuzzy search all Mdox nodes via org-roam-node-find."
+    (interactive)
+    (let ((org-roam-node-display-template
+           "${title:60} ${tags:20}"))
+      (org-roam-node-find nil "mdox")))
+
+  (defvar mr-x/shortcuts-file
+    "~/roaming/notes/applications/emacs/keybindings-shortcuts-and-descriptions.org"
+    "Path to the keybindings shortcuts file.")
+
+  (defun mr-x/view-shortcuts ()
+    "Open the shortcuts file in a pretty popper popup."
+    (interactive)
+    (let ((buf (find-file-noselect mr-x/shortcuts-file)))
+      (with-current-buffer buf
+        (goto-char (point-min))
+        (mr-x/mdox-reader-mode 1))
+      (select-window
+       (display-buffer buf
+                       '((display-buffer-in-side-window)
+                         (side . bottom)
+                         (window-height . 0.45))))))
+
+  (defun mr-x/search-shortcuts ()
+    "Open shortcuts file and immediately search with swiper."
+    (interactive)
+    (find-file mr-x/shortcuts-file)
+    (mr-x/mdox-reader-mode 1)
+    (swiper))
+#+end_src
 ** Built-in Overrides
 #+begin_src emacs-lisp
 
@@ -644,6 +742,40 @@
   :init
   ;; Remove built-in transient from load-path to force using the newer version
   (setq load-path (delete (expand-file-name "transient" (locate-library "transient")) load-path)))
+
+(with-eval-after-load 'transient
+  (transient-define-prefix mr-x/cheatsheet ()
+    "Mr-X Cheatsheet — Mdox & shortcuts launcher."
+    [["Emacs"
+      ("e" "Emacs" (lambda () (interactive) (mr-x/mdox-view "60696404-C620-4C10-9B1D-6DA0A4B19514")))
+      ("E" "Evil Mode" (lambda () (interactive) (mr-x/mdox-view "2EFEE7F2-9EBE-4588-944E-5E3465477B79")))
+      ("o" "Org Agenda" (lambda () (interactive) (mr-x/mdox-view "A6851501-B979-4F4C-9D52-142FCCC8C587")))
+      ("p" "Projectile" (lambda () (interactive) (mr-x/mdox-view "C58D019A-3C9F-463C-BAD0-2A77328C5B40")))
+      ("l" "Emacs Lisp" (lambda () (interactive) (mr-x/mdox-view "2FB11BB4-5AF7-4200-8D83-0053368BB891")))]
+     ["Dev"
+      ("j" "Javascript" (lambda () (interactive) (mr-x/mdox-view "067AD924-848B-44B0-B909-5A35D8598E42")))
+      ("r" "ReactJS" (lambda () (interactive) (mr-x/mdox-view "247FB555-C20C-4CCB-A42A-F137630A51C1")))
+      ("c" "CSS" (lambda () (interactive) (mr-x/mdox-view "C6B93280-2829-4946-AA81-72223332450B")))
+      ("P" "Python" (lambda () (interactive) (mr-x/mdox-view "32E94F61-0E46-45C5-AFAD-1EB96534C457")))
+      ("C" "CLI & Shell" (lambda () (interactive) (mr-x/mdox-view "EAADE325-69B0-4884-B9DB-0E437316B490")))]
+     ["Tools"
+      ("y" "Yabai" (lambda () (interactive) (mr-x/mdox-view "D5C1411B-FEEB-402E-92A1-98B58F82AF2F")))
+      ("s" "SKHD" (lambda () (interactive) (mr-x/mdox-view "1DB63C28-7F86-42E0-9E60-12D0F370B184")))
+      ("k" "Sketchybar" (lambda () (interactive) (mr-x/mdox-view "9470C0E0-458B-48AC-9830-12DC5B6EE0D5")))
+      ("d" "Docker" (lambda () (interactive) (mr-x/mdox-view "74250C33-EA8C-49E4-B5AC-B2BE2A062D52")))
+      ("b" "Blender" (lambda () (interactive) (mr-x/mdox-view "3BBEC094-A3C9-4F58-9EE6-FC53D56D1987")))
+      ("a" "Ableton" (lambda () (interactive) (mr-x/mdox-view "3C319C1A-E64C-4630-A525-4528E734AFBB")))]
+     ["Architecture"
+      ("A" "Software Arch" (lambda () (interactive) (mr-x/mdox-view "0DA3C504-2CDA-470B-B05C-280FAF6C22E7")))
+      ("D" "DTO Pattern" (lambda () (interactive) (mr-x/mdox-view "8378BB8C-6F0F-43B8-9ACC-95E3B9CB780A")))
+      ("R" "Repository" (lambda () (interactive) (mr-x/mdox-view "41D87ADB-DB16-46EB-9636-CAD3B28A1C20")))
+      ("S" "Service Layer" (lambda () (interactive) (mr-x/mdox-view "6A588C06-3672-4C06-AD65-529B0A800E70")))
+      ("F" "Entity Framework" (lambda () (interactive) (mr-x/mdox-view "C38E08C6-A169-41E0-9F38-BC5670227851")))]
+     ["Search & Quick Access"
+      ("/" "Search all Mdox" mr-x/mdox-search)
+      ("?" "Full shortcuts file" mr-x/view-shortcuts)
+      ("." "Search in shortcuts" mr-x/search-shortcuts)
+      ("M" "Mdox index" (lambda () (interactive) (mr-x/mdox-view "A934531C-9903-4C97-A8D6-B47647B273B3")))]]))
 
 #+end_src
 
@@ -1131,7 +1263,10 @@
             compilation-mode
             vterm-mode
             "\\*xref\\*"
-            xref--xref-buffer-mode))
+            xref--xref-buffer-mode
+            ;; Mdox viewer buffers
+            ".*--[Mm]dox.*"
+            ".*shortcuts.*\\.org$"))
     :config
     (setq popper-display-control t)
     (setq popper-display-function #'popper-select-popup-at-bottom)
@@ -1369,7 +1504,8 @@ TASK-ID is the ID shown when Claude runs a background command."
         (balance-windows))
 
       (mr-x/leader-def
-        "t" '(mr-x/sandbox-test-env :wk "Test environment"))
+        "t" '(mr-x/sandbox-test-env :wk "Test environment")
+        "?" '(mr-x/cheatsheet :wk "Cheatsheet"))
 
       ;; LSP commands under SPC ;
       (mr-x/leader-def
