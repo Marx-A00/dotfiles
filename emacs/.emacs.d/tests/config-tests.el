@@ -149,7 +149,7 @@
   "Critical agent-shell custom functions should be defined."
   (should (fboundp 'mr-x/agent-shell-toggle))
   (should (fboundp 'mr-x/agent-shell-new-smart))
-  (should (fboundp 'mr-x/agent-shell-send-clipboard))
+  (should (fboundp 'mr-x/agent-shell-roaming))
   (should (fboundp 'mr-x/focus-ai-window)))
 
 (ert-deftest config-test-mr-x-dev-functions ()
