@@ -1372,9 +1372,16 @@
           ;; Not in agent-shell: use normal display rules
           (agent-shell-new-shell)))
 
+      (defun mr-x/agent-shell-roaming ()
+        "Start a new agent shell in ~/roaming/claude."
+        (interactive)
+        (let ((default-directory "/Users/marcosandrade/roaming/claude/"))
+          (agent-shell-new-shell)))
+
       (mr-x/leader-def
         "c" '(:ignore t :wk "Agent Shell")
         "c c" '(agent-shell :wk "Start Agent Shell")
+        "c C" '(mr-x/agent-shell-roaming :wk "Claude (roaming)")
         "c n" '(mr-x/agent-shell-new-smart :wk "New shell")
         "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
         "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
@@ -1389,10 +1396,9 @@
         "c , t n" '(mr-x/taskmaster-next-task :wk "Next task")
         "c , t s" '(mr-x/taskmaster-summary :wk "Summary")
         "c , t a" '(mr-x/taskmaster-add-task :wk "Add task")
-        "c p" '(mr-x/agent-shell-send-clipboard :wk "Paste (smart)")
+        "c p" '(agent-shell-yank-dwim :wk "Paste (smart)")
         "c r" '(mr-x/agent-shell-send-region-no-switch :wk "Send region (stay)")
         "c R" '(agent-shell-send-region :wk "Send region (go)")
-        "c y" '(mr-x/agent-shell-send-clipboard :wk "Yank (smart)")
         "c f" '(agent-shell-send-file :wk "Send file")
         "c F" '(agent-shell-send-other-file :wk "Send other file")
         "c d" '(agent-shell-send-dwim :wk "Send DWIM (region/error)")
@@ -2626,32 +2632,29 @@ Creates a frame named 'Dev: rec' with:
       
       (advice-add 'markdown-overlays--fontify-source-block :after #'mr-x/agent-shell-style-code-block-header)
 
-      ;; Fix: Override indent-text to preserve text properties (for diff highlighting)
-      ;; The original function uses split-string/mapconcat which strips properties
-      (with-eval-after-load 'agent-shell-ui
-        (defun agent-shell-ui--indent-text (text &optional indent-string)
-          "Indent TEXT preserving text properties.
-  Adds INDENT-STRING to the beginning of each non-empty line.
-  INDENT-STRING defaults to two spaces."
-          (when text
-            (let ((indent (or indent-string "  "))
-                  (result (copy-sequence text))
-                  (offset 0))
-              ;; Insert indent at the beginning if non-empty
-              (unless (string-empty-p result)
-                (setq result (concat indent result))
-                (setq offset (length indent)))
-              ;; Find each newline and insert indent after it (if not followed by newline/end)
-              (let ((pos 0))
-                (while (setq pos (string-match "\n" result pos))
-                  (setq pos (1+ pos))
-                  (when (and (< pos (length result))
-                             (not (eq (aref result pos) ?\n)))
-                    (setq result (concat (substring result 0 pos)
-                                         indent
-                                         (substring result pos)))
-                    (setq pos (+ pos (length indent))))))
-              result))))
+      ;; DISABLED: Testing upstream indent-text (v0.42.1 uses display properties
+      ;; instead of manual text insertion — better for copy/paste behavior).
+      ;; Re-enable if upstream breaks syntax-highlighted code block formatting.
+      ;; (with-eval-after-load 'agent-shell-ui
+      ;;   (defun agent-shell-ui--indent-text (text &optional indent-string)
+      ;;     "Indent TEXT preserving text properties."
+      ;;     (when text
+      ;;       (let ((indent (or indent-string "  "))
+      ;;             (result (copy-sequence text))
+      ;;             (offset 0))
+      ;;         (unless (string-empty-p result)
+      ;;           (setq result (concat indent result))
+      ;;           (setq offset (length indent)))
+      ;;         (let ((pos 0))
+      ;;           (while (setq pos (string-match "\n" result pos))
+      ;;             (setq pos (1+ pos))
+      ;;             (when (and (< pos (length result))
+      ;;                        (not (eq (aref result pos) ?\n)))
+      ;;               (setq result (concat (substring result 0 pos)
+      ;;                                    indent
+      ;;                                    (substring result pos)))
+      ;;               (setq pos (+ pos (length indent))))))
+      ;;         result))))
 
       ;; Custom icons
       (setq agent-shell-permission-icon "\uf259")
@@ -2660,51 +2663,48 @@ Creates a frame named 'Dev: rec' with:
       ;; Fix keybindings in agent-shell diff view (evil-mode conflicts)
       ;; The diff view uses buttons - we need to make sure evil doesn't intercept keys
       (defun mr-x/agent-shell-diff-mode-setup ()
-        "Setup keybindings for agent-shell diff buffers."
+        "Setup keybindings for agent-shell diff buffers.
+  Uses evil normal state for full vim navigation (j/k/C-d/C-u/visual mode)
+  with diff actions bound as evil local keys."
         (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name))
-          ;; Use emacs state so all the button keys (y/n/a/p) work properly
-          (evil-emacs-state)
-          ;; Also set up keys in normal mode as backup
-          (evil-local-set-key 'normal (kbd "C-n") #'diff-hunk-next)
-          (evil-local-set-key 'normal (kbd "C-p") #'diff-hunk-prev)
-          (evil-local-set-key 'normal (kbd "j") #'diff-hunk-next)
-          (evil-local-set-key 'normal (kbd "k") #'diff-hunk-prev)
-          (evil-local-set-key 'normal (kbd "q") #'kill-current-buffer)
-          (evil-local-set-key 'normal (kbd "RET") #'push-button)
-          (evil-local-set-key 'normal (kbd "TAB") #'forward-button)
-          (evil-local-set-key 'normal (kbd "<backtab>") #'backward-button)))
+          (evil-normal-state)
+          ;; Diff navigation and actions in normal state
+          (evil-local-set-key 'normal (kbd "n") #'diff-hunk-next)
+          (evil-local-set-key 'normal (kbd "p") #'diff-hunk-prev)
+          (evil-local-set-key 'normal (kbd "q") #'kill-current-buffer)))
       (add-hook 'diff-mode-hook #'mr-x/agent-shell-diff-mode-setup)
 
       (defun mr-x/agent-shell-send-region-no-switch ()
         "Send region to agent-shell without switching windows."
         (interactive)
-        (agent-shell-insert
-         :text (agent-shell--get-processed-region :deactivate t :no-error t)
-         :no-focus t))
+        (let ((shell-buffer (agent-shell--shell-buffer)))
+          (agent-shell-insert
+           :text (agent-shell--get-region-context
+                  :deactivate t
+                  :agent-cwd (with-current-buffer shell-buffer
+                               (agent-shell-cwd)))
+           :shell-buffer shell-buffer
+           :no-focus t)))
 
-      (defun mr-x/agent-shell-send-clipboard ()
-        "Send clipboard contents to agent-shell (text or image).
-  If the clipboard contains an image, saves it to
-  .agent-shell/screenshots/ and inserts it with a thumbnail preview.
-  Otherwise, inserts the clipboard text.
-  Requires `pngpaste' for image support (brew install pngpaste)."
-        (interactive)
-        (let* ((screenshots-dir (expand-file-name ".agent-shell/screenshots"
-                                                  (agent-shell-cwd)))
-               (screenshot-path (expand-file-name
-                                 (format-time-string "clipboard-%Y%m%d-%H%M%S.png")
-                                 screenshots-dir)))
-          (make-directory screenshots-dir t)
-          (if (and (executable-find "pngpaste")
-                   (zerop (call-process "pngpaste" nil nil nil screenshot-path)))
-              ;; Clipboard has an image — insert via agent-shell's file pipeline
-              (agent-shell-insert
-               :text (agent-shell--processed-files :files (list screenshot-path)))
-            ;; No image — fall back to text clipboard
-            (let ((clipboard (gui-get-selection 'CLIPBOARD)))
-              (if (and clipboard (not (string-empty-p clipboard)))
-                  (agent-shell-insert :text clipboard)
-                (user-error "Clipboard is empty (no image or text)"))))))
+      ;; DEPRECATED: Replaced by upstream agent-shell-yank-dwim in v0.42.1
+      ;; Kept as reference — remove once upstream is confirmed working
+      ;; (defun mr-x/agent-shell-send-clipboard ()
+      ;;   "Send clipboard contents to agent-shell (text or image)."
+      ;;   (interactive)
+      ;;   (let* ((screenshots-dir (expand-file-name ".agent-shell/screenshots"
+      ;;                                             (agent-shell-cwd)))
+      ;;          (screenshot-path (expand-file-name
+      ;;                            (format-time-string "clipboard-%Y%m%d-%H%M%S.png")
+      ;;                            screenshots-dir)))
+      ;;     (make-directory screenshots-dir t)
+      ;;     (if (and (executable-find "pngpaste")
+      ;;              (zerop (call-process "pngpaste" nil nil nil screenshot-path)))
+      ;;         (agent-shell-insert
+      ;;          :text (agent-shell--processed-files :files (list screenshot-path)))
+      ;;       (let ((clipboard (gui-get-selection 'CLIPBOARD)))
+      ;;         (if (and clipboard (not (string-empty-p clipboard)))
+      ;;             (agent-shell-insert :text clipboard)
+      ;;           (user-error "Clipboard is empty (no image or text)"))))))
 
       (defun mr-x/agent-shell-toggle ()
         "Toggle agent shell display (fixed to find project shells)."
@@ -2861,93 +2861,63 @@ Creates a frame named 'Dev: rec' with:
                             (window-height . 0.3)))))
 
       ;; ============================================
-      ;; Custom Permission System (no buttons needed)
+      ;; Custom Permission System (v0.42.1+ hook-based)
+      ;; Uses agent-shell-permission-responder-function to stash
+      ;; the respond callback, then SPC c 1/2/3 calls it directly.
+      ;; No button interaction needed.
       ;; ============================================
-      
+
+      (defvar mr-x/pending-permission nil
+        "Most recent pending permission.
+  Plist with :respond (callback function) and :options (list of actions).")
+
+      ;; Legacy variable — referenced by diff view, context-sensitive keys, etc.
       (defvar mr-x/pending-permissions nil
-        "Alist of pending permission requests.
-  Each entry is (TOOL-CALL-ID . PLIST) where PLIST contains:
-    :request    - The full ACP request object
-    :client     - The ACP client
-    :state      - The agent-shell session state  
-    :options    - The permission options from ACP
-    :buffer     - The agent-shell buffer")
+        "Compat shim: list of (TOOL-CALL-ID . plist) for downstream code.")
 
-      (defun mr-x/agent-shell-permission-handler (orig-fn &rest args)
-        "Advice around `agent-shell--on-request' to intercept permissions."
-        (let* ((state (cadr (member :state args)))
-               (request (cadr (member :request args))))
-          (let-alist request
-            (if (equal .method "session/request_permission")
-                (let ((tool-call-id .params.toolCall.toolCallId)
-                      (tool-title .params.toolCall.title)
-                      (tool-input .params.toolCall.input)
-                      (buffer (map-elt state :buffer)))
-                  ;; Log Bash commands to watcher (title starts with "Bash")
-                  (when (and tool-title (string-prefix-p "Bash" tool-title))
-                    (mr-x/bash-watcher-log 'command 
-                      (or (alist-get 'command tool-input) 
-                          (format "%s" tool-input))))
-                  
-                  ;; Store the full context BEFORE calling original
-                  (push (cons tool-call-id
-                              (list :request request
-                                    :client (map-elt state :client)
-                                    :state state
-                                    :options .params.options
-                                    :buffer buffer))
-                        mr-x/pending-permissions)
-                  
-                  ;; Let original handle the UI/state management
-                  (apply orig-fn args)
-                  
-                  ;; Notify user after original is done
-                  (message "Permission needed: %s [SPC c 1=allow 2=deny 3=always]" 
-                           .params.toolCall.title))
-              
-              ;; All other requests pass through normally
-              (apply orig-fn args)))))
-
-      (advice-add 'agent-shell--on-request :around #'mr-x/agent-shell-permission-handler)
+      (setq agent-shell-permission-responder-function
+            (lambda (permission)
+              ;; Stash the respond function and options for SPC c 1/2/3
+              (setq mr-x/pending-permission
+                    (list :respond (map-elt permission :respond)
+                          :options (map-elt permission :options)
+                          :tool-call (map-elt permission :tool-call)))
+              ;; Populate legacy variable for diff view / context keys
+              (let* ((tool-call (map-elt permission :tool-call))
+                     (has-diff (map-elt tool-call :diff))
+                     (shell-buf (or (and (derived-mode-p 'agent-shell-mode) (current-buffer))
+                                    (seq-first (agent-shell-project-buffers)))))
+                (setq mr-x/pending-permissions
+                      (list (cons (map-elt tool-call :tool-call-id)
+                                  (list :buffer shell-buf
+                                        :state nil
+                                        :request nil))))
+                (message "Permission: %s [1=allow 2=deny 3=always%s]"
+                         (map-elt tool-call :title)
+                         (if has-diff " 0=view" "")))
+              ;; Return nil so the button UI still renders as fallback
+              nil))
 
       (defun mr-x/respond-to-permission (kind)
-        "Respond to the most recent pending permission with KIND.
+        "Respond to the pending permission with KIND.
   KIND should be \"allow_once\", \"reject_once\", or \"allow_always\"."
-        (let* ((entry (car mr-x/pending-permissions))
-               (tool-call-id (car entry))
-               (data (cdr entry))
-               (request (plist-get data :request))
-               (client (plist-get data :client))
-               (state (plist-get data :state))
-               (options (plist-get data :options)))
-          (if-let* ((option (seq-find (lambda (o) 
-                                       (string= (alist-get 'kind o) kind)) 
-                                     options))
-                    (option-id (alist-get 'optionId option)))
-              (progn
-                ;; Send the response
-                (agent-shell--send-permission-response
-                 :client client
-                 :request-id (alist-get 'id request)
-                 :option-id option-id
-                 :state state
-                 :tool-call-id tool-call-id)
-                
-                ;; Remove from pending list
-                (setq mr-x/pending-permissions (cdr mr-x/pending-permissions))
-                
-                ;; Handle reject specially (interrupt agent)
-                (when (string= kind "reject_once")
-                  (with-current-buffer (plist-get data :buffer)
-                    (agent-shell-interrupt t)))
-                
-                (message "Permission %s" 
-                         (pcase kind
-                           ("allow_once" "allowed")
-                           ("reject_once" "denied")
-                           ("allow_always" "always allowed"))))
-            
-            (message "No pending permission requests"))))
+        (unless mr-x/pending-permission
+          (user-error "No pending permission request"))
+        (let* ((respond-fn (plist-get mr-x/pending-permission :respond))
+               (options (plist-get mr-x/pending-permission :options))
+               (option (seq-find (lambda (o) (equal (map-elt o :kind) kind))
+                                 options))
+               (option-id (map-elt option :option-id)))
+          (unless option
+            (user-error "No '%s' option available" kind))
+          (funcall respond-fn option-id)
+          (setq mr-x/pending-permission nil)
+          (setq mr-x/pending-permissions nil)
+          (message "Permission %s"
+                   (pcase kind
+                     ("allow_once" "allowed")
+                     ("reject_once" "denied")
+                     ("allow_always" "always allowed")))))
 
       (defun mr-x/agent-shell-allow ()
         "Allow the current permission request."
@@ -2999,16 +2969,15 @@ Creates a frame named 'Dev: rec' with:
       (defun mr-x/agent-shell-view-diff ()
         "View the diff for the current pending permission with syntax highlighting."
         (interactive)
-        (if-let* ((entry (car mr-x/pending-permissions))
-                  (tool-call-id (car entry))
-                  (data (cdr entry))
-                  (state (plist-get data :state))
-                  (diff (map-nested-elt state `(:tool-calls ,tool-call-id :diff))))
+        (if-let* ((pending mr-x/pending-permission)
+                  (tool-call (plist-get pending :tool-call))
+                  (diff (map-elt tool-call :diff)))
             (let* ((filename (map-elt diff :file))
                    (mode-fn (assoc-default filename auto-mode-alist 'string-match)))
               (agent-shell-diff
                :old (map-elt diff :old)
                :new (map-elt diff :new)
+               :file filename
                :title (file-name-nondirectory filename))
               ;; Apply language-specific syntax highlighting to diff content
               (with-current-buffer "*agent-shell-diff*"
@@ -3138,6 +3107,7 @@ Creates a frame named 'Dev: rec' with:
       ;; Custom prompt config
       (setq agent-shell-preferred-agent-config
             (agent-shell-make-agent-config
+             :identifier 'claude-code
              :mode-line-name "Claude"
              :buffer-name "Claude"
              :shell-prompt "λ "
@@ -3200,11 +3170,12 @@ Creates a frame named 'Dev: rec' with:
         "Current filename being diffed, for delta syntax detection.")
 
       ;; Use delta instead of plain diff, with proper file extension for syntax
-      (defun my/agent-shell-diff-with-delta (old new)
-        "Create diff with delta - returns raw output with ANSI codes."
-        (let* ((ext (if my/agent-shell-diff-filename
-                        (file-name-extension my/agent-shell-diff-filename)
-                      nil))
+      (defun my/agent-shell-diff-with-delta-insert (old new file _buf)
+        "Insert delta-formatted diff of OLD and NEW into current buffer.
+  FILE is used for syntax detection. _BUF is ignored (we insert at point)."
+        (let* ((ext (or (and file (file-name-extension file))
+                        (and my/agent-shell-diff-filename
+                             (file-name-extension my/agent-shell-diff-filename))))
                (suffix (if ext (concat "." ext) ""))
                (old-file (make-temp-file "old" nil suffix))
                (new-file (make-temp-file "new" nil suffix)))
@@ -3212,14 +3183,12 @@ Creates a frame named 'Dev: rec' with:
               (progn
                 (with-temp-file old-file (insert old))
                 (with-temp-file new-file (insert new))
-                (with-temp-buffer
-                  (let ((process-environment (cons "FORCE_COLOR=1" process-environment)))
-                    (call-process "delta" nil t nil
-                                  "--syntax-theme" "gruvbox-dark"
-                                  "--paging" "never"
-                                  "--color-only"
-                                  old-file new-file))
-                  (buffer-string)))
+                (let ((process-environment (cons "FORCE_COLOR=1" process-environment)))
+                  (call-process "delta" nil t nil
+                                "--syntax-theme" "gruvbox-dark"
+                                "--paging" "never"
+                                "--color-only"
+                                old-file new-file)))
             (delete-file old-file)
             (delete-file new-file))))
 
@@ -3228,16 +3197,17 @@ Creates a frame named 'Dev: rec' with:
         "Run agent-shell-diff then apply ANSI colors to the result buffer."
         ;; Extract filename from :title arg
         (let ((my/agent-shell-diff-filename (plist-get args :title)))
-          ;; Replace diff-mode with a minimal version that doesn't clobber colors
-          ;; but runs the hook so evil-emacs-state and other setup happens
-          (cl-letf (((symbol-function 'diff-mode)
+          ;; Replace agent-shell-diff-mode with a minimal version that doesn't
+          ;; clobber delta colors but runs the hook for evil setup
+          (cl-letf (((symbol-function 'agent-shell-diff-mode)
                      (lambda ()
                        (kill-all-local-variables)
-                       (setq major-mode 'diff-mode)
-                       (setq mode-name "Diff")
+                       (setq major-mode 'agent-shell-diff-mode)
+                       (setq mode-name "Agent-Diff")
                        ;; Don't run font-lock (preserves delta colors)
                        (setq font-lock-defaults nil)
-                       ;; Run the hook so mr-x/agent-shell-diff-mode-setup fires
+                       (setq buffer-read-only t)
+                       ;; Run diff-mode-hook so mr-x/agent-shell-diff-mode-setup fires
                        (run-mode-hooks 'diff-mode-hook))))
             (apply orig-fun args)))
         ;; Now find the diff buffer and apply colors
@@ -3246,7 +3216,7 @@ Creates a frame named 'Dev: rec' with:
             (let ((inhibit-read-only t))
               (ansi-color-apply-on-region (point-min) (point-max))))))
 
-      (advice-add 'agent-shell-diff--make-diff :override #'my/agent-shell-diff-with-delta)
+      (advice-add 'agent-shell-diff--insert-diff :override #'my/agent-shell-diff-with-delta-insert)
       (advice-add 'agent-shell-diff :around #'my/agent-shell-diff-apply-ansi))
 
 
@@ -3362,7 +3332,7 @@ Creates a frame named 'Dev: rec' with:
 
       (defun mr-x/agent-shell--make-tool-call-permission-text (&rest args)
         "Minimal vertical permission UI override with multiple styles."
-        (let* ((request (plist-get args :request))
+        (let* ((request (plist-get args :acp-request))
                (state (plist-get args :state))
                (tool-call-id (map-nested-elt request '(params toolCall toolCallId)))
                (tool-title (map-nested-elt request '(params toolCall title)))
