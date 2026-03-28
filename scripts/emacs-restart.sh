@@ -2,6 +2,7 @@
 # Restart Emacs daemon and open a new client frame
 
 EMACSCLIENT="/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"
+PLIST=~/Library/LaunchAgents/com.marcosandrade.emacsdaemon.plist
 
 echo "Checking for non-empty scratch buffers..."
 
@@ -24,25 +25,29 @@ $EMACSCLIENT -e '(progn
   t)' 2>/dev/null
 
 echo "Stopping Emacs daemon..."
-$EMACSCLIENT -e '(kill-emacs)' 2>/dev/null || {
-    echo "Graceful shutdown failed, force killing..."
-    launchctl unload ~/Library/LaunchAgents/com.marcosandrade.emacsdaemon.plist 2>/dev/null
-    pkill -f "emacs.*daemon" 2>/dev/null
-}
-sleep 1
+$EMACSCLIENT -e '(kill-emacs)' 2>/dev/null || pkill -f "emacs.*daemon" 2>/dev/null
 
-echo "Starting Emacs daemon..."
-launchctl load ~/Library/LaunchAgents/com.marcosandrade.emacsdaemon.plist
+# kill-emacs exits 0, and KeepAlive/SuccessfulExit=false only restarts
+# on non-zero exit — so launchd won't auto-restart. We must unload/load.
+echo "Restarting via launchd..."
+launchctl unload "$PLIST" 2>/dev/null
+sleep 1
+launchctl load "$PLIST"
 
 echo "Waiting for daemon..."
-EMACSCLIENT="/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"
 MAX_ATTEMPTS=30
 ATTEMPT=0
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     if $EMACSCLIENT -e '(+ 1 1)' &>/dev/null; then
-        echo "Daemon ready. Opening frame..."
-        $EMACSCLIENT -c -n
+        echo "Daemon ready."
+        # Only open a frame if emacs-daemon-start.sh hasn't already
+        if ! $EMACSCLIENT -e '(> (length (frame-list)) 1)' 2>/dev/null | grep -q t; then
+            echo "Opening frame..."
+            $EMACSCLIENT -c -n
+        else
+            echo "Frame already open."
+        fi
         exit 0
     fi
     sleep 1
