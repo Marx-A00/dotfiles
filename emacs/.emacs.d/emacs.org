@@ -1547,7 +1547,8 @@ TASK-ID is the ID shown when Claude runs a background command."
 
       (mr-x/leader-def
         "t" '(mr-x/sandbox-test-env :wk "Test environment")
-        "?" '(mr-x/cheatsheet :wk "Cheatsheet"))
+        "?" '(mr-x/cheatsheet :wk "Cheatsheet")
+        "q" '(mr-x/gptel-ask :wk "Quick question (AI)"))
 
       ;; LSP commands under SPC ;
       (mr-x/leader-def
@@ -3489,8 +3490,6 @@ Creates a frame named 'Dev: rec' with:
 
 
     ;;; GPTel - Quick AI queries without launching a full agent
-    ;; Posframe for popup display (used by gptel-quick)
-    (use-package posframe :ensure t)
 
     (use-package gptel
       :ensure t
@@ -3502,7 +3501,6 @@ Creates a frame named 'Dev: rec' with:
                             :models '(llama3.2)))
       (setq gptel-model 'llama3.2))
 
-
     ;; GPTel-Quick - Instant word/region lookup in popup or echo area
     (use-package gptel-quick
       :ensure (:host github :repo "karthink/gptel-quick")
@@ -3511,45 +3509,291 @@ Creates a frame named 'Dev: rec' with:
       (setq gptel-quick-timeout 15)
       (setq gptel-quick-word-count 50))
 
-    ;; Quick ask - type a question, get answer in popup
-    (defvar mr-x/gptel-ask-history nil)
+    ;; Ensure Ollama is running before making requests
+    (defun mr-x/ensure-ollama ()
+      "Start Ollama if it's not already running. Returns t when ready."
+      (unless (ignore-errors
+                (let ((proc (open-network-stream "ollama-check" nil "localhost" 11434)))
+                  (delete-process proc)
+                  t))
+        (message "Starting Ollama...")
+        (start-process "ollama" nil "ollama" "serve")
+        (sleep-for 2)
+        (unless (ignore-errors
+                  (let ((proc (open-network-stream "ollama-check" nil "localhost" 11434)))
+                    (delete-process proc)
+                    t))
+          (user-error "Ollama failed to start")))
+      t)
 
-    (defun mr-x/gptel-ask (question)
-      "Ask a quick question, get answer in a posframe popup."
-      (interactive
-       (list (read-string "Ask: " nil 'mr-x/gptel-ask-history)))
-      (when (string-empty-p question)
-        (user-error "No question provided"))
-      (message "Thinking...")
-      (gptel-request question
-        :callback
-        (lambda (response info)
-          (if (not response)
-              (message "Request failed: %s" (plist-get info :status))
-            (if (require 'posframe nil t)
-                (progn
-                  (with-current-buffer (get-buffer-create "*gptel-ask*")
-                    (let ((inhibit-read-only t))
-                      (erase-buffer)
-                      (insert response)
-                      (goto-char (point-min))))
-                  (posframe-show "*gptel-ask*"
-                                 :string response
-                                 :poshandler #'posframe-poshandler-frame-center
-                                 :background-color (face-attribute 'tooltip :background nil t)
-                                 :foreground-color (face-attribute 'tooltip :foreground nil t)
-                                 :border-width 1
-                                 :border-color (face-attribute 'border :background nil t)
-                                 :left-fringe 8
-                                 :right-fringe 8
-                                 :max-width 80
-                                 :max-height 20
-                                 :timeout 30)
-                  (message "Press any key to dismiss")
-                  (read-key)
-                  (posframe-hide "*gptel-ask*"))
-              ;; Fallback to message if no posframe
-              (message "%s" response))))))
+    ;;; Quick Ask - bottom popup UI (ask-user-popup style)
+
+    (defvar-local mr-x/gptel-ask--input-start nil
+      "Marker for start of editable text region.")
+    (defvar-local mr-x/gptel-ask--input-end nil
+      "Marker for end of editable text region.")
+    (defvar-local mr-x/gptel-ask--phase 'input
+      "Current phase: input or response.")
+    (defvar-local mr-x/gptel-ask--field-overlay nil
+      "Overlay for the text input field.")
+    (defvar-local mr-x/gptel-ask--question nil
+      "The question that was asked (saved for piping).")
+    (defvar-local mr-x/gptel-ask--response nil
+      "The raw response text (saved for piping).")
+
+    ;; Input phase keymap (sparse — unbound keys self-insert via global-map)
+    (defvar mr-x/gptel-ask-input-map
+      (let ((map (make-sparse-keymap)))
+        (define-key map (kbd "RET") #'mr-x/gptel-ask--submit)
+        (define-key map (kbd "<return>") #'mr-x/gptel-ask--submit)
+        (define-key map (kbd "C-c C-c") #'mr-x/gptel-ask--submit)
+        (define-key map (kbd "C-j") #'newline)
+        (define-key map (kbd "S-RET") #'newline)
+        (define-key map (kbd "S-<return>") #'newline)
+        (define-key map (kbd "C-g") #'mr-x/gptel-ask--cancel)
+        map)
+      "Keymap for the text input field. RET submits, C-j for newlines.")
+
+    ;; Response phase keymap
+    (defvar mr-x/gptel-ask-response-map
+      (let ((map (make-keymap)))
+        (suppress-keymap map t)
+        (define-key map (kbd "q") #'mr-x/gptel-ask--dismiss)
+        (define-key map (kbd "RET") #'mr-x/gptel-ask--dismiss)
+        (define-key map (kbd "<return>") #'mr-x/gptel-ask--dismiss)
+        (define-key map (kbd "<escape>") #'mr-x/gptel-ask--dismiss)
+        (define-key map (kbd "C-g") #'mr-x/gptel-ask--dismiss)
+        (define-key map (kbd "j") #'next-line)
+        (define-key map (kbd "k") #'previous-line)
+        (define-key map (kbd "G") #'end-of-buffer)
+        (define-key map (kbd "gg") #'beginning-of-buffer)
+        (define-key map (kbd "C-n") #'next-line)
+        (define-key map (kbd "C-p") #'previous-line)
+        ;; New question without dismissing
+        (define-key map (kbd "r") #'mr-x/gptel-ask--restart)
+        ;; Pipe to agent-shell
+        (define-key map (kbd "C") #'mr-x/gptel-ask--pipe-to-agent-shell)
+        map)
+      "Keymap for response viewing. q/RET/Esc dismiss, j/k scroll, r new, C pipe to agent-shell.")
+
+    ;; Major mode
+    (define-derived-mode mr-x/gptel-ask-mode fundamental-mode "QuickAsk"
+      "Major mode for GPTel quick ask popup."
+      (setq-local mode-line-format nil)
+      (setq-local cursor-type 'bar))
+
+    ;; Evil integration
+    (with-eval-after-load 'evil
+      (evil-set-initial-state 'mr-x/gptel-ask-mode 'insert)
+      (evil-define-key 'normal mr-x/gptel-ask-response-map
+        (kbd "q") #'mr-x/gptel-ask--dismiss
+        (kbd "RET") #'mr-x/gptel-ask--dismiss
+        (kbd "r") #'mr-x/gptel-ask--restart
+        (kbd "C") #'mr-x/gptel-ask--pipe-to-agent-shell
+        (kbd "j") #'next-line
+        (kbd "k") #'previous-line
+        (kbd "G") #'end-of-buffer
+        (kbd "gg") #'beginning-of-buffer))
+
+    ;; Markdown rendering (borrowed from ask-user-popup pattern)
+    (defun mr-x/gptel-ask--render-markdown ()
+      "Apply basic markdown styling to the current buffer."
+      (save-excursion
+        ;; Bold: **text**
+        (goto-char (point-min))
+        (while (re-search-forward "\\*\\*\\(.+?\\)\\*\\*" nil t)
+          (let ((content (match-string 1))
+                (start (match-beginning 0)))
+            (replace-match content t t)
+            (put-text-property start (+ start (length content))
+                               'face '(:weight bold))))
+        ;; Inline code: `text`
+        (goto-char (point-min))
+        (while (re-search-forward "`\\([^`\n]+?\\)`" nil t)
+          (let ((content (match-string 1))
+                (start (match-beginning 0)))
+            (replace-match content t t)
+            (put-text-property start (+ start (length content))
+                               'face '(:family "monospace" :background "#2a2a2a"))))
+        ;; Headers: # text → bold
+        (goto-char (point-min))
+        (while (re-search-forward "^#{1,3} \\(.+\\)$" nil t)
+          (let ((content (match-string 1))
+                (start (match-beginning 0)))
+            (replace-match content t t)
+            (put-text-property start (+ start (length content))
+                               'face '(:weight bold :height 1.1))))
+        ;; Bullet points: - text → •
+        (goto-char (point-min))
+        (while (re-search-forward "^\\([ \t]*\\)- " nil t)
+          (replace-match (concat (match-string 1) "• ")))))
+
+    ;; Commands
+    (defun mr-x/gptel-ask--cancel ()
+      "Cancel and close the popup."
+      (interactive)
+      (let ((win (get-buffer-window "*gptel-ask*")))
+        (when win (quit-window t win)))
+      (when (buffer-live-p (get-buffer "*gptel-ask*"))
+        (kill-buffer "*gptel-ask*"))
+      (message "Cancelled"))
+
+    (defun mr-x/gptel-ask--dismiss ()
+      "Close the response popup."
+      (interactive)
+      (let ((win (get-buffer-window "*gptel-ask*")))
+        (when win (quit-window t win)))
+      (when (buffer-live-p (get-buffer "*gptel-ask*"))
+        (kill-buffer "*gptel-ask*")))
+
+    (defun mr-x/gptel-ask--restart ()
+      "Start a new question from the response view."
+      (interactive)
+      (mr-x/gptel-ask--dismiss)
+      (mr-x/gptel-ask))
+
+    (defun mr-x/gptel-ask--pipe-to-agent-shell ()
+      "Pipe the current Q&A into an agent-shell session for deeper conversation.
+Prompts for a directory to start the session in."
+      (interactive)
+      (let ((question mr-x/gptel-ask--question)
+            (response mr-x/gptel-ask--response))
+        (unless (and question response)
+          (user-error "No Q&A to pipe"))
+        (let* ((dir (read-directory-name "Start session in: " default-directory))
+               (default-directory (expand-file-name dir))
+               (prompt (format "I just asked a quick question and got this response. I want to continue this conversation with you.\n\nMy question:\n%s\n\nResponse I got:\n%s\n\nLet's continue from here."
+                               question response)))
+          ;; Dismiss the popup first
+          (mr-x/gptel-ask--dismiss)
+          ;; Use a one-shot hook to insert into the new shell once it's ready
+          (let ((pipe-fn nil))
+            (setq pipe-fn
+                  (lambda ()
+                    (remove-hook 'agent-shell-mode-hook pipe-fn)
+                    (let ((shell-buf (current-buffer)))
+                      (run-at-time 0.5 nil
+                                   (lambda ()
+                                     (agent-shell--insert-to-shell-buffer
+                                      :shell-buffer shell-buf
+                                      :text prompt
+                                      :submit t)
+                                     (message "Piped Q&A to new agent-shell in %s" dir))))))
+            (add-hook 'agent-shell-mode-hook pipe-fn)
+            ;; C-u agent-shell = force new shell with default config (no picker)
+            (let ((current-prefix-arg '(4)))
+              (call-interactively #'agent-shell))))))
+
+    (defun mr-x/gptel-ask--submit ()
+      "Submit the question and show response in the same window."
+      (interactive)
+      (let ((question (string-trim
+                       (buffer-substring-no-properties
+                        mr-x/gptel-ask--input-start
+                        mr-x/gptel-ask--input-end))))
+        (when (string-empty-p question)
+          (user-error "No question provided"))
+        (mr-x/ensure-ollama)
+        ;; Show thinking state
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (remove-overlays)
+          (setq-local header-line-format
+                      (propertize " Thinking..." 'face '(:weight bold)))
+          (insert (propertize question 'face '(:weight bold :foreground "#88c0d0")))
+          (insert "\n\n")
+          (insert (propertize "Waiting for response..." 'face 'shadow)))
+        (setq buffer-read-only t)
+        ;; Send request
+        (let ((buf (current-buffer)))
+          (gptel-request question
+            :callback
+            (lambda (response info)
+              (when (buffer-live-p buf)
+                (with-current-buffer buf
+                  (let ((inhibit-read-only t))
+                    (erase-buffer)
+                    (remove-overlays)
+                    (if (not response)
+                        (progn
+                          (setq-local header-line-format
+                                      (propertize " Request failed" 'face '(:weight bold :foreground "#bf616a")))
+                          (insert (format "Error: %s" (plist-get info :status))))
+                      ;; Save Q&A for piping
+                      (setq mr-x/gptel-ask--question question)
+                      (setq mr-x/gptel-ask--response response)
+                      ;; Show response
+                      (setq-local header-line-format
+                                  (propertize " AI Response  (q dismiss · r again · C agent-shell)"
+                                              'face '(:weight bold)))
+                      ;; Question echo
+                      (insert (propertize question 'face '(:weight bold :foreground "#88c0d0")))
+                      (insert "\n")
+                      (insert (propertize "────────────────────────────────────────"
+                                          'face 'shadow))
+                      (insert "\n\n")
+                      ;; Response body
+                      (let ((start (point)))
+                        (insert response)
+                        (insert "\n"))
+                      (mr-x/gptel-ask--render-markdown)
+                      (goto-char (point-min)))
+                    ;; Switch to response keymap
+                    (setq mr-x/gptel-ask--phase 'response)
+                    (use-local-map mr-x/gptel-ask-response-map)
+                    (setq buffer-read-only t)
+                    (when (fboundp 'evil-normal-state)
+                      (evil-normal-state))))))))))
+
+    ;; Main entry point
+    (defun mr-x/gptel-ask ()
+      "Ask a quick question in a bottom popup. Response shows in same window."
+      (interactive)
+      (let ((buf (get-buffer-create "*gptel-ask*")))
+        (with-current-buffer buf
+          (let ((inhibit-read-only t))
+            (erase-buffer)
+            (remove-overlays)
+            (mr-x/gptel-ask-mode)
+            (setq mr-x/gptel-ask--phase 'input)
+            (setq buffer-read-only nil)
+
+            ;; Header
+            (setq-local header-line-format
+                        (propertize " Quick Question  (RET send · C-j newline · C-g cancel)"
+                                    'face '(:weight bold)))
+
+            ;; Prompt label
+            (insert (propertize "Ask anything:" 'face '(:weight bold)))
+            (insert "\n")
+            (insert (propertize "────────────────────────────────────────"
+                                'face 'shadow))
+            (insert "\n")
+
+            ;; Editable text region
+            (setq mr-x/gptel-ask--input-start (point-marker))
+            (set-marker-insertion-type mr-x/gptel-ask--input-start nil)
+            (insert "\n")
+            (setq mr-x/gptel-ask--input-end (point-marker))
+            (set-marker-insertion-type mr-x/gptel-ask--input-end t)
+
+            ;; Field overlay — sparse keymap so typing works naturally
+            (setq mr-x/gptel-ask--field-overlay
+                  (make-overlay (marker-position mr-x/gptel-ask--input-start)
+                                (marker-position mr-x/gptel-ask--input-end)
+                                nil nil t))
+            (overlay-put mr-x/gptel-ask--field-overlay 'local-map mr-x/gptel-ask-input-map)
+            (overlay-put mr-x/gptel-ask--field-overlay 'face '(:extend t))))
+
+        ;; Display at bottom
+        (let ((win (display-buffer buf
+                                   '((display-buffer-at-bottom)
+                                     (window-height . 0.4)
+                                     (preserve-size . (nil . t))))))
+          (select-window win)
+          (goto-char mr-x/gptel-ask--input-start)
+          (when (fboundp 'evil-insert-state)
+            (evil-insert-state)))))
 
 #+end_src
 
