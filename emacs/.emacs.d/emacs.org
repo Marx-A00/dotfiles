@@ -1183,8 +1183,14 @@
   ;; Prevent Emacs from resizing frames
   (setq frame-resize-pixelwise t)
 
-
-
+  ;; Secondary emacsclient frames get title bars with frame number
+  (defvar mr-x/frame-counter 0)
+  (add-hook 'server-after-make-frame-hook
+            (lambda ()
+              (cl-incf mr-x/frame-counter)
+              (set-frame-parameter nil 'undecorated-round nil)
+              (set-frame-parameter nil 'title
+                (format "Emacs #%d" mr-x/frame-counter))))
 
 #+end_src
 
@@ -1201,6 +1207,22 @@
   (persp-mode-prefix-key (kbd "C-x M-x"))  ; keep original prefix for compatibility
   :init
   (persp-mode))
+
+  ;; Global scratch buffer — shared across all perspectives
+  (setq mr-x/global-scratch-header
+    "# and I've been global, so there's nothing foreign\n\n")
+
+  (defun mr-x/global-scratch ()
+    "Switch to a global scratch buffer shared across all perspectives."
+    (interactive)
+    (let ((buf (get-buffer-create "*global-scratch*")))
+      (with-current-buffer buf
+        (unless (derived-mode-p 'org-mode)
+          (org-mode)
+          (insert mr-x/global-scratch-header)
+          (goto-char (point-max))))
+      (persp-add-buffer-to-frame-global buf)
+      (switch-to-buffer buf)))
 
 #+end_src
 
@@ -1319,13 +1341,14 @@
         ;; "s" 'mr-x/toggle-shortcuts
         ;; "S" 'mr-x/scratch
         ;; "v" 'multi-vterm
-        "e" '(lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org")))
-        "1" (lambda () (interactive) (persp-switch-by-number 1))
-        "2" (lambda () (interactive) (persp-switch-by-number 2))
-        "3" (lambda () (interactive) (persp-switch-by-number 3))
-        "4" (lambda () (interactive) (persp-switch-by-number 4))
-        "5" (lambda () (interactive) (persp-switch-by-number 5))
-        "t" '(mr-x/test-environment :wk "Test environment"))
+        "e" '((lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))) :wk "emacs.org")
+        "1" '((lambda () (interactive) (persp-switch-by-number 1)) :wk "workspace 1")
+        "2" '((lambda () (interactive) (persp-switch-by-number 2)) :wk "workspace 2")
+        "3" '((lambda () (interactive) (persp-switch-by-number 3)) :wk "workspace 3")
+        "4" '((lambda () (interactive) (persp-switch-by-number 4)) :wk "workspace 4")
+        "5" '((lambda () (interactive) (persp-switch-by-number 5)) :wk "workspace 5")
+        "t" '(mr-x/test-environment :wk "Test environment")
+        "u" '(universal-argument :wk "universal arg"))
 
       (defun mr-x/test-environment ()
         "Spawn agent-shell on left, dired ~/roaming/sandbox on right."
@@ -1351,7 +1374,10 @@
         "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
         "b k" '(kill-current-buffer :wk "kill this buffer")
         "b K" '(kill-buffer-and-window :wk "kill buffer and window")
-        "b r" '(revert-buffer :wk "revert buffer"))
+        "b r" '(revert-buffer :wk "revert buffer")
+        "b e" '(eval-buffer :wk "eval buffer")
+        "b g" '(mr-x/global-scratch :wk "global scratch"))
+
       
       (mr-x/leader-def
         "v" '(:ignore t :wk "vterm")
@@ -1365,12 +1391,22 @@
       (defun mr-x/agent-shell-new-smart ()
         "Create new agent shell, replacing current window if already in agent-shell."
         (interactive)
-        (if (derived-mode-p 'agent-shell-mode)
-            ;; Already in agent-shell: create new and switch in same window
-            (let ((display-buffer-overriding-action '(display-buffer-same-window)))
-              (agent-shell-new-shell))
-          ;; Not in agent-shell: use normal display rules
-          (agent-shell-new-shell)))
+        (let* ((config (or (agent-shell--resolve-preferred-config)
+                           (agent-shell-select-config :prompt "Start new agent: ")
+                           (error "No agent config found")))
+               (shell-buffer (agent-shell--start :config config
+                                                 :no-focus t
+                                                 :new-session t)))
+          (if (derived-mode-p 'agent-shell-mode 'agent-shell-viewport-view-mode
+                              'agent-shell-viewport-edit-mode)
+              ;; Already in agent-shell: replace current window
+              (if agent-shell-prefer-viewport-interaction
+                  (agent-shell-viewport--show-buffer :shell-buffer shell-buffer)
+                (switch-to-buffer shell-buffer))
+            ;; Not in agent-shell: use normal display
+            (if agent-shell-prefer-viewport-interaction
+                (agent-shell-viewport--show-buffer :shell-buffer shell-buffer)
+              (pop-to-buffer shell-buffer)))))
 
       (defun mr-x/agent-shell-roaming ()
         "Start a new agent shell in ~/roaming/claude."
@@ -1865,7 +1901,12 @@ TASK-ID is the ID shown when Claude runs a background command."
     :after hydra
     :config
     (evil-define-key 'normal vdiff-mode-map "\\" vdiff-mode-prefix-map)
-    (evil-define-key 'normal vdiff-mode-map "q" #'vdiff-quit))
+    (evil-define-key 'normal vdiff-mode-map "q" #'vdiff-quit)
+    (evil-define-key 'normal vdiff-mode-map "?" #'vdiff-hydra/body)
+    ;; Background-only faces so syntax highlighting shows through (delta-style)
+    (set-face-attribute 'vdiff-addition-face nil :background "#2e3b2e" :foreground 'unspecified :inherit nil)
+    (set-face-attribute 'vdiff-subtraction-face nil :background "#3b2626" :foreground 'unspecified :inherit nil)
+    (set-face-attribute 'vdiff-change-face nil :background "#3b3520" :foreground 'unspecified :inherit nil))
 
   (use-package vdiff-magit
     :ensure t
@@ -2216,7 +2257,17 @@ Creates a frame named 'Dev: rec' with:
 
 *** Tree-sitter Auto
 #+begin_src emacs-lisp
-  ;; Automatically install and use tree-sitter grammars
+  ;; Cache treesit-auto's remap alist — without this, the expensive
+  ;; treesit-language-available-p gets called for all 53 languages on
+  ;; EVERY file open (~0.7s each), destroying org-agenda perf (87 files).
+  ;; See: https://github.com/renzmann/treesit-auto/issues/135
+  (defvar my/treesit-remap-cache nil)
+  (defun my/cache-treesit-remap (fn &rest args)
+    (or my/treesit-remap-cache
+        (setq my/treesit-remap-cache (apply fn args))))
+  (advice-add #'treesit-auto--build-major-mode-remap-alist
+              :around #'my/cache-treesit-remap)
+
   (use-package treesit-auto
     :ensure t
     :custom
