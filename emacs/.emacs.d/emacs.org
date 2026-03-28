@@ -1206,7 +1206,11 @@
   :custom
   (persp-mode-prefix-key (kbd "C-x M-x"))  ; keep original prefix for compatibility
   :init
-  (persp-mode))
+  (persp-mode)
+  :config
+  ;; Hide the GLOBAL perspective (used internally by persp-add-buffer-to-frame-global)
+  (define-advice persp-names (:filter-return (names) hide-global)
+    (cl-remove persp-frame-global-perspective-name names :test #'string=)))
 
   ;; Global scratch buffer — shared across all perspectives
   (setq mr-x/global-scratch-header
@@ -1288,10 +1292,20 @@
             xref--xref-buffer-mode
             ;; Mdox viewer buffers
             ".*--[Mm]dox.*"
-            ".*shortcuts.*\\.org$"))
+            ".*shortcuts.*\\.org$"
+            ;; Agent shell manager
+            "\\*Agent-Shell Buffers\\*"
+            agent-shell-manager-mode))
     :config
     (setq popper-display-control t)
     (setq popper-display-function #'popper-select-popup-at-bottom)
+    ;; Give the agent-shell manager a taller popup (~40% of frame)
+    (setq popper-window-height
+          (lambda (win)
+            (if (string-match-p "\\*Agent-Shell Buffers\\*"
+                                (buffer-name (window-buffer win)))
+                (floor (frame-height) 2.5)
+              (popper--fit-window-height win))))
     (popper-mode +1)
     (popper-echo-mode +1))
 #+end_src
@@ -1423,6 +1437,7 @@
         "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
         "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
         "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
+        "c F" '(agent-shell-manager-toggle-frame :wk "Manager frame")
         "c S" '(agent-shell-manager-spawn-test-env :wk "Spawn test env")
         "c j" '(agent-shell-attention-jump :wk "Jump to pending")
         "c ," '(:ignore t :wk "Prompts")
@@ -3324,7 +3339,7 @@ Creates a frame named 'Dev: rec' with:
       :after agent-shell
       :config
       ;; Position manager window (options: left, right, top, bottom, nil for no auto-display)
-      (setq agent-shell-manager-side 'bottom)
+      (setq agent-shell-manager-side nil)
       ;; Evil keybindings — preview, filter, and navigation all built-in now
       (evil-define-key 'normal agent-shell-manager-mode-map
         (kbd "p") #'agent-shell-manager-enter-preview
