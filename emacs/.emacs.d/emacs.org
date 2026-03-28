@@ -3343,6 +3343,7 @@ Creates a frame named 'Dev: rec' with:
       ;; Evil keybindings — preview, filter, and navigation all built-in now
       (evil-define-key 'normal agent-shell-manager-mode-map
         (kbd "p") #'agent-shell-manager-enter-preview
+        (kbd "o") #'agent-shell-manager-peek
         (kbd "RET") #'agent-shell-manager-select
         (kbd "q") #'agent-shell-manager-quit
         (kbd "f") #'agent-shell-manager-cycle-filter
