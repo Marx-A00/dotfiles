@@ -1093,7 +1093,11 @@
 :custom
 (persp-mode-prefix-key (kbd "C-x M-x"))  ; keep original prefix for compatibility
 :init
-(persp-mode))
+(persp-mode)
+:config
+;; Hide the GLOBAL perspective (used internally by persp-add-buffer-to-frame-global)
+(define-advice persp-names (:filter-return (names) hide-global)
+  (cl-remove persp-frame-global-perspective-name names :test #'string=)))
 
 ;; Global scratch buffer — shared across all perspectives
 (setq mr-x/global-scratch-header
@@ -1169,10 +1173,20 @@
           xref--xref-buffer-mode
           ;; Mdox viewer buffers
           ".*--[Mm]dox.*"
-          ".*shortcuts.*\\.org$"))
+          ".*shortcuts.*\\.org$"
+          ;; Agent shell manager
+          "\\*Agent-Shell Buffers\\*"
+          agent-shell-manager-mode))
   :config
   (setq popper-display-control t)
   (setq popper-display-function #'popper-select-popup-at-bottom)
+  ;; Give the agent-shell manager a taller popup (~40% of frame)
+  (setq popper-window-height
+        (lambda (win)
+          (if (string-match-p "\\*Agent-Shell Buffers\\*"
+                              (buffer-name (window-buffer win)))
+              (floor (frame-height) 2.5)
+            (popper--fit-window-height win))))
   (popper-mode +1)
   (popper-echo-mode +1))
 
@@ -1295,6 +1309,7 @@
         "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
         "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
         "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
+        "c z" '(agent-shell-manager-toggle-frame :wk "Manager frame")
         "c S" '(agent-shell-manager-spawn-test-env :wk "Spawn test env")
         "c j" '(agent-shell-attention-jump :wk "Jump to pending")
         "c ," '(:ignore t :wk "Prompts")
@@ -1482,7 +1497,13 @@ TASK-ID is the ID shown when Claude runs a background command."
   :config
   (which-key-mode)
   (setq which-key-separator " → ")
-  (setq which-key-idle-delay 1))
+  (setq which-key-idle-delay 1)
+  (setq which-key-sort-order 'which-key-prefix-then-key-order)
+  (setq which-key-max-display-columns 4)
+  (setq which-key-add-column-padding 2)
+
+  ;; Hide noisy digit-argument entries (0-9)
+  (push '(("\\`[0-9]\\'" . "digit-argument") . t) which-key-replacement-alist))
 
 (use-package evil
   :ensure t
@@ -1708,7 +1729,92 @@ TASK-ID is the ID shown when Claude runs a background command."
 
 ;; Hydra — persistent key hint popups
 (use-package hydra
-  :ensure t)
+  :ensure t
+  :config
+
+  ;; ── Window Management Hydra ──────────────────────────────────
+  ;; SPC w enters evil-window-map; press W from there to enter this hydra.
+  ;; Stay in the hydra to resize/split/navigate repeatedly with single keys.
+  (defhydra hydra-window (:hint nil :foreign-keys run)
+    "
+╭─── Window ─────────────────────────────────────────╮
+ Navigate      Resize           Split/Layout
+ _h_: ←  _l_: →    _H_: shrink-h  _L_: grow-h  _s_: horizontal  _=_: balance
+ _j_: ↓  _k_: ↑    _J_: shrink-v  _K_: grow-v  _v_: vertical    _o_: only
+                                             _d_: delete     _u_: undo layout
+╰────────────────────────────── _q_: quit ────────────╯"
+    ("h" evil-window-left)
+    ("j" evil-window-down)
+    ("k" evil-window-up)
+    ("l" evil-window-right)
+    ("H" shrink-window-horizontally)
+    ("J" shrink-window)
+    ("K" enlarge-window)
+    ("L" enlarge-window-horizontally)
+    ("s" evil-window-split)
+    ("v" evil-window-vsplit)
+    ("=" balance-windows)
+    ("o" delete-other-windows :exit t)
+    ("d" evil-window-delete)
+    ("u" winner-undo)
+    ("q" nil :exit t))
+
+  ;; ── Text Zoom Hydra ──────────────────────────────────────────
+  (defhydra hydra-zoom (:hint nil)
+    "
+╭─── Zoom ────────────────╮
+ _+_/_=_: in   _-_: out   _0_: reset
+╰──────── _q_: quit ──────╯"
+    ("+" text-scale-increase)
+    ("=" text-scale-increase)
+    ("-" text-scale-decrease)
+    ("0" (text-scale-set 0) :exit t)
+    ("q" nil :exit t))
+
+  ;; ── Org-Mode Hydra ──────────────────────────────────────────
+  (defhydra hydra-org (:hint nil :foreign-keys run)
+    "
+╭─── Org ────────────────────────────────────────────────╮
+ Navigate          Heading           Misc
+ _n_: next heading   _H_: promote        _t_: cycle TODO
+ _p_: prev heading   _L_: demote         _T_: set TODO keyword
+ _u_: up heading     _K_: move up        _x_: toggle checkbox
+ _N_: next visible   _J_: move down      _,_: set priority
+ _P_: prev visible   _h_: promote tree   _:_: set tags
+                    _l_: demote tree    _d_: deadline
+                                       _s_: schedule
+╰──────────────────────────── _q_: quit ─────────────────╯"
+    ("n" org-next-visible-heading)
+    ("p" org-previous-visible-heading)
+    ("u" outline-up-heading)
+    ("N" org-forward-heading-same-level)
+    ("P" org-backward-heading-same-level)
+    ("H" org-do-promote)
+    ("L" org-do-demote)
+    ("h" org-promote-subtree)
+    ("l" org-demote-subtree)
+    ("K" org-move-subtree-up)
+    ("J" org-move-subtree-down)
+    ("t" org-todo)
+    ("T" org-todo :exit t)
+    ("x" org-toggle-checkbox)
+    ("," org-priority)
+    (":" org-set-tags-command :exit t)
+    ("d" org-deadline :exit t)
+    ("s" org-schedule :exit t)
+    ("q" nil :exit t))
+
+  ;; Wire them into leader keys after general loads
+  (with-eval-after-load 'general
+    (mr-x/leader-def
+      "W" '(hydra-window/body :wk "Window hydra")
+      "z" '(hydra-zoom/body :wk "Zoom hydra"))
+    ;; Org hydra available in org-mode via SPC o
+    (general-define-key
+     :states '(normal visual)
+     :keymaps 'org-mode-map
+     :prefix "SPC"
+     "o" '(hydra-org/body :wk "Org hydra"))))
 
 ;; Side-by-side diffs with vdiff + hydra
 (use-package vdiff
@@ -1743,6 +1849,18 @@ TASK-ID is the ID shown when Claude runs a background command."
 
 (setq ediff-split-window-function 'split-window-horizontally)
 (setq ediff-window-setup-function 'ediff-setup-windows-plain)
+
+;; Fix doom-gruvbox ediff faces (theme sets everything to the same red)
+(custom-set-faces
+ '(ediff-current-diff-A ((t (:background "#3b2626"))))  ; red = old/removed
+ '(ediff-current-diff-B ((t (:background "#2e3b2e"))))  ; green = new/added
+ '(ediff-current-diff-C ((t (:background "#3b3520"))))  ; yellow = ancestor
+ '(ediff-fine-diff-A ((t (:background "#5c3030"))))     ; brighter red for word-level
+ '(ediff-fine-diff-B ((t (:background "#3d5c3d"))))     ; brighter green for word-level
+ '(ediff-even-diff-A ((t (:background "#3c3836"))))
+ '(ediff-even-diff-B ((t (:background "#3c3836"))))
+ '(ediff-odd-diff-A ((t (:background "#32302f"))))
+ '(ediff-odd-diff-B ((t (:background "#32302f"))))
 
 ;; diff-ansi for beautiful delta-powered diffs
 (use-package diff-ansi
@@ -2609,14 +2727,22 @@ Creates a frame named 'Dev: rec' with:
         (let* ((project-root (mr-x/taskmaster-get-project-root))
                (tags (mr-x/taskmaster-get-tags project-root))
                (selected-tag (ivy-read "Select tag: " tags))
-               (task-description (read-string "Task description: "))
-               (shell-buffer (mr-x/get-agent-shell-for-project project-root)))
-          (with-current-buffer shell-buffer
-            (goto-char (point-max))
-            (insert (format "Use mcp__task-master-ai__add_task with tag=\"%s\" to add this task: %s"
-                            selected-tag task-description))
-            (shell-maker-submit))
-          (message "Task submitted to %s" (buffer-name shell-buffer))))
+               (task-description (condition-case nil
+                                     (mr-x/ask-user-popup
+                                      "Task description"
+                                      (format "Adding task to **%s** tag in `%s`"
+                                              selected-tag (file-name-nondirectory
+                                                            (directory-file-name project-root))))
+                                   (error nil)))
+               (shell-buffer (when task-description
+                               (mr-x/get-agent-shell-for-project project-root))))
+          (when shell-buffer
+            (with-current-buffer shell-buffer
+              (goto-char (point-max))
+              (insert (format "Use mcp__task-master-ai__add_task with tag=\"%s\" to add this task: %s"
+                              selected-tag task-description))
+              (shell-maker-submit))
+            (message "Task submitted to %s" (buffer-name shell-buffer)))))
 
 
       (defun mr-x/agent-shell-test-prompt ()
@@ -3079,10 +3205,11 @@ Creates a frame named 'Dev: rec' with:
       :after agent-shell
       :config
       ;; Position manager window (options: left, right, top, bottom, nil for no auto-display)
-      (setq agent-shell-manager-side 'bottom)
+      (setq agent-shell-manager-side nil)
       ;; Evil keybindings — preview, filter, and navigation all built-in now
       (evil-define-key 'normal agent-shell-manager-mode-map
         (kbd "p") #'agent-shell-manager-enter-preview
+        (kbd "o") #'agent-shell-manager-peek
         (kbd "RET") #'agent-shell-manager-select
         (kbd "q") #'agent-shell-manager-quit
         (kbd "f") #'agent-shell-manager-cycle-filter
@@ -3099,6 +3226,13 @@ Creates a frame named 'Dev: rec' with:
         (kbd "t") #'agent-shell-manager-view-traffic
         (kbd "l") #'agent-shell-manager-toggle-logging))
 
+    (use-package agent-recall
+      :ensure (:host github :repo "Marx-A00/agent-recall")
+      :after agent-shell
+      :commands (agent-recall-search agent-recall-search-live
+                 agent-recall-browse agent-recall-resume
+                 agent-recall-backfill agent-recall-stats)
+      :hook (agent-shell-mode . agent-recall-track-sessions))
 
     ;; Permission UI Override - Hybrid Style (cleaner vertical layout)
     (defvar mr-x/permission-ui-style 'hybrid

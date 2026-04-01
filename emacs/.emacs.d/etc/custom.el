@@ -26,7 +26,8 @@
      ("work/omi-live" . "~/work/omi-live")
      ("work/virtual-bid" . "~/work/virtual-bid")
      ("work/york" . "~/work/york") ("rec" . "~/roaming/projects/rec/")
-     ("emacs-dashboard" . "~/roaming/projects/emacs-dashboard/"))))
+     ("emacs-dashboard" . "~/roaming/projects/emacs-dashboard/")
+     ("agent recall" . "~/roaming/projects/agent-recall/"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

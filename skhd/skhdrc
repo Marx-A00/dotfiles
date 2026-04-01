@@ -13,9 +13,9 @@ f14 : emacsclient --eval "(mr-x/agent-shell-deny)"
 f15 : emacsclient --eval "(mr-x/agent-shell-allow-always)"
 f16 : emacsclient --eval "(mr-x/agent-shell-view-diff)"
 cmd + shift - r : ~/.dotfiles/scripts/emacs-restart.sh
-cmd + shift - s : ~/.dotfiles/scripts/emacs-sandbox.sh
+cmd + shift - s : ~/.dotfiles/scripts/emacs-sandbox.sh --restart
 cmd + shift + ctrl - s : ~/.dotfiles/scripts/emacs-sandbox.sh --test
-cmd + shift - v : emacsclient --eval "(mr-x/agent-shell-send-clipboard)"
+cmd + shift - v : emacsclient --eval "(agent-shell-yank-dwim)"
 
 # Native yabai scratchpad bindings
 cmd + shift - space : ~/.dotfiles/scripts/scratchpad-emacs.sh scratch
