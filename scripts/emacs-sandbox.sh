@@ -4,6 +4,7 @@
 #
 # Usage:
 #   emacs-sandbox.sh          # Ensure daemon is running, spawn a frame
+#   emacs-sandbox.sh --restart # Kill daemon, restart, spawn a frame
 #   emacs-sandbox.sh --fresh  # Nuke sandbox, resync from main config, restart daemon
 #   emacs-sandbox.sh --test   # Spawn frame and auto-run test environment
 #   emacs-sandbox.sh --kill   # Stop the sandbox daemon
@@ -14,13 +15,15 @@ SOCKET_NAME="sandbox"
 AUTO_TEST=""
 KILL_DAEMON=""
 FRESH=""
+RESTART=""
 
 # Handle flags
 for arg in "$@"; do
     case $arg in
-        --fresh) FRESH="yes" ;;
-        --test)  AUTO_TEST="yes" ;;
-        --kill)  KILL_DAEMON="yes" ;;
+        --fresh)   FRESH="yes" ;;
+        --test)    AUTO_TEST="yes" ;;
+        --kill)    KILL_DAEMON="yes" ;;
+        --restart) RESTART="yes" ;;
     esac
 done
 
@@ -43,6 +46,11 @@ if [[ -n "$KILL_DAEMON" ]]; then
     kill_daemon
     echo "Sandbox daemon stopped."
     exit 0
+fi
+
+# --restart: kill daemon, then continue to restart + spawn
+if [[ -n "$RESTART" ]]; then
+    kill_daemon
 fi
 
 # --fresh: nuke everything and rebuild
