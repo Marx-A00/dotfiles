@@ -27,12 +27,23 @@
      ("work/virtual-bid" . "~/work/virtual-bid")
      ("work/york" . "~/work/york") ("rec" . "~/roaming/projects/rec/")
      ("emacs-dashboard" . "~/roaming/projects/emacs-dashboard/")
-     ("agent recall" . "~/roaming/projects/agent-recall/"))))
+     ("agent recall" . "~/roaming/projects/agent-recall/")
+     ("agent shell manager"
+      . "~/.dotfiles/emacs/.emacs.d/elpaca/repos/agent-shell-manager/"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(ediff-current-diff-A ((t (:background "#3b2626"))))
+ '(ediff-current-diff-B ((t (:background "#2e3b2e"))))
+ '(ediff-current-diff-C ((t (:background "#3b3520"))))
+ '(ediff-even-diff-A ((t (:background "#3c3836"))))
+ '(ediff-even-diff-B ((t (:background "#3c3836"))))
+ '(ediff-fine-diff-A ((t (:background "#5c3030"))))
+ '(ediff-fine-diff-B ((t (:background "#3d5c3d"))))
+ '(ediff-odd-diff-A ((t (:background "#32302f"))))
+ '(ediff-odd-diff-B ((t (:background "#32302f"))))
  '(font-lock-bracket-face ((t (:foreground "#d5c4a1"))))
  '(font-lock-delimiter-face ((t (:foreground "#a89984"))))
  '(font-lock-function-call-face ((t (:foreground "#8ec07c"))))
