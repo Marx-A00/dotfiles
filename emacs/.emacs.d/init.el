@@ -1077,34 +1077,78 @@
               (format "Emacs #%d" mr-x/frame-counter))))
 
 (use-package perspective
-:ensure t
-:bind
-("C-x C-b" . persp-counsel-switch-buffer)         ; or use a nicer switcher, see below
-("C-x C-i" . persp-ibuffer)
-:custom
-(persp-mode-prefix-key (kbd "C-x M-x"))  ; keep original prefix for compatibility
-:init
-(persp-mode)
-:config
-;; Hide the GLOBAL perspective (used internally by persp-add-buffer-to-frame-global)
-(define-advice persp-names (:filter-return (names) hide-global)
-  (cl-remove persp-frame-global-perspective-name names :test #'string=)))
+  :ensure t
+  :bind
+  ("C-x C-b" . persp-counsel-switch-buffer)         ; or use a nicer switcher, see below
+  ("C-x C-i" . persp-ibuffer)
+  :custom
+  (persp-mode-prefix-key (kbd "C-x M-x"))  ; keep original prefix for compatibility
+  :init
+  (persp-mode)
+  :config
+  ;; Hide the GLOBAL perspective (used internally by persp-add-buffer-to-frame-global)
+  (define-advice persp-names (:filter-return (names) hide-global)
+    (cl-remove persp-frame-global-perspective-name names :test #'string=))
 
-;; Global scratch buffer — shared across all perspectives
-(setq mr-x/global-scratch-header
-  "# and I've been global, so there's nothing foreign\n\n")
+  ;; ── Sketchybar perspective integration ─────────────────────
+  (defun mr-x/sketchybar-update-persp (&rest _)
+    "Push current perspective name to sketchybar for the current frame's display."
+    (when (and (bound-and-true-p persp-mode)
+               (not (string-match-p "SCRATCHPAD"
+                                    (or (frame-parameter nil 'title) ""))))
+      (let* ((active (persp-current-name))
+             (all-names (persp-names))
+             (all-str (mapconcat #'identity all-names ","))
+             (frame-title (or (frame-parameter nil 'title) "")))
+        (start-process "sketchybar-persp" nil "bash" "-c"
+                       (format "sketchybar --trigger emacs_persp_update EMACS_PERSP_NAME=%s EMACS_PERSP_ALL=%s EMACS_PERSP_FRAME_TITLE=%s"
+                               (shell-quote-argument active)
+                               (shell-quote-argument all-str)
+                               (shell-quote-argument frame-title))))))
 
-(defun mr-x/global-scratch ()
-  "Switch to a global scratch buffer shared across all perspectives."
-  (interactive)
-  (let ((buf (get-buffer-create "*global-scratch*")))
-    (with-current-buffer buf
-      (unless (derived-mode-p 'org-mode)
-        (org-mode)
-        (insert mr-x/global-scratch-header)
-        (goto-char (point-max))))
-    (persp-add-buffer-to-frame-global buf)
-    (switch-to-buffer buf)))
+  (defun mr-x/sketchybar-persp-name-for-title (title)
+    "Return the perspective name for the Emacs frame matching TITLE.
+Called by sketchybar plugin via emacsclient --eval as fallback."
+    (let ((result "main"))
+      (dolist (frame (frame-list))
+        (when (string= (frame-parameter frame 'title) title)
+          (setq result (with-selected-frame frame (persp-current-name)))))
+      result))
+
+  (defun mr-x/sketchybar-hide-persp ()
+    "Hide all emacs_persp items in sketchybar."
+    (start-process "sketchybar-persp-hide" nil "bash" "-c"
+                   "for i in {1..10}; do sketchybar --set emacs_persp.$i drawing=off 2>/dev/null; done"))
+
+  (add-hook 'persp-switch-hook #'mr-x/sketchybar-update-persp)
+  (add-hook 'persp-activated-hook #'mr-x/sketchybar-update-persp)
+
+  (add-function :after after-focus-change-function
+                (lambda ()
+                  (when (frame-focus-state)
+                    (mr-x/sketchybar-update-persp))))
+
+  (add-hook 'delete-frame-functions
+            (lambda (_frame)
+              (run-at-time 0.5 nil #'mr-x/sketchybar-update-persp)))
+
+  (add-hook 'kill-emacs-hook #'mr-x/sketchybar-hide-persp))
+
+  ;; Global scratch buffer — shared across all perspectives
+  (setq mr-x/global-scratch-header
+    "# and I've been global, so there's nothing foreign\n\n")
+
+  (defun mr-x/global-scratch ()
+    "Switch to a global scratch buffer shared across all perspectives."
+    (interactive)
+    (let ((buf (get-buffer-create "*global-scratch*")))
+      (with-current-buffer buf
+        (unless (derived-mode-p 'org-mode)
+          (org-mode)
+          (insert mr-x/global-scratch-header)
+          (goto-char (point-max))))
+      (persp-add-buffer-to-frame-global buf)
+      (switch-to-buffer buf)))
 
 (defun mr-x/org-mode-visual-fill ()
   (setq visual-fill-column-width 100
