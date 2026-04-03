@@ -121,6 +121,7 @@
 
 
 
+
 	(setq org-highlight-latex-and-related '(latex))
 
 					      ; org- habit setup
@@ -1232,7 +1233,8 @@
         (evil-window-vsplit)
         (switch-to-buffer "*scratch*"))
 
-      (define-key evil-window-map "v" #'my/vsplit-scratch)
+      (with-eval-after-load 'evil
+        (define-key evil-window-map "v" #'my/vsplit-scratch))
 
       (defun mr-x/test-environment ()
         "Spawn agent-shell on left, dired ~/roaming/sandbox on right."
@@ -1804,11 +1806,47 @@ TASK-ID is the ID shown when Claude runs a background command."
     ("s" org-schedule :exit t)
     ("q" nil :exit t))
 
+  ;; ── Agent Shell Manager Hydra ─────────────────────────────
+  (defhydra hydra-agent (:hint nil :foreign-keys run)
+    "
+╭─── Agent Shell Manager ──────────────────────────────────────────╮
+ Navigate          Actions            Settings
+ _j_: next           _c_: new shell       _m_: set mode
+ _k_: prev           _i_: interrupt       _M_: set model
+ _RET_: select       _K_: kill            _n_: set label
+ _v_/_S-RET_: peek   _r_: restart         _l_: toggle logging
+ _p_: preview        _d_: delete killed   _t_: view traffic
+
+ Frame/Filter
+ _F_: toggle frame   _f_: cycle filter    _g_: refresh
+╰──────────────────────────────── _q_: quit ────────────────────────╯"
+    ("j" next-line)
+    ("k" previous-line)
+    ("RET" agent-shell-manager-select :exit t)
+    ("v" agent-shell-manager-peek :exit t)
+    ("<S-return>" agent-shell-manager-peek :exit t)
+    ("p" agent-shell-manager-enter-preview)
+    ("c" agent-shell-manager-new)
+    ("i" agent-shell-manager-interrupt)
+    ("K" agent-shell-manager-kill)
+    ("r" agent-shell-manager-restart)
+    ("d" agent-shell-manager-delete-killed)
+    ("m" agent-shell-manager-set-mode)
+    ("M" agent-shell-manager-set-model)
+    ("n" agent-shell-manager-set-label)
+    ("l" agent-shell-manager-toggle-logging)
+    ("t" agent-shell-manager-view-traffic :exit t)
+    ("F" agent-shell-manager-toggle-frame)
+    ("f" agent-shell-manager-cycle-filter)
+    ("g" agent-shell-manager-refresh)
+    ("q" nil :exit t))
+
   ;; Wire them into leader keys after general loads
   (with-eval-after-load 'general
     (mr-x/leader-def
       "W" '(hydra-window/body :wk "Window hydra")
-      "z" '(hydra-zoom/body :wk "Zoom hydra"))
+      "z" '(hydra-zoom/body :wk "Zoom hydra")
+      "c h" '(hydra-agent/body :wk "Agent hydra"))
     ;; Org hydra available in org-mode via SPC o
     (general-define-key
      :states '(normal visual)
@@ -3235,6 +3273,9 @@ Creates a frame named 'Dev: rec' with:
          (select-window
           (display-buffer buf '(display-buffer-at-bottom (window-height . 0.35))))))
       :config
+      (set-face-attribute 'deadgrep-filename-face nil
+                          :foreground "#fabd2f" :inherit 'bold)
+
       (defvar mr-x/deadgrep--hl-overlay nil
         "Overlay for highlighting the current deadgrep result.")
 
@@ -3259,11 +3300,26 @@ Creates a frame named 'Dev: rec' with:
         (deadgrep-backward-match)
         (mr-x/deadgrep--highlight-current))
 
+      (defun mr-x/deadgrep-forward-file-and-highlight ()
+        "Move to next file header and highlight."
+        (interactive)
+        (deadgrep-forward-filename)
+        (mr-x/deadgrep--highlight-current))
+
+      (defun mr-x/deadgrep-backward-file-and-highlight ()
+        "Move to previous file header and highlight."
+        (interactive)
+        (deadgrep-backward-filename)
+        (mr-x/deadgrep--highlight-current))
+
       (evil-define-key '(normal motion) deadgrep-mode-map
         (kbd "C-n") #'mr-x/deadgrep-forward-and-highlight
         (kbd "C-p") #'mr-x/deadgrep-backward-and-highlight
         (kbd "j") #'mr-x/deadgrep-forward-and-highlight
-        (kbd "k") #'mr-x/deadgrep-backward-and-highlight))
+        (kbd "k") #'mr-x/deadgrep-backward-and-highlight
+        (kbd "J") #'mr-x/deadgrep-forward-file-and-highlight
+        (kbd "K") #'mr-x/deadgrep-backward-file-and-highlight
+        (kbd "RET") #'deadgrep-visit-result-other-window))
 
 
     (use-package agent-recall
