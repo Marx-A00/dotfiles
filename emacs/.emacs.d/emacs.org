@@ -1196,10 +1196,16 @@
   ("C-x C-b" . persp-counsel-switch-buffer)         ; or use a nicer switcher, see below
   ("C-x C-i" . persp-ibuffer)
   :custom
+  (persp-show-modestring nil)  ; hide perspective name from modeline (doom-modeline handles it)
   (persp-mode-prefix-key (kbd "C-x M-x"))  ; keep original prefix for compatibility
   :init
   (persp-mode)
   :config
+  ;; persp-mode adds itself to global-mode-string during activation and
+  ;; ignores persp-show-modestring afterwards — remove it explicitly
+  (setq global-mode-string
+        (delete '(:eval (persp-mode-line)) global-mode-string))
+
   ;; Hide the GLOBAL perspective (used internally by persp-add-buffer-to-frame-global)
   (define-advice persp-names (:filter-return (names) hide-global)
     (cl-remove persp-frame-global-perspective-name names :test #'string=))
@@ -1335,6 +1341,9 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
     :config
     (setq popper-display-control t)
     (setq popper-display-function #'popper-select-popup-at-bottom)
+    ;; Use Cmd+Ctrl+N for dispatch keys (macOS intercepts M-N)
+    (setq popper-echo-dispatch-keys '("s-C-1" "s-C-2" "s-C-3" "s-C-4" "s-C-5"
+                                       "s-C-6" "s-C-7" "s-C-8" "s-C-9" "s-C-0"))
     ;; Give the agent-shell manager a taller popup (~40% of frame)
     (setq popper-window-height
           (lambda (win)
@@ -3378,6 +3387,34 @@ Creates a frame named 'Dev: rec' with:
              :client-maker (lambda (buffer)
                              (agent-shell-anthropic-make-claude-client :buffer buffer))
              :default-model-id (lambda () agent-shell-anthropic-default-model-id)))
+
+    ;; Safety net: restore prompt after interrupt if server doesn't respond.
+    ;; When agent-shell-interrupt sends a cancel notification (session branch),
+    ;; it relies on the ACP server responding to the original prompt request
+    ;; to trigger shell-maker-finish-output and restore the prompt.
+    ;; If the response never arrives, shell-maker--busy stays t and
+    ;; no prompt (λ) is inserted — the user is stuck.
+    (defvar mr-x/interrupt-fallback-timer nil
+      "Timer to restore prompt if ACP server doesn't respond after interrupt.")
+
+    (defun mr-x/agent-shell-interrupt-ensure-prompt (&rest _)
+      "After interrupt, set a fallback timer to restore the prompt."
+      (when (timerp mr-x/interrupt-fallback-timer)
+        (cancel-timer mr-x/interrupt-fallback-timer))
+      (let ((buf (current-buffer)))
+        (setq mr-x/interrupt-fallback-timer
+              (run-with-timer 3 nil
+                (lambda ()
+                  (when (and (buffer-live-p buf)
+                             (buffer-local-value 'shell-maker--busy buf))
+                    (with-current-buffer buf
+                      (setq shell-maker--busy nil)
+                      (goto-char (point-max))
+                      (shell-maker--output-filter
+                       (shell-maker--process)
+                       (concat "\n" (shell-maker-prompt shell-maker--config))))))))))
+
+    (advice-add 'agent-shell-interrupt :after #'mr-x/agent-shell-interrupt-ensure-prompt)
 
     ;; Local slash commands for agent-shell
     (defvar mr-x/agent-shell-local-commands
