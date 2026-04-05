@@ -1,7 +1,5 @@
 #+begin_src emacs-lisp
   ;;; -*- lexical-binding: t; -*-
-
-
 #+end_src
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el
 
@@ -106,6 +104,7 @@
                  (not (eq (with-current-buffer buffer major-mode) 'org-mode)))
         (with-current-buffer buffer
           (org-mode)))))
+
 
 
 #+end_src
@@ -1196,16 +1195,11 @@
   ("C-x C-b" . persp-counsel-switch-buffer)         ; or use a nicer switcher, see below
   ("C-x C-i" . persp-ibuffer)
   :custom
-  (persp-show-modestring nil)  ; hide perspective name from modeline (doom-modeline handles it)
   (persp-mode-prefix-key (kbd "C-x M-x"))  ; keep original prefix for compatibility
   :init
+  (setq persp-show-modestring nil)
   (persp-mode)
   :config
-  ;; persp-mode adds itself to global-mode-string during activation and
-  ;; ignores persp-show-modestring afterwards — remove it explicitly
-  (setq global-mode-string
-        (delete '(:eval (persp-mode-line)) global-mode-string))
-
   ;; Hide the GLOBAL perspective (used internally by persp-add-buffer-to-frame-global)
   (define-advice persp-names (:filter-return (names) hide-global)
     (cl-remove persp-frame-global-perspective-name names :test #'string=))
