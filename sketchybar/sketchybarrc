@@ -192,7 +192,7 @@ sketchybar --add item battery right                                 \
 sketchybar --add item imessage right                                 \
            --set      imessage icon=󰍡                                \
                                icon.color=$GRUVBOX_GREEN             \
-                               label.color=$GRUVBOX_GREEN            \
+                               label.color=0xFFFFFFFF                 \
                                background.border_color=$GRUVBOX_GREEN \
                                script='./plugins/imessage.sh'        \
                                update_freq=5                         \

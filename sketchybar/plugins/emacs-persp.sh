@@ -54,8 +54,8 @@ if [ -n "$EMACS_PERSP_NAME" ] && [ "$TITLE" = "$EMACS_PERSP_FRAME_TITLE" ]; then
   ACTIVE="$EMACS_PERSP_NAME"
   ALL_CSV="$EMACS_PERSP_ALL"
 else
-  ACTIVE=$($EMACSCLIENT --eval "(mr-x/sketchybar-persp-name-for-title \"$TITLE\")" 2>/dev/null | tr -d '"')
-  ALL_CSV=$($EMACSCLIENT --eval "(mapconcat #'identity (persp-names) \",\")" 2>/dev/null | tr -d '"')
+  ACTIVE=$($EMACSCLIENT --eval "(when (fboundp 'mr-x/sketchybar-persp-name-for-title) (mr-x/sketchybar-persp-name-for-title \"$TITLE\"))" 2>/dev/null | tr -d '"')
+  ALL_CSV=$($EMACSCLIENT --eval "(when (fboundp 'persp-names) (mapconcat #'identity (persp-names) \",\"))" 2>/dev/null | tr -d '"')
   [ "$ACTIVE" = "nil" ] || [ -z "$ACTIVE" ] && ACTIVE="main"
 fi
 
