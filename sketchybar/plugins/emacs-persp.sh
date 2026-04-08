@@ -59,14 +59,12 @@ else
   [ "$ACTIVE" = "nil" ] || [ -z "$ACTIVE" ] && ACTIVE="main"
 fi
 
-# Show edge spacers
-sketchybar --set emacs_persp_pad_l drawing=on display=$DISPLAY_IDX 2>/dev/null
-sketchybar --set emacs_persp_pad_r drawing=on display=$DISPLAY_IDX 2>/dev/null
-
-# Fill slots with perspective names
+# Fill slots with perspective names — batch into a single sketchybar call
+# (spacers included in the batch below)
 IFS=',' read -ra NAMES <<< "$ALL_CSV"
 COUNT=${#NAMES[@]}
 
+BATCH_ARGS=()
 for i in $(seq 1 10); do
   idx=$((i - 1))
   if [ $idx -lt $COUNT ]; then
@@ -81,16 +79,21 @@ for i in $(seq 1 10); do
       bg_drawing=off
     fi
 
-    sketchybar --set emacs_persp_slot.$i \
-      drawing=on \
-      display=$DISPLAY_IDX \
-      label="$name" \
-      label.color=$color \
-      label.padding_left=6 \
-      label.padding_right=6 \
-      background.drawing=$bg_drawing \
-      background.color=$bg
+    BATCH_ARGS+=(--set emacs_persp_slot.$i
+      drawing=on
+      display=$DISPLAY_IDX
+      "label=$name"
+      label.color=$color
+      label.padding_left=6
+      label.padding_right=6
+      background.drawing=$bg_drawing
+      background.color=$bg)
   else
-    sketchybar --set emacs_persp_slot.$i drawing=off 2>/dev/null
+    BATCH_ARGS+=(--set emacs_persp_slot.$i drawing=off)
   fi
 done
+
+sketchybar \
+  --set emacs_persp_pad_l drawing=on display=$DISPLAY_IDX \
+  --set emacs_persp_pad_r drawing=on display=$DISPLAY_IDX \
+  "${BATCH_ARGS[@]}" 2>/dev/null
