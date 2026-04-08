@@ -1092,8 +1092,12 @@
     (cl-remove persp-frame-global-perspective-name names :test #'string=))
 
   ;; ── Sketchybar perspective integration ─────────────────────
-  (defun mr-x/sketchybar-update-persp (&rest _)
-    "Push current perspective name to sketchybar for the current frame's display."
+  (defvar mr-x/sketchybar-persp--timer nil
+    "Debounce timer for sketchybar perspective updates.")
+
+  (defun mr-x/sketchybar-update-persp--do ()
+    "Actually push perspective state to sketchybar (called by debounce timer)."
+    (setq mr-x/sketchybar-persp--timer nil)
     (when (and (bound-and-true-p persp-mode)
                (not (string-match-p "SCRATCHPAD"
                                     (or (frame-parameter nil 'title) ""))))
@@ -1106,6 +1110,13 @@
                                (shell-quote-argument active)
                                (shell-quote-argument all-str)
                                (shell-quote-argument frame-title))))))
+
+  (defun mr-x/sketchybar-update-persp (&rest _)
+    "Push current perspective name to sketchybar (debounced 0.15s)."
+    (when mr-x/sketchybar-persp--timer
+      (cancel-timer mr-x/sketchybar-persp--timer))
+    (setq mr-x/sketchybar-persp--timer
+          (run-at-time 0.15 nil #'mr-x/sketchybar-update-persp--do)))
 
   (defun mr-x/sketchybar-persp-name-for-title (title)
     "Return the perspective name for the Emacs frame matching TITLE.
@@ -2670,6 +2681,7 @@ Creates a frame named 'Dev: rec' with:
       ;; Custom icons
       (setq agent-shell-permission-icon "\uf259")
       (setq agent-shell-thought-process-icon "\uf29d")
+      (setq agent-shell-prefer-session-resume nil)
 
       ;; Fix keybindings in agent-shell diff view (evil-mode conflicts)
       ;; The diff view uses buttons - we need to make sure evil doesn't intercept keys
@@ -3166,9 +3178,25 @@ Creates a frame named 'Dev: rec' with:
     (advice-add 'agent-shell-interrupt :after #'mr-x/agent-shell-interrupt-ensure-prompt)
 
     ;; Local slash commands for agent-shell
+    (defun mr-x/agent-shell-clear-context ()
+      "Start a fresh agent-shell session reusing the current config, no picker."
+      (interactive)
+      (let* ((config (map-elt agent-shell--state :agent-config))
+             (shell-buffer (agent-shell--start :config config
+                                               :no-focus t
+                                               :new-session t)))
+        (if (derived-mode-p 'agent-shell-mode 'agent-shell-viewport-view-mode
+                            'agent-shell-viewport-edit-mode)
+            (if agent-shell-prefer-viewport-interaction
+                (agent-shell-viewport--show-buffer :shell-buffer shell-buffer)
+              (switch-to-buffer shell-buffer))
+          (if agent-shell-prefer-viewport-interaction
+              (agent-shell-viewport--show-buffer :shell-buffer shell-buffer)
+            (pop-to-buffer shell-buffer)))))
+
     (defvar mr-x/agent-shell-local-commands
       '(("new" . mr-x/agent-shell-new-smart)
-        ("clear" . mr-x/agent-shell-new-smart))
+        ("clear" . mr-x/agent-shell-clear-context))
       "Local slash commands. Keys are names (without /), values are functions.")
 
     ;; Inject local commands into / completion
@@ -3407,6 +3435,7 @@ Creates a frame named 'Dev: rec' with:
                  agent-recall-backfill agent-recall-stats)
       :custom
       (agent-recall-search-function 'deadgrep)
+      (agent-recall-browse-sort 'modified-desc)
       :hook (agent-shell-mode . agent-recall-track-sessions))
 
     ;; Permission UI Override - Hybrid Style (cleaner vertical layout)
