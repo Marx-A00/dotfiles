@@ -12,6 +12,7 @@ f13 : emacsclient --eval "(mr-x/agent-shell-allow)"
 f14 : emacsclient --eval "(mr-x/agent-shell-deny)"
 f15 : emacsclient --eval "(mr-x/agent-shell-allow-always)"
 f16 : emacsclient --eval "(mr-x/agent-shell-view-diff)"
+cmd + shift - a : ~/.dotfiles/scripts/org-agenda-frame.sh
 cmd + shift - r : ~/.dotfiles/scripts/emacs-restart.sh
 cmd + shift - s : ~/.dotfiles/scripts/emacs-sandbox.sh --restart
 cmd + shift + ctrl - s : ~/.dotfiles/scripts/emacs-sandbox.sh --test
