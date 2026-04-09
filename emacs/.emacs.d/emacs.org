@@ -2499,6 +2499,17 @@ If the buffers already exist, kills them first."
     (global-treesit-auto-mode))
 #+end_src
 
+*** YASnippet
+#+begin_src emacs-lisp
+  (use-package yasnippet
+    :ensure t
+    :config
+    (setq yas-snippet-dirs '("~/.emacs.d/snippets"))
+    (define-key yas-minor-mode-map (kbd "<tab>") yas-maybe-expand)
+    (define-key yas-minor-mode-map (kbd "TAB") yas-maybe-expand)
+    (yas-global-mode 1))
+#+end_src
+
 *** LSP Mode with Corfu
 #+begin_src emacs-lisp
   ;; Corfu for in-buffer completion
@@ -2777,18 +2788,26 @@ If the buffers already exist, kills them first."
         (defun mr-x/agent-shell-smart-insert ()
           "Enter insert mode, jumping to prompt if not already there."
           (interactive)
-          (if (shell-maker-point-at-last-prompt-p)
-              (evil-insert-state)
+          (cond
+           ((shell-maker-point-at-last-prompt-p)
+            (evil-insert-state))
+           (t
             (goto-char (point-max))
-            (evil-insert-state)))
+            (if (shell-maker-point-at-last-prompt-p)
+                (evil-insert-state)
+              (message "Shell is busy — can't insert yet")))))
 
         (defun mr-x/agent-shell-smart-append ()
           "Enter append mode, jumping to prompt if not already there."
           (interactive)
-          (if (shell-maker-point-at-last-prompt-p)
-              (evil-append 1)
+          (cond
+           ((shell-maker-point-at-last-prompt-p)
+            (evil-append 1))
+           (t
             (goto-char (point-max))
-            (evil-append 1)))
+            (if (shell-maker-point-at-last-prompt-p)
+                (evil-append 1)
+              (message "Shell is busy — can't insert yet")))))
 
         (evil-define-key 'normal agent-shell-mode-map
           (kbd "i") #'mr-x/agent-shell-smart-insert

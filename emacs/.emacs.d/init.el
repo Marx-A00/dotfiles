@@ -2025,31 +2025,37 @@ TASK-ID is the ID shown when Claude runs a background command."
     "Spawn a new frame with two horizontal vterms for rec dev and queue.
 Creates a frame named 'Dev: rec' with:
   - Top: vterm running `pnpm run dev` (named *rec: dev*)
-  - Bottom: vterm running `pnpm queue:dev` (named *rec: queue*)"
+  - Bottom: vterm running `pnpm queue:dev` (named *rec: queue*)
+If the buffers already exist, kills them first."
     (interactive)
     (let* ((project-root "~/roaming/projects/rec/")
            (project-name "rec")
-           (frame (make-frame `((name . ,(format "Dev: %s" project-name))))))
-      (select-frame-set-input-focus frame)
-      (let ((default-directory project-root))
-        ;; Create first vterm for dev server
-        (multi-vterm)
-        (rename-buffer (format "*%s: dev*" project-name))
-        (let ((dev-buf (current-buffer)))
-          ;; Split horizontally (top/bottom)
-          (split-window-below)
-          ;; Create second vterm for queue in bottom window
-          (other-window 1)
+           (dev-buf-name (format "*%s: dev*" project-name))
+           (queue-buf-name (format "*%s: queue*" project-name)))
+      ;; Kill existing buffers if they exist
+      (when (get-buffer dev-buf-name) (kill-buffer dev-buf-name))
+      (when (get-buffer queue-buf-name) (kill-buffer queue-buf-name))
+      (let ((frame (make-frame `((name . ,(format "Dev: %s" project-name))))))
+        (select-frame-set-input-focus frame)
+        (let ((default-directory project-root))
+          ;; Create first vterm for dev server
           (multi-vterm)
-          (rename-buffer (format "*%s: queue*" project-name))
-          ;; Send commands to both vterms
-          (vterm-send-string "pnpm queue:dev")
-          (vterm-send-return)
-          ;; Switch to dev buffer and send its command
-          (select-window (get-buffer-window dev-buf))
-          (vterm-send-string "pnpm run dev")
-          (vterm-send-return)))
-      (message "Dev environment spawned for %s" project-name)))
+          (rename-buffer dev-buf-name)
+          (let ((dev-buf (current-buffer)))
+            ;; Split horizontally (top/bottom)
+            (split-window-below)
+            ;; Create second vterm for queue in bottom window
+            (other-window 1)
+            (multi-vterm)
+            (rename-buffer queue-buf-name)
+            ;; Send commands to both vterms
+            (vterm-send-string "pnpm queue:dev")
+            (vterm-send-return)
+            ;; Switch to dev buffer and send its command
+            (select-window (get-buffer-window dev-buf))
+            (vterm-send-string "pnpm run dev")
+            (vterm-send-return)))
+        (message "Dev environment spawned for %s" project-name))))
 
   (defun mr-x/restart-dev-environment ()
     "Restart rec project dev processes by sending C-c and re-running commands."
@@ -2271,6 +2277,14 @@ Creates a frame named 'Dev: rec' with:
   :config
   (treesit-auto-add-to-auto-mode-alist 'all)
   (global-treesit-auto-mode))
+
+(use-package yasnippet
+  :ensure t
+  :config
+  (setq yas-snippet-dirs '("~/.emacs.d/snippets"))
+  (define-key yas-minor-mode-map (kbd "<tab>") yas-maybe-expand)
+  (define-key yas-minor-mode-map (kbd "TAB") yas-maybe-expand)
+  (yas-global-mode 1))
 
 ;; Corfu for in-buffer completion
 (use-package corfu
@@ -2526,18 +2540,26 @@ Creates a frame named 'Dev: rec' with:
       (defun mr-x/agent-shell-smart-insert ()
         "Enter insert mode, jumping to prompt if not already there."
         (interactive)
-        (if (shell-maker-point-at-last-prompt-p)
-            (evil-insert-state)
+        (cond
+         ((shell-maker-point-at-last-prompt-p)
+          (evil-insert-state))
+         (t
           (goto-char (point-max))
-          (evil-insert-state)))
+          (if (shell-maker-point-at-last-prompt-p)
+              (evil-insert-state)
+            (message "Shell is busy — can't insert yet")))))
 
       (defun mr-x/agent-shell-smart-append ()
         "Enter append mode, jumping to prompt if not already there."
         (interactive)
-        (if (shell-maker-point-at-last-prompt-p)
-            (evil-append 1)
+        (cond
+         ((shell-maker-point-at-last-prompt-p)
+          (evil-append 1))
+         (t
           (goto-char (point-max))
-          (evil-append 1)))
+          (if (shell-maker-point-at-last-prompt-p)
+              (evil-append 1)
+            (message "Shell is busy — can't insert yet")))))
 
       (evil-define-key 'normal agent-shell-mode-map
         (kbd "i") #'mr-x/agent-shell-smart-insert
