@@ -109,6 +109,27 @@ sketchybar --set space_ex.1 padding_left=-999999
 sketchybar --add event emacs_persp_update
 bash ./plugins/emacs-persp-setup.sh
 
+# emacs org-clock indicator
+sketchybar --add event emacs_clock_update
+bash ./plugins/emacs-clock-setup.sh
+
+# org-agenda launcher button
+sketchybar --add item emacs_agenda left \
+           --set emacs_agenda \
+             icon=󰃭 \
+             icon.color=0xFFb8bb26 \
+             icon.padding_left=10 \
+             icon.padding_right=10 \
+             label.drawing=off \
+             background.color=0x801e1e2e \
+             background.corner_radius=15 \
+             background.height=30 \
+             background.border_width=1 \
+             background.border_color=0x40FFFFFF \
+             background.padding_left=18 \
+             blur_radius=2 \
+             click_script='~/.dotfiles/scripts/org-agenda-frame.sh'
+
 # update defaults
 sketchybar --default                                                \
                      background.color=0x801e1e2e                    \

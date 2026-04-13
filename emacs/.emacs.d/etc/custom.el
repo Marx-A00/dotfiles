@@ -13,8 +13,8 @@
  '(package-selected-packages
    '(corfu-terminal counsel evil exec-path-from-shell
 		    highlight-indent-guides kind-icon magit
-		    org-superstar popper projectile toc-org
-		    visual-fill-column))
+		    org-superstar package-lint popper projectile
+		    toc-org visual-fill-column))
  '(project-dashboard-projects
    '(("dotfiles" . "~/.dotfiles") ("sandbox" . "~/.emacs-sandbox")
      ("roaming/claude" . "~/roaming/claude")
@@ -29,7 +29,8 @@
      ("emacs-dashboard" . "~/roaming/projects/emacs-dashboard/")
      ("agent recall" . "~/roaming/projects/agent-recall/")
      ("agent shell manager"
-      . "~/.dotfiles/emacs/.emacs.d/elpaca/repos/agent-shell-manager/"))))
+      . "~/.dotfiles/emacs/.emacs.d/elpaca/repos/agent-shell-manager/")
+     ("sakura" . "~/roaming/projects/sakura/"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

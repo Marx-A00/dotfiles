@@ -16,7 +16,7 @@ cmd + shift - a : ~/.dotfiles/scripts/org-agenda-frame.sh
 cmd + shift - r : ~/.dotfiles/scripts/emacs-restart.sh
 cmd + shift - s : ~/.dotfiles/scripts/emacs-sandbox.sh --restart
 cmd + shift + ctrl - s : ~/.dotfiles/scripts/emacs-sandbox.sh --test
-cmd + shift - v : emacsclient --eval "(agent-shell-yank-dwim)"
+cmd + shift - v : emacsclient --eval "(with-current-buffer (or (car (agent-shell-buffers)) (current-buffer)) (agent-shell-yank-dwim))"
 
 # Native yabai scratchpad bindings
 cmd + shift - space : ~/.dotfiles/scripts/scratchpad-emacs.sh scratch
@@ -70,6 +70,7 @@ ctrl - 4 : yabai -m display --focus 4
 
 alt + shift - b : yabai -m space --balance
 alt + shift - r : yabai --restart-service
+alt + shift - s : brew services restart sketchybar
 
 ctrl - space : ~/.dotfiles/yabai/scripts/toggle_layout.sh
 
