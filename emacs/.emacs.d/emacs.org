@@ -2981,12 +2981,22 @@ If the buffers already exist, kills them first."
                 (evil-append 1)
               (message "Shell is busy — can't insert yet")))))
 
+        (defun mr-x/agent-shell-smart-paste ()
+          "Paste, jumping to prompt if not already there."
+          (interactive)
+          (unless (shell-maker-point-at-last-prompt-p)
+            (goto-char (point-max)))
+          (if (shell-maker-point-at-last-prompt-p)
+              (call-interactively #'evil-paste-after)
+            (message "Shell is busy — can't paste yet")))
+
         (evil-define-key 'normal agent-shell-mode-map
           (kbd "i") #'mr-x/agent-shell-smart-insert
           (kbd "a") #'mr-x/agent-shell-smart-append
           (kbd "A") #'mr-x/agent-shell-smart-append
           (kbd "o") #'mr-x/agent-shell-smart-append
-          (kbd "O") #'mr-x/agent-shell-smart-append)
+          (kbd "O") #'mr-x/agent-shell-smart-append
+          (kbd "p") #'mr-x/agent-shell-smart-paste)
 
         ;; Context-sensitive permission keys in normal mode
         ;; When permission pending: respond directly
