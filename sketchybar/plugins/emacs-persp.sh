@@ -26,35 +26,23 @@ if [ -z "$WINDOW_COUNT" ] || [ "$WINDOW_COUNT" -eq 0 ]; then
   exit 0
 fi
 
-# Find display: prefer focused Emacs window, fall back to any
+# Use focused Emacs window if available, otherwise first one
 FOCUSED=$(yabai -m query --windows --window 2>/dev/null)
 FOCUSED_APP=$(echo "$FOCUSED" | jq -r '.app' 2>/dev/null)
 
 if [ "$FOCUSED_APP" = "Emacs" ]; then
   DISPLAY_IDX=$(echo "$FOCUSED" | jq -r '.display')
+  TITLE=$(echo "$FOCUSED" | jq -r '.title')
 else
   DISPLAY_IDX=$(echo "$EMACS_WINDOWS" | jq -r '.[0].display')
+  TITLE=$(echo "$EMACS_WINDOWS" | jq -r '.[0].title')
 fi
 
-# Multiple frames on same display — ambiguous
-FRAMES_ON_DISPLAY=$(echo "$EMACS_WINDOWS" | jq "[.[] | select(.display == $DISPLAY_IDX)] | length")
-if [ "$FRAMES_ON_DISPLAY" -gt 1 ]; then
-  sketchybar --set emacs_persp_slot.1 \
-    drawing=on display=$DISPLAY_IDX label="?" label.color=$WHITE label.padding_right=12
-  for i in $(seq 2 10); do
-    sketchybar --set emacs_persp_slot.$i drawing=off 2>/dev/null
-  done
-  exit 0
-fi
-
-# Get perspective info
-TITLE=$(echo "$EMACS_WINDOWS" | jq -r ".[] | select(.display == $DISPLAY_IDX) | .title" | head -1)
-
-if [ -n "$EMACS_PERSP_NAME" ] && [ "$TITLE" = "$EMACS_PERSP_FRAME_TITLE" ]; then
+if [ -n "$EMACS_PERSP_NAME" ]; then
   ACTIVE="$EMACS_PERSP_NAME"
   ALL_CSV="$EMACS_PERSP_ALL"
 else
-  ACTIVE=$($EMACSCLIENT --eval "(when (fboundp 'mr-x/sketchybar-persp-name-for-title) (mr-x/sketchybar-persp-name-for-title \"$TITLE\"))" 2>/dev/null | tr -d '"')
+  ACTIVE=$($EMACSCLIENT --eval "(persp-current-name)" 2>/dev/null | tr -d '"')
   ALL_CSV=$($EMACSCLIENT --eval "(when (fboundp 'persp-names) (mapconcat #'identity (persp-names) \",\"))" 2>/dev/null | tr -d '"')
   [ "$ACTIVE" = "nil" ] || [ -z "$ACTIVE" ] && ACTIVE="main"
 fi
