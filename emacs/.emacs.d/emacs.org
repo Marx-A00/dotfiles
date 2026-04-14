@@ -1693,7 +1693,14 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         "c 1" '(mr-x/agent-shell-allow :wk "Allow")
         "c 2" '(mr-x/agent-shell-deny :wk "Deny")
         "c 3" '(mr-x/agent-shell-allow-always :wk "Allow always")
-        "c 0" '(mr-x/agent-shell-view-diff :wk "View diff"))
+        "c 0" '(mr-x/agent-shell-view-diff :wk "View diff")
+        "c a" '(:ignore t :wk "Recall")
+        "c a s" '(agent-recall-search :wk "Search")
+        "c a S" '(agent-recall-search-live :wk "Search live")
+        "c a b" '(agent-recall-browse :wk "Browse")
+        "c a r" '(agent-recall-resume :wk "Resume")
+        "c a B" '(agent-recall-backfill :wk "Backfill")
+        "c a t" '(agent-recall-stats :wk "Stats"))
 
 
       (mr-x/leader-def
@@ -1811,7 +1818,9 @@ TASK-ID is the ID shown when Claude runs a background command."
         "; l" '(lsp :wk "Start LSP")
         "; q" '(lsp-disconnect :wk "Disconnect LSP")
         "; w" '(lsp-restart-workspace :wk "Restart workspace")
-        "; I" '(lsp-ui-imenu :wk "Imenu"))
+        "; I" '(:ignore t :wk "Imenu")
+        "; I i" '(counsel-imenu :wk "Imenu")
+        "; I I" '(lsp-ui-imenu :wk "LSP Imenu"))
 
   )
 
@@ -2074,7 +2083,20 @@ TASK-ID is the ID shown when Claude runs a background command."
   (use-package counsel
     :ensure t
     :config
-    (counsel-mode 1))
+    (counsel-mode 1)
+
+    ;; Auto-preview symbols in counsel-imenu as you navigate
+    (defvar my/imenu-preview-pos nil
+      "Saved position before counsel-imenu for restore on cancel.")
+
+    (advice-add 'counsel-imenu :before
+      (lambda (&rest _) (setq my/imenu-preview-pos (point))))
+
+    (ivy-configure 'counsel-imenu
+      :update-fn #'ivy-call
+      :unwind-fn (lambda ()
+                   (when my/imenu-preview-pos
+                     (goto-char my/imenu-preview-pos)))))
 
   (global-set-key (kbd "M-x") 'counsel-M-x)
   (global-set-key (kbd "C-x C-f") 'counsel-find-file)
@@ -2223,7 +2245,7 @@ TASK-ID is the ID shown when Claude runs a background command."
    _j_: next           _c_: new shell       _m_: set mode
    _k_: prev           _i_: interrupt       _M_: set model
    _RET_: select       _K_: kill            _n_: set label
-   _v_/_S-RET_: peek   _r_: restart         _l_: toggle logging
+   _v_/_<S-return>_: peek   _r_: restart         _l_: toggle logging
    _p_: preview        _d_: delete killed   _t_: view traffic
 
    Frame/Filter
@@ -2232,8 +2254,8 @@ TASK-ID is the ID shown when Claude runs a background command."
       ("j" next-line)
       ("k" previous-line)
       ("RET" agent-shell-manager-select :exit t)
-      ("v" agent-shell-manager-peek :exit t)
-      ("<S-return>" agent-shell-manager-peek :exit t)
+      ("v" agent-shell-manager-peek)
+      ("<S-return>" agent-shell-manager-peek)
       ("p" agent-shell-manager-enter-preview)
       ("c" agent-shell-manager-new)
       ("i" agent-shell-manager-interrupt)
@@ -2729,7 +2751,7 @@ If the buffers already exist, kills them first."
   ;; LSP UI for better LSP experience
   (use-package lsp-ui
     :ensure t
-    :commands lsp-ui-mode
+    :commands (lsp-ui-mode lsp-ui-imenu)
     :hook (lsp-mode . lsp-ui-mode)
     :config
     (setq lsp-ui-sideline-enable nil)       ;; No sideline
@@ -3889,6 +3911,7 @@ If the buffers already exist, kills them first."
         (agent-recall-search-paths '("~"))
         (agent-recall-search-function 'deadgrep)
         (agent-recall-browse-sort 'modified-desc)
+        (agent-recall-browse-preview nil)
         :hook (agent-shell-mode . agent-recall-track-sessions))
 
       ;; Permission UI Override - Hybrid Style (cleaner vertical layout)
