@@ -573,83 +573,194 @@
   org-roam-ui-open-on-start t))
 
 ;;; ============================================
-;;; Mdox Cheatsheet System
-;;; ============================================
+  ;;; Mdox Cheatsheet System
+  ;;; ============================================
 
-(define-minor-mode mr-x/mdox-reader-mode
-  "Clean, distraction-free reading mode for Mdox documentation."
-  :lighter " Mdox"
-  (if mr-x/mdox-reader-mode
-      (progn
-        (read-only-mode 1)
-        (org-modern-mode 1)
-        (olivetti-mode 1)
-        (setq-local olivetti-body-width 80)
-        (display-line-numbers-mode -1)
-        (visual-line-mode 1)
-        (setq-local org-hide-emphasis-markers t)
-        (setq-local header-line-format
-                    (propertize " Mdox  [q] quit  [n/p] navigate  [/] search  [TAB] fold"
-                                'face 'font-lock-comment-face))
-        ;; Evil keybindings — buffer-local so they override org-mode's
-        (when (bound-and-true-p evil-mode)
-          (evil-normal-state)
-          (evil-local-set-key 'normal (kbd "q") #'quit-window)
-          (evil-local-set-key 'normal (kbd "n") #'org-next-visible-heading)
-          (evil-local-set-key 'normal (kbd "p") #'org-previous-visible-heading)
-          (evil-local-set-key 'normal (kbd "/") #'swiper)
-          (evil-local-set-key 'normal (kbd "TAB") #'org-cycle)))
-    ;; Teardown
-    (read-only-mode -1)
-    (org-modern-mode -1)
-    (olivetti-mode -1)
-    (setq-local header-line-format nil)))
+  (define-minor-mode mr-x/mdox-reader-mode
+    "Clean, distraction-free reading mode for Mdox documentation."
+    :lighter " Mdox"
+    (if mr-x/mdox-reader-mode
+        (progn
+          (read-only-mode 1)
+          (org-modern-mode 1)
+          (olivetti-mode 1)
+          (setq-local olivetti-body-width 80)
+          (display-line-numbers-mode -1)
+          (visual-line-mode 1)
+          (setq-local org-hide-emphasis-markers t)
+          (setq-local header-line-format
+                      (propertize " Mdox  [q] quit  [n/p] navigate  [/] search  [TAB] fold  [l] lint"
+                                  'face 'font-lock-comment-face))
+          ;; Evil keybindings — buffer-local so they override org-mode's
+          (when (bound-and-true-p evil-mode)
+            (evil-normal-state)
+            (evil-local-set-key 'normal (kbd "q") #'quit-window)
+            (evil-local-set-key 'normal (kbd "n") #'org-next-visible-heading)
+            (evil-local-set-key 'normal (kbd "p") #'org-previous-visible-heading)
+            (evil-local-set-key 'normal (kbd "/") #'swiper)
+            (evil-local-set-key 'normal (kbd "TAB") #'org-cycle)
+            (evil-local-set-key 'normal (kbd "l") #'mr-x/mdox-lint))
+          ;; Auto-lint after mode settles
+          (run-with-idle-timer 0.3 nil #'mr-x/mdox-lint))
+      ;; Teardown
+      (read-only-mode -1)
+      (org-modern-mode -1)
+      (olivetti-mode -1)
+      (mr-x/mdox-lint-clear)
+      (setq-local header-line-format nil)))
 
-(defun mr-x/mdox-view (id)
-  "Open an org-roam node by ID in a pretty popper popup."
-  (interactive)
-  (let* ((node (org-roam-node-from-id id))
-         (file (org-roam-node-file node))
-         (buf (find-file-noselect file)))
-    (with-current-buffer buf
+  (defun mr-x/mdox-view (id)
+    "Open an org-roam node by ID in a pretty popper popup."
+    (interactive)
+    (let* ((node (org-roam-node-from-id id))
+           (file (org-roam-node-file node))
+           (buf (find-file-noselect file)))
+      (with-current-buffer buf
+        (goto-char (point-min))
+        (mr-x/mdox-reader-mode 1))
+      (select-window
+       (display-buffer buf
+                       '((display-buffer-in-side-window)
+                         (side . bottom)
+                         (window-height . 0.45))))))
+
+  (defun mr-x/mdox-search ()
+    "Fuzzy search all Mdox nodes via org-roam-node-find."
+    (interactive)
+    (let ((org-roam-node-display-template
+           "${title:60} ${tags:20}"))
+      (org-roam-node-find nil "mdox")))
+
+  (defvar mr-x/shortcuts-file
+    "~/roaming/notes/applications/emacs/keybindings-shortcuts-and-descriptions.org"
+    "Path to the keybindings shortcuts file.")
+
+  (defun mr-x/view-shortcuts ()
+    "Open the shortcuts file in a pretty popper popup."
+    (interactive)
+    (let ((buf (find-file-noselect mr-x/shortcuts-file)))
+      (with-current-buffer buf
+        (goto-char (point-min))
+        (mr-x/mdox-reader-mode 1))
+      (select-window
+       (display-buffer buf
+                       '((display-buffer-in-side-window)
+                         (side . bottom)
+                         (window-height . 0.45))))))
+
+  (defun mr-x/search-shortcuts ()
+    "Open shortcuts file and immediately search with swiper."
+    (interactive)
+    (find-file mr-x/shortcuts-file)
+    (mr-x/mdox-reader-mode 1)
+    (swiper))
+
+  ;;; ============================================
+  ;;; Mdox Format Spec & Tooling
+  ;;; ============================================
+
+  ;; --- Spec (single source of truth) ---
+  (defvar mr-x/mdox-spec
+    '(:title-suffix "--Mdox"
+      :directory "~/roaming/notes/"
+      :required-headings ("Overview" "Quick Reference" "Concepts" "Patterns" "Gotchas" "Resources")
+      :max-depth 3)
+    "Canonical specification for Mdox document format.
+  All Mdox tooling (scaffolder, linter) derives from this spec.")
+
+  ;; --- Scaffolder ---
+  (defun mr-x/mdox-new (topic)
+    "Create a new Mdox document for TOPIC using the canonical spec."
+    (interactive "sTopic: ")
+    (let* ((slug (downcase (replace-regexp-in-string "[[:space:]]+" "-" (string-trim topic))))
+           (filename (expand-file-name (concat slug "-mdox.org")
+                                       (plist-get mr-x/mdox-spec :directory)))
+           (id (org-id-uuid))
+           (title (concat topic (plist-get mr-x/mdox-spec :title-suffix)))
+           (headings (plist-get mr-x/mdox-spec :required-headings)))
+      (when (file-exists-p filename)
+        (user-error "Mdox already exists: %s" filename))
+      (find-file filename)
+      (insert ":PROPERTIES:\n"
+              ":ID:       " id "\n"
+              ":END:\n"
+              "#+title: " title "\n")
+      (dolist (h headings)
+        (insert "\n* " h "\n"))
+      (save-buffer)
       (goto-char (point-min))
-      (mr-x/mdox-reader-mode 1))
-    (select-window
-     (display-buffer buf
-                     '((display-buffer-in-side-window)
-                       (side . bottom)
-                       (window-height . 0.45))))))
+      (re-search-forward "^\\* Overview$" nil t)
+      (forward-line 1)
+      (message "Created Mdox: %s" (file-name-nondirectory filename))))
 
-(defun mr-x/mdox-search ()
-  "Fuzzy search all Mdox nodes via org-roam-node-find."
-  (interactive)
-  (let ((org-roam-node-display-template
-         "${title:60} ${tags:20}"))
-    (org-roam-node-find nil "mdox")))
+  ;; --- Linter ---
+  (defun mr-x/mdox-lint-clear () "No-op — kept for reader-mode teardown." nil)
 
-(defvar mr-x/shortcuts-file
-  "~/roaming/notes/applications/emacs/keybindings-shortcuts-and-descriptions.org"
-  "Path to the keybindings shortcuts file.")
+  (defun mr-x/mdox-lint ()
+    "Lint the current buffer against `mr-x/mdox-spec'.
+Shows all warnings in the echo area."
+    (interactive)
+    (let* ((spec mr-x/mdox-spec)
+           (required (plist-get spec :required-headings))
+           (max-depth (plist-get spec :max-depth))
+           (suffix (plist-get spec :title-suffix))
+           (warns '())
+           found-headings)
 
-(defun mr-x/view-shortcuts ()
-  "Open the shortcuts file in a pretty popper popup."
-  (interactive)
-  (let ((buf (find-file-noselect mr-x/shortcuts-file)))
-    (with-current-buffer buf
-      (goto-char (point-min))
-      (mr-x/mdox-reader-mode 1))
-    (select-window
-     (display-buffer buf
-                     '((display-buffer-in-side-window)
-                       (side . bottom)
-                       (window-height . 0.45))))))
+      ;; Check title format
+      (save-excursion
+        (goto-char (point-min))
+        (if (re-search-forward "^#\\+title: \\(.*\\)$" nil t)
+            (let ((title (match-string 1)))
+              (unless (string-suffix-p suffix title)
+                (push (format "Title should end with \"%s\"" suffix) warns)))
+          (push "Missing #+title" warns)))
 
-(defun mr-x/search-shortcuts ()
-  "Open shortcuts file and immediately search with swiper."
-  (interactive)
-  (find-file mr-x/shortcuts-file)
-  (mr-x/mdox-reader-mode 1)
-  (swiper))
+      ;; Check for org-roam ID
+      (save-excursion
+        (goto-char (point-min))
+        (unless (re-search-forward "^:ID:" nil t)
+          (push "Missing :ID: property" warns)))
+
+      ;; Collect top-level headings and check depth
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^\\(\\*+\\) \\(.+\\)$" nil t)
+          (let ((depth (length (match-string 1)))
+                (name (string-trim (match-string 2))))
+            (when (= depth 1)
+              (push (cons name (line-beginning-position)) found-headings))
+            (when (> depth max-depth)
+              (push (format "%s too deep (%d > %d)" name depth max-depth) warns)))))
+
+      (setq found-headings (nreverse found-headings))
+
+      ;; Check required headings present
+      (dolist (req required)
+        (unless (assoc req found-headings)
+          (push (format "Missing: %s" req) warns)))
+
+      ;; Check heading order
+      (let ((prev-idx -1))
+        (dolist (entry found-headings)
+          (let ((idx (seq-position required (car entry))))
+            (when (and idx (< idx prev-idx))
+              (push (format "%s out of order" (car entry)) warns))
+            (when idx (setq prev-idx idx)))))
+
+      (setq warns (nreverse warns))
+      (if (null warns)
+          (message "Mdox lint: ✓")
+        (message "Mdox lint: %s" (mapconcat #'identity warns " | ")))))
+
+  ;; --- Auto-lint on save ---
+  (defun mr-x/mdox-lint-on-save ()
+    "Run Mdox lint after saving a Mdox file."
+    (when (and buffer-file-name
+               (string-match-p "-mdox\\.org\\'" buffer-file-name))
+      (mr-x/mdox-lint)))
+
+  (add-hook 'after-save-hook #'mr-x/mdox-lint-on-save)
 
 (use-package transient
   :ensure t
@@ -690,6 +801,7 @@
       ("/" "Search all Mdox" mr-x/mdox-search)
       ("?" "Full shortcuts file" mr-x/view-shortcuts)
       ("." "Search in shortcuts" mr-x/search-shortcuts)
+      ("N" "New Mdox" mr-x/mdox-new)
       ("M" "Mdox index" (lambda () (interactive) (mr-x/mdox-view "A934531C-9903-4C97-A8D6-B47647B273B3")))]]))
 
 (pcase system-type
@@ -1146,6 +1258,57 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
 
   (add-hook 'kill-emacs-hook #'mr-x/sketchybar-hide-persp))
 
+  ;; ── Sketchybar org-clock integration ──────────────────────
+  (defvar mr-x/sketchybar-clock--timer nil
+    "Debounce timer for sketchybar clock updates.")
+
+  (defvar mr-x/sketchybar-clock--tick-timer nil
+    "Repeating timer to update elapsed time while clocked in.")
+
+  (defun mr-x/sketchybar-update-clock--do ()
+    "Push org-clock state to sketchybar."
+    (setq mr-x/sketchybar-clock--timer nil)
+    (if (and (fboundp 'org-clocking-p) (org-clocking-p))
+        (let* ((task (substring-no-properties org-clock-heading))
+               (elapsed (org-duration-from-minutes (org-clock-get-clocked-time))))
+          (start-process "sketchybar-clock" nil "bash" "-c"
+                         (format "sketchybar --trigger emacs_clock_update EMACS_CLOCK_TASK=%s EMACS_CLOCK_TIME=%s"
+                                 (shell-quote-argument task)
+                                 (shell-quote-argument elapsed))))
+      (start-process "sketchybar-clock" nil "bash" "-c"
+                     "sketchybar --trigger emacs_clock_update EMACS_CLOCK_TASK=__NONE__")))
+
+  (defun mr-x/sketchybar-update-clock (&rest _)
+    "Push org-clock state to sketchybar (debounced 0.15s)."
+    (when mr-x/sketchybar-clock--timer
+      (cancel-timer mr-x/sketchybar-clock--timer))
+    (setq mr-x/sketchybar-clock--timer
+          (run-at-time 0.15 nil #'mr-x/sketchybar-update-clock--do)))
+
+  (defun mr-x/sketchybar-clock-start-tick ()
+    "Start a 60s repeating timer to update elapsed time in sketchybar."
+    (mr-x/sketchybar-clock-stop-tick)
+    (setq mr-x/sketchybar-clock--tick-timer
+          (run-at-time 60 60 #'mr-x/sketchybar-update-clock))
+    (mr-x/sketchybar-update-clock))
+
+  (defun mr-x/sketchybar-clock-stop-tick ()
+    "Stop the repeating clock timer and hide the item."
+    (when mr-x/sketchybar-clock--tick-timer
+      (cancel-timer mr-x/sketchybar-clock--tick-timer)
+      (setq mr-x/sketchybar-clock--tick-timer nil))
+    (mr-x/sketchybar-update-clock))
+
+  (add-hook 'org-clock-in-hook #'mr-x/sketchybar-clock-start-tick)
+  (add-hook 'org-clock-out-hook #'mr-x/sketchybar-clock-stop-tick)
+  (add-hook 'org-clock-cancel-hook #'mr-x/sketchybar-clock-stop-tick)
+  (add-hook 'kill-emacs-hook
+            (lambda ()
+              (when mr-x/sketchybar-clock--tick-timer
+                (cancel-timer mr-x/sketchybar-clock--tick-timer))
+              (start-process "sketchybar-clock-hide" nil "bash" "-c"
+                             "sketchybar --trigger emacs_clock_update EMACS_CLOCK_TASK=__NONE__")))
+
   ;; Global scratch buffer — shared across all perspectives
   (setq mr-x/global-scratch-header
     "# and I've been global, so there's nothing foreign\n\n")
@@ -1223,7 +1386,8 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
           ".*shortcuts.*\\.org$"
           ;; Agent shell manager
           "\\*Agent-Shell Buffers\\*"
-          agent-shell-manager-mode))
+          agent-shell-manager-mode
+          "\\*Async Shell Command\\*"))
   :config
   (setq popper-display-control t)
   (setq popper-display-function #'popper-select-popup-at-bottom)
@@ -1401,7 +1565,14 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         "c 1" '(mr-x/agent-shell-allow :wk "Allow")
         "c 2" '(mr-x/agent-shell-deny :wk "Deny")
         "c 3" '(mr-x/agent-shell-allow-always :wk "Allow always")
-        "c 0" '(mr-x/agent-shell-view-diff :wk "View diff"))
+        "c 0" '(mr-x/agent-shell-view-diff :wk "View diff")
+        "c a" '(:ignore t :wk "Recall")
+        "c a s" '(agent-recall-search :wk "Search")
+        "c a S" '(agent-recall-search-live :wk "Search live")
+        "c a b" '(agent-recall-browse :wk "Browse")
+        "c a r" '(agent-recall-resume :wk "Resume")
+        "c a B" '(agent-recall-backfill :wk "Backfill")
+        "c a t" '(agent-recall-stats :wk "Stats"))
 
 
       (mr-x/leader-def
@@ -2450,6 +2621,14 @@ If the buffers already exist, kills them first."
 (add-to-list 'treesit-language-source-alist
              '(prisma "https://github.com/victorhqc/tree-sitter-prisma"))
 
+;; Kotlin tree-sitter grammar + mode
+(add-to-list 'treesit-language-source-alist
+             '(kotlin "https://github.com/fwcd/tree-sitter-kotlin"))
+
+(use-package kotlin-ts-mode
+  :ensure (:host gitlab :repo "bricka/emacs-kotlin-ts-mode")
+  :mode "\\.kt\\'")
+
 ;; Install the mode from GitHub
 (use-package prisma-ts-mode
   :ensure (:host github :repo "nverno/prisma-ts-mode")
@@ -2561,12 +2740,22 @@ If the buffers already exist, kills them first."
               (evil-append 1)
             (message "Shell is busy — can't insert yet")))))
 
+      (defun mr-x/agent-shell-smart-paste ()
+        "Paste, jumping to prompt if not already there."
+        (interactive)
+        (unless (shell-maker-point-at-last-prompt-p)
+          (goto-char (point-max)))
+        (if (shell-maker-point-at-last-prompt-p)
+            (call-interactively #'evil-paste-after)
+          (message "Shell is busy — can't paste yet")))
+
       (evil-define-key 'normal agent-shell-mode-map
         (kbd "i") #'mr-x/agent-shell-smart-insert
         (kbd "a") #'mr-x/agent-shell-smart-append
         (kbd "A") #'mr-x/agent-shell-smart-append
         (kbd "o") #'mr-x/agent-shell-smart-append
-        (kbd "O") #'mr-x/agent-shell-smart-append)
+        (kbd "O") #'mr-x/agent-shell-smart-append
+        (kbd "p") #'mr-x/agent-shell-smart-paste)
 
       ;; Context-sensitive permission keys in normal mode
       ;; When permission pending: respond directly
@@ -3456,8 +3645,10 @@ If the buffers already exist, kills them first."
                  agent-recall-browse agent-recall-resume
                  agent-recall-backfill agent-recall-stats)
       :custom
+      (agent-recall-search-paths '("~"))
       (agent-recall-search-function 'deadgrep)
       (agent-recall-browse-sort 'modified-desc)
+      (agent-recall-browse-preview nil)
       :hook (agent-shell-mode . agent-recall-track-sessions))
 
     ;; Permission UI Override - Hybrid Style (cleaner vertical layout)
