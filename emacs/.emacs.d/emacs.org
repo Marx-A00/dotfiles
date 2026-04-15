@@ -1570,22 +1570,16 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         ;; "S" 'mr-x/scratch
         ;; "v" 'multi-vterm
         "e" '((lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))) :wk "emacs.org")
-        "1" '((lambda () (interactive) (persp-switch-by-number 1)) :wk "workspace 1")
-        "2" '((lambda () (interactive) (persp-switch-by-number 2)) :wk "workspace 2")
-        "3" '((lambda () (interactive) (persp-switch-by-number 3)) :wk "workspace 3")
-        "4" '((lambda () (interactive) (persp-switch-by-number 4)) :wk "workspace 4")
-        "5" '((lambda () (interactive) (persp-switch-by-number 5)) :wk "workspace 5")
         "t" '(mr-x/test-environment :wk "Test environment")
         "u" '(universal-argument :wk "universal arg"))
 
-      (defun my/vsplit-scratch ()
-        "Vertical split and show *scratch* in the new window."
-        (interactive)
-        (evil-window-vsplit)
-        (switch-to-buffer "*scratch*"))
+      ;; Dynamic workspace bindings (SPC 1-9)
+      (dotimes (i 9)
+        (let ((n (1+ i)))
+          (mr-x/leader-def
+            (number-to-string n)
+            `((lambda () (interactive) (persp-switch-by-number ,n)) :wk ,(format "workspace %d" n)))))
 
-      (with-eval-after-load 'evil
-        (define-key evil-window-map "v" #'my/vsplit-scratch))
 
       (defun mr-x/test-environment ()
         "Spawn agent-shell on left, dired ~/roaming/sandbox on right."
@@ -1732,6 +1726,11 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
 
       (mr-x/leader-def
         "x" '(:keymap perspective-map :wk "perspective"))
+
+      (mr-x/leader-def
+        "$" '(:ignore t :wk "finances")
+        "$ q" '(my/ledger-quick-add :wk "quick add")
+        "$ o" '((lambda () (interactive) (find-file (my/ledger-current-year-file))) :wk "open ledger"))
 
       (mr-x/leader-def
         "P" '(:ignore t :wk "Project Dashboard")
@@ -3914,6 +3913,14 @@ If the buffers already exist, kills them first."
         (agent-recall-browse-preview nil)
         :hook (agent-shell-mode . agent-recall-track-sessions))
 
+      (use-package agent-shell-macext
+        :ensure (:host github :repo "cxa/agent-shell-macext")
+        :hook (agent-shell-mode . agent-shell-macext-setup)
+        :custom
+        (agent-shell-macext-file-copy-policy 'auto)
+        (agent-shell-macext-notifications t)
+        (agent-shell-macext-notify-current-buffer nil))
+
       ;; Permission UI Override - Hybrid Style (cleaner vertical layout)
       (defvar mr-x/permission-ui-style 'hybrid
         "Style for permission UI. Options:
@@ -4710,13 +4717,71 @@ If the buffers already exist, kills them first."
     :bind (:map ledger-mode-map
 		("C-x C-s" . my/ledger-save))
     :preface
+    (defvar my/ledger-finances-dir "~/roaming/personal/finances/"
+      "Directory containing year-based ledger transaction files.")
+
+    (defun my/ledger-current-year-file ()
+      "Return path to current year's transaction file."
+      (expand-file-name
+       (format "%s-transactions.dat" (format-time-string "%Y"))
+       my/ledger-finances-dir))
+
     (defun my/ledger-save ()
       "Automatically clean the ledger buffer at each save."
       (interactive)
       (save-excursion
 	(when (buffer-modified-p)
 	  (with-demoted-errors (ledger-mode-clean-buffer))
-	  (save-buffer)))))
+	  (save-buffer))))
+
+    (defun my/ledger-get-accounts ()
+      "Extract account names from current and previous year ledger files."
+      (require 'ledger-mode)
+      (let ((files (list (my/ledger-current-year-file)))
+            (prev-year-file
+             (expand-file-name
+              (format "%s-transactions.dat"
+                      (number-to-string (1- (string-to-number (format-time-string "%Y")))))
+              my/ledger-finances-dir)))
+        (when (file-exists-p prev-year-file)
+          (push prev-year-file files))
+        (with-temp-buffer
+          (dolist (f files)
+            (when (file-exists-p f)
+              (goto-char (point-max))
+              (insert-file-contents f nil nil nil t)))
+          (let ((delay-mode-hooks t))
+            (ledger-mode))
+          (ledger-accounts-list-in-buffer))))
+
+    (defun my/ledger-quick-add ()
+      "Quickly add a ledger transaction from anywhere in Emacs.
+Prompts for payee, amount, expense account, and payment source.
+Appends to the current year's transaction file."
+      (interactive)
+      (require 'ledger-mode)
+      (let* ((accounts (my/ledger-get-accounts))
+             (date (format-time-string "%Y/%m/%d"))
+             (payee (read-string "Payee: "))
+             (amount (read-string "Amount: $"))
+             (expense-account (completing-read "Expense account: " accounts nil nil "Expenses:"))
+             (payment-source (completing-read "Payment source: " accounts nil nil))
+             (file (my/ledger-current-year-file))
+             (transaction (format "%s %s\n    %s  $%s\n    %s\n"
+                                  date payee expense-account amount payment-source)))
+        (with-temp-buffer
+          (when (file-exists-p file)
+            (insert-file-contents file)
+            (goto-char (point-max)))
+          (unless (or (bobp) (looking-back "\n\n" nil))
+            (insert "\n"))
+          (insert transaction)
+          (write-region (point-min) (point-max) file))
+        (when-let ((buf (find-buffer-visiting file)))
+          (with-current-buffer buf
+            (revert-buffer t t t)))
+        (message "Added: %s %s | %s $%s -> %s"
+                 date payee expense-account amount payment-source))))
 
 #+end_src
 
