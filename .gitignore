@@ -51,3 +51,4 @@ node_modules/
 .mcp.json
 /emacs/.emacs.d/bm-repository
 emacs/.emacs.d/agent/history
+/scripts/simplefin-sync.py

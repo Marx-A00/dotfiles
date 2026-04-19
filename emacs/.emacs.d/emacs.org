@@ -1730,7 +1730,15 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
       (mr-x/leader-def
         "$" '(:ignore t :wk "finances")
         "$ q" '(my/ledger-quick-add :wk "quick add")
-        "$ o" '((lambda () (interactive) (find-file (my/ledger-current-year-file))) :wk "open ledger"))
+        "$ s" '(my/ledger-simplefin-sync :wk "sync from bank")
+        "$ o" '((lambda () (interactive) (find-file (my/ledger-current-year-file))) :wk "open ledger")
+        "$ b" '(:ignore t :wk "balances/reports")
+        "$ b b" '(my/ledger-report-balance :wk "all balances")
+        "$ b e" '(my/ledger-report-expenses :wk "expenses by amount")
+        "$ b m" '(my/ledger-report-monthly :wk "monthly spending")
+        "$ b s" '(my/ledger-report-subscriptions :wk "subscriptions")
+        "$ b r" '(my/ledger-report-register :wk "full register")
+        "$ b n" '(my/ledger-report-net-worth :wk "net worth"))
 
       (mr-x/leader-def
         "P" '(:ignore t :wk "Project Dashboard")
@@ -4781,7 +4789,73 @@ Appends to the current year's transaction file."
           (with-current-buffer buf
             (revert-buffer t t t)))
         (message "Added: %s %s | %s $%s -> %s"
-                 date payee expense-account amount payment-source))))
+                 date payee expense-account amount payment-source)))
+
+    (defun my/ledger-simplefin-sync ()
+      "Sync transactions from SimpleFIN into ledger."
+      (interactive)
+      (unless (y-or-n-p "Pull transactions from SimpleFIN? ")
+        (user-error "Sync cancelled"))
+      (let* ((script (expand-file-name "~/.dotfiles/scripts/simplefin-sync.py"))
+             (buf (get-buffer-create "*simplefin-sync*")))
+        (with-current-buffer buf
+          (erase-buffer)
+          (insert "Syncing from SimpleFIN...\n\n"))
+        (display-buffer buf)
+        (set-process-sentinel
+         (start-process "simplefin-sync" buf "python3" script)
+         (lambda (proc _event)
+           (when (eq (process-status proc) 'exit)
+             (let ((file (my/ledger-current-year-file)))
+               (when-let ((visited (find-buffer-visiting file)))
+                 (with-current-buffer visited
+                   (revert-buffer t t t))))
+             (with-current-buffer (process-buffer proc)
+               (goto-char (point-max))
+               (insert "\nDone.")))))))
+
+    (defun my/ledger-report-run (name cmd)
+      "Run a ledger report CMD and display in buffer NAME."
+      (let ((buf (get-buffer-create (format "*ledger: %s*" name)))
+            (file (my/ledger-current-year-file)))
+        (with-current-buffer buf
+          (erase-buffer)
+          (insert (format "── %s ──\n\n" name))
+          (call-process-shell-command
+           (format "ledger -f %s %s" (shell-quote-argument file) cmd)
+           nil buf t)
+          (goto-char (point-min)))
+        (display-buffer buf)))
+
+    (defun my/ledger-report-balance ()
+      "Show all account balances."
+      (interactive)
+      (my/ledger-report-run "Balances" "balance"))
+
+    (defun my/ledger-report-expenses ()
+      "Show expenses sorted by amount."
+      (interactive)
+      (my/ledger-report-run "Expenses" "balance Expenses --sort \"-amount\""))
+
+    (defun my/ledger-report-monthly ()
+      "Show monthly spending breakdown."
+      (interactive)
+      (my/ledger-report-run "Monthly Spending" "register Expenses --monthly --collapse"))
+
+    (defun my/ledger-report-subscriptions ()
+      "Show subscription spending."
+      (interactive)
+      (my/ledger-report-run "Subscriptions" "balance Expenses:Subscriptions"))
+
+    (defun my/ledger-report-register ()
+      "Show full transaction register."
+      (interactive)
+      (my/ledger-report-run "Register" "register"))
+
+    (defun my/ledger-report-net-worth ()
+      "Show net worth (Assets + Liabilities)."
+      (interactive)
+      (my/ledger-report-run "Net Worth" "balance Assets Liabilities")))
 
 #+end_src
 
