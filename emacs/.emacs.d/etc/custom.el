@@ -30,7 +30,8 @@
      ("agent recall" . "~/roaming/projects/agent-recall/")
      ("agent shell manager"
       . "~/.dotfiles/emacs/.emacs.d/elpaca/repos/agent-shell-manager/")
-     ("sakura" . "~/roaming/projects/sakura/"))))
+     ("sakura" . "~/roaming/projects/sakura/")
+     ("futura renaissance" . "~/roaming/futura-renaissance/"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -74,5 +75,9 @@
  '(org-level-1 ((t (:foreground "#ff743f"))))
  '(org-level-2 ((t (:foreground "#67bc44"))))
  '(org-level-3 ((t (:foreground "#67c0de"))))
+ '(org-level-4 ((t (:foreground "#787878"))))
+ '(org-level-5 ((t (:foreground "#606060"))))
+ '(org-level-6 ((t (:foreground "#505050"))))
+ '(org-level-7 ((t (:foreground "#404040"))))
  '(typescript-ts-jsx-attribute-face ((t (:foreground "#fabd2f"))))
  '(typescript-ts-jsx-tag-face ((t (:foreground "#8ec07c")))))
