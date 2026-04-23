@@ -1,0 +1,244 @@
+#+TITLE: Macros, Backquote, and Eval — A Walkthrough
+#+PROPERTY: header-args:emacs-lisp :results output :lexical t
+
+Eval each block with =C-c C-c= and read the output before moving on.
+
+* 1. Functions evaluate their arguments first
+
+A function receives *values*. By the time the function body runs,
+all arguments have already been computed.
+
+#+begin_src emacs-lisp
+(defun my-func (x)
+  (message "I received: %S (type: %s)" x (type-of x)))
+
+(my-func (+ 1 2))
+#+end_src
+
+You'll see: =I received: 3 (type: integer)=
+
+The function never knew you wrote =(+ 1 2)=. It just got =3=.
+
+* 2. Macros receive raw, unevaluated code
+
+A macro gets the *literal code you typed*, as a list of symbols.
+It runs at expansion time — before your code executes.
+
+#+begin_src emacs-lisp
+(defmacro my-macro (x)
+  (message "I received: %S (type: %s)" x (type-of x))
+  ;; a macro must return code to be evaluated
+  nil)
+
+(my-macro (+ 1 2))
+#+end_src
+
+You'll see: =I received: (+ 1 2) (type: cons)=
+
+The macro got the *list* =(+ 1 2)= — the raw s-expression.
+It has no idea what the result would be. It sees symbols, not values.
+
+* 3. Variables don't exist yet during macro expansion
+
+#+begin_src emacs-lisp
+(defmacro show-what-i-see (x)
+  (message "Macro sees: %S" x)
+  nil)
+
+(let ((n 42))
+  (show-what-i-see n))
+#+end_src
+
+You'll see: =Macro sees: n=
+
+Not =42=. Just the symbol =n=. The =let= binding hasn't happened yet —
+the macro expanded before the code ran.
+
+* 4. Now put a macro in a loop
+
+#+begin_src emacs-lisp
+(defmacro show-what-i-see (x)
+  (message "Macro sees: %S" x)
+  nil)
+
+(dotimes (i 3)
+  (let ((n (1+ i)))
+    (show-what-i-see n)))
+#+end_src
+
+You'll see the message *once*: =Macro sees: n=
+
+Not three times. The macro expanded once at load time (before the loop
+ran), saw the symbol =n=, and that was it. The loop body then executes
+the expanded code 3 times, but the macro is long gone.
+
+* 5. Backquote builds lists — it's just syntax sugar
+
+Backquote (=`=) is a convenient way to construct lists.
+Comma (=,=) inside a backquote means "evaluate this part."
+
+#+begin_src emacs-lisp
+(let ((x 10)
+      (y 20))
+  (message "backquote result: %S" `(the sum of ,x and ,y is ,(+ x y))))
+#+end_src
+
+You'll see: =(the sum of 10 and 20 is 30)=
+
+The commas evaluated =x=, =y=, and =(+ x y)= at runtime.
+Everything else stayed as literal symbols.
+
+* 6. What backquote actually expands to under the hood
+
+#+begin_src emacs-lisp
+;; This:
+;;   `(foo ,x bar)
+;;
+;; Is read by Emacs as something like:
+;;   (list 'foo x 'bar)
+;;
+;; Let's prove it. macroexpand-all shows what the reader produced:
+
+(message "%S" (macroexpand-all '(let ((x 5)) `(hello ,x world))))
+#+end_src
+
+You'll see the backquote desugared into list-building forms.
+This is important — the backquote is gone before your code runs.
+
+* 7. The actual bug — backquote inside a macro call
+
+Here's the problem pattern. We define a macro that expects a symbol
+as its first element, then pass it a backquoted form from inside a loop:
+
+#+begin_src emacs-lisp
+(defmacro define-binding (key def)
+  "DEF should be a list whose car is a symbol or lambda form."
+  (let ((fn (car def)))
+    (message "key: %S — fn: %S — symbolp: %s" key fn (symbolp fn))
+    nil))
+
+;; Static call — works fine:
+(define-binding "1" (my-function :wk "do stuff"))
+#+end_src
+
+The macro sees =my-function= as a symbol. =symbolp= is =t=. All good.
+
+Now try it with a backquoted form inside a loop:
+
+#+begin_src emacs-lisp
+(defmacro define-binding (key def)
+  (let ((fn (car def)))
+    (message "key: %S — fn: %S — symbolp: %s" key fn (symbolp fn))
+    nil))
+
+(dotimes (i 2)
+  (let ((n (1+ i)))
+    (define-binding
+      (number-to-string n)
+      ((lambda () (interactive) (persp-switch-by-number n)) :wk "workspace"))))
+#+end_src
+
+The macro sees:
+- key: =(number-to-string n)= — a list, not a string
+- fn: =(lambda () (interactive) (persp-switch-by-number n))= — a list, not a function
+
+Neither value is what you intended. The loop hasn't run. =n= is just a symbol.
+If the macro did =(symbolp fn)= it would be =nil= — boom, =Wrong type argument: symbolp=.
+
+* 8. Why eval fixes it
+
+=eval= takes a *list* and evaluates it as code — at runtime, when
+variables actually have values.
+
+#+begin_src emacs-lisp
+(dotimes (i 3)
+  (let ((n (1+ i)))
+    ;; Step 1: backquote builds the form with n substituted
+    (let ((form `(message "workspace %d" ,n)))
+      (message "Built form: %S" form)
+      ;; Step 2: eval runs it
+      (eval form t))))
+#+end_src
+
+You'll see:
+#+begin_example
+Built form: (message "workspace %d" 1)
+workspace 1
+Built form: (message "workspace %d" 2)
+workspace 2
+Built form: (message "workspace %d" 3)
+workspace 3
+#+end_example
+
+The backquote substituted =n= (because backquote runs at runtime in a let).
+Then =eval= evaluated the fully-formed expression.
+
+* 9. Applying eval to our macro problem
+
+#+begin_src emacs-lisp
+(defmacro define-binding (key def)
+  (let ((fn (car def)))
+    (if (symbolp fn)
+        (message "GOOD — key: %S — fn symbol: %s" key fn)
+      (if (and (listp fn) (eq (car fn) 'lambda))
+          (message "GOOD — key: %S — fn is lambda form" key)
+        (message "BAD  — key: %S — fn is: %S" key fn)))
+    nil))
+
+;; Without eval — macro sees raw code:
+(message "--- WITHOUT eval ---")
+(dotimes (i 2)
+  (let ((n (1+ i)))
+    (define-binding (number-to-string n)
+      ((lambda () (interactive) (do-thing n)) :wk "stuff"))))
+
+;; With eval — macro sees real values:
+(message "--- WITH eval ---")
+(dotimes (i 2)
+  (let ((n (1+ i)))
+    (eval `(define-binding
+             ,(number-to-string n)
+             ((lambda () (interactive) (do-thing ,n)) :wk "stuff"))
+          t)))
+#+end_src
+
+Without eval: the macro sees garbage.
+With eval: the backquote substitutes =n= first, *then* eval hands the
+complete, concrete form to the macro. The macro sees ="1"= and a proper
+lambda. Exactly what it expects.
+
+* 10. The second arg to eval — lexical binding
+
+The =t= in =(eval form t)= enables lexical binding for the eval'd code.
+This matters when lambdas need to capture variables:
+
+#+begin_src emacs-lisp
+;; Dynamic binding (default for eval) — n is looked up at CALL time
+(let ((n 1))
+  (let ((fn (eval '(lambda () n))))  ;; no 't' — dynamic binding
+    (let ((n 999))
+      (message "dynamic: %s" (funcall fn)))))
+
+;; Lexical binding — n is captured at DEFINITION time
+(let ((n 1))
+  (let ((fn (eval '(lambda () n) t)))  ;; 't' — lexical binding
+    (let ((n 999))
+      (message "lexical: %s" (funcall fn)))))
+#+end_src
+
+Dynamic gives =999= (picks up the later rebinding).
+Lexical gives =1= (captured when the lambda was created).
+
+For our workspace bindings, we want each lambda to remember its own =n=,
+so lexical binding (the =t=) is essential.
+
+* Summary
+
+| Concept | One-liner |
+|---------+-----------|
+| Function | Gets evaluated values. Sees =3=. |
+| Macro | Gets raw code. Sees =(+ 1 2)=. |
+| Backquote | Builds lists. Comma evaluates at runtime. |
+| The bug | Macro in a loop sees symbols, not values. |
+| The fix | =eval= delays macro expansion to runtime. |
+| The =t= | Lexical binding so lambdas capture correctly. |

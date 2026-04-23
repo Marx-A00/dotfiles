@@ -96,6 +96,7 @@
 	  (setq evil-auto-indent nil))
 	
 	;; Rest of org config
+	(setq org-ellipsis " ‧")
 	(setq org-hide-emphasis-markers t)
 	(setq org-agenda-start-with-log-mode t)
 	(setq org-log-done 'time)
@@ -175,6 +176,10 @@
 	(org-modern-replace-stars "❖✦⬡◈✧◇▸")
 	(org-modern-hide-stars nil)
 	(org-modern-table nil))
+
+    (use-package org-tidy
+	:ensure t
+	:hook (org-mode . org-tidy-mode))
 
     ;; Distraction-free centered reading for Mdox reader
     (use-package olivetti
@@ -2341,7 +2346,9 @@ If the buffers already exist, kills them first."
   :mode ("\\.pdf\\'" . pdf-view-mode)
   :config
   (pdf-tools-install)
-  (evil-define-key 'normal pdf-view-mode-map (kbd "SPC") nil))  ;; compiles the epdfinfo server
+  (evil-define-key 'normal pdf-view-mode-map (kbd "SPC") nil)  ;; compiles the epdfinfo server
+  ;; Auto-refresh PDF buffers when the file changes on disk (e.g. after LaTeX recompile)
+  (add-hook 'pdf-view-mode-hook #'auto-revert-mode))
 
 ;; Extend save-place to remember PDF page positions
 (use-package saveplace-pdf-view
@@ -2672,6 +2679,43 @@ If the buffers already exist, kills them first."
 (use-package dotenv-mode
   :ensure t
   :mode ("\\.env\\..*\\'" . dotenv-mode))
+
+(use-package auctex
+  :ensure (auctex :pre-build (("./autogen.sh")
+                              ("./configure"
+                               "--without-texmf-dir"
+                               "--with-packagelispdir=."
+                               "--with-packagedatadir=.")
+                              ("make"))
+                  :build (:not elpaca--compile-info)
+                  :files ("*.el" "doc" "etc" "images" "latex" "style"))
+  :mode ("\\.tex\\'" . LaTeX-mode)
+  :config
+  (setq TeX-auto-save t
+        TeX-parse-self t
+        TeX-PDF-mode t)
+  (setq-default TeX-engine 'default)
+  (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
+  (setq TeX-source-correlate-start-server t)
+  ;; Auto-revert PDF buffer after AUCTeX compilation
+  (add-hook 'TeX-after-compilation-finished-functions #'TeX-revert-document-buffer))
+
+;; Compile .tex on save with latexmk
+(defun mr-x/latex-compile-on-save ()
+  "Compile current LaTeX file with latexmk in the background."
+  (let ((tex-file (buffer-file-name)))
+    (when (and tex-file (string-suffix-p ".tex" tex-file))
+      (let ((default-directory (file-name-directory tex-file)))
+        (start-process "latexmk" "*latexmk*"
+                       "/Library/TeX/texbin/latexmk" "-pdf"
+                       "-interaction=nonstopmode"
+                       (file-name-nondirectory tex-file))))))
+
+;; Hook into both built-in latex-mode and AUCTeX's LaTeX-mode
+(dolist (hook '(latex-mode-hook LaTeX-mode-hook))
+  (add-hook hook
+            (lambda ()
+              (add-hook 'after-save-hook #'mr-x/latex-compile-on-save nil t))))
 
 (use-package monet
       :ensure (:host github :repo "https://github.com/stevemolitor/monet")
@@ -4690,3 +4734,9 @@ Appends to the current year's transaction file."
       "Show net worth (Assets + Liabilities)."
       (interactive)
       (my/ledger-report-run "Net Worth" "balance Assets Liabilities")))
+
+(use-package page-break-lines
+  :ensure t)
+
+(use-package posframe
+  :ensure t)
