@@ -159,28 +159,20 @@
 		("BACKLOG" . "#62656A")))
 
 	(custom-set-faces
-	 '(org-level-1 ((t (:foreground "#ff743f")))))
+	 '(org-level-1 ((t (:foreground "#c8c8c8"))))
+	 '(org-level-2 ((t (:foreground "#a8a8a8"))))
+	 '(org-level-3 ((t (:foreground "#909090"))))
+	 '(org-level-4 ((t (:foreground "#787878"))))
+	 '(org-level-5 ((t (:foreground "#606060"))))
+	 '(org-level-6 ((t (:foreground "#505050"))))
+	 '(org-level-7 ((t (:foreground "#404040"))))))
 
-	(custom-set-faces
-	 '(org-level-2 ((t (:foreground "#67bc44")))))
-
-	(custom-set-faces
-	 '(org-level-3 ((t (:foreground "#67c0de"))))))
-
-    ;; DISABLED — org-modern replaces org-superstar for Mdox reader
-    ;; (use-package org-superstar
-    ;; 	:ensure t
-    ;; 	:hook (org-mode . org-superstar-mode)
-    ;; 	:config
-    ;; 	(setq org-superstar-headline-bullets-list
-    ;; 	      '("🃏" "⡂" "⡆" "⢴" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
-    ;; 	(setq org-ellipsis " ‧"))
-
-    ;; Pretty org rendering for Mdox reader
     (use-package org-modern
 	:ensure t
-	:defer t
+	:hook (org-mode . org-modern-mode)
 	:custom
+	(org-modern-star 'replace)
+	(org-modern-replace-stars "❖✦⬡◈✧◇▸")
 	(org-modern-hide-stars nil)
 	(org-modern-table nil))
 
@@ -359,6 +351,25 @@
          (org-html-head-include-default-style nil))
     (org-export-to-file 'html html-file nil nil nil nil nil)
     (xwidget-webkit-browse-url (concat "file://" html-file))))
+
+;; Org heading insertion keybindings
+;; s- (Cmd) = sibling, M- = child, adding S- = TODO variant
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "s-<return>") #'org-insert-heading-respect-content)
+  (define-key org-mode-map (kbd "s-S-<return>") #'org-insert-todo-heading-respect-content)
+  (define-key org-mode-map (kbd "M-<return>") #'org-insert-subheading)
+  (define-key org-mode-map (kbd "M-S-<return>") #'org-insert-todo-subheading))
+(with-eval-after-load 'evil
+  (evil-define-key 'insert org-mode-map
+    (kbd "s-<return>") #'org-insert-heading-respect-content
+    (kbd "s-S-<return>") #'org-insert-todo-heading-respect-content
+    (kbd "M-<return>") #'org-insert-subheading
+    (kbd "M-S-<return>") #'org-insert-todo-subheading)
+  (evil-define-key 'normal org-mode-map
+    (kbd "s-<return>") #'org-insert-heading-respect-content
+    (kbd "s-S-<return>") #'org-insert-todo-heading-respect-content
+    (kbd "M-<return>") #'org-insert-subheading
+    (kbd "M-S-<return>") #'org-insert-todo-subheading))
 
 (use-package ob-typescript
     :ensure t
@@ -1442,22 +1453,18 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         ;; "S" 'mr-x/scratch
         ;; "v" 'multi-vterm
         "e" '((lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))) :wk "emacs.org")
-        "1" '((lambda () (interactive) (persp-switch-by-number 1)) :wk "workspace 1")
-        "2" '((lambda () (interactive) (persp-switch-by-number 2)) :wk "workspace 2")
-        "3" '((lambda () (interactive) (persp-switch-by-number 3)) :wk "workspace 3")
-        "4" '((lambda () (interactive) (persp-switch-by-number 4)) :wk "workspace 4")
-        "5" '((lambda () (interactive) (persp-switch-by-number 5)) :wk "workspace 5")
         "t" '(mr-x/test-environment :wk "Test environment")
         "u" '(universal-argument :wk "universal arg"))
 
-      (defun my/vsplit-scratch ()
-        "Vertical split and show *scratch* in the new window."
-        (interactive)
-        (evil-window-vsplit)
-        (switch-to-buffer "*scratch*"))
+      ;; Dynamic workspace bindings (SPC 1-9)
+      (dotimes (i 9)
+        (let ((n (1+ i)))
+          (eval `(mr-x/leader-def
+                   ,(number-to-string n)
+                   '((lambda () (interactive) (persp-switch-by-number ,n))
+                     :wk ,(format "workspace %d" n)))
+                t)))
 
-      (with-eval-after-load 'evil
-        (define-key evil-window-map "v" #'my/vsplit-scratch))
 
       (defun mr-x/test-environment ()
         "Spawn agent-shell on left, dired ~/roaming/sandbox on right."
@@ -1606,6 +1613,19 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         "x" '(:keymap perspective-map :wk "perspective"))
 
       (mr-x/leader-def
+        "$" '(:ignore t :wk "finances")
+        "$ q" '(my/ledger-quick-add :wk "quick add")
+        "$ s" '(my/ledger-simplefin-sync :wk "sync from bank")
+        "$ o" '((lambda () (interactive) (find-file (my/ledger-current-year-file))) :wk "open ledger")
+        "$ b" '(:ignore t :wk "balances/reports")
+        "$ b b" '(my/ledger-report-balance :wk "all balances")
+        "$ b e" '(my/ledger-report-expenses :wk "expenses by amount")
+        "$ b m" '(my/ledger-report-monthly :wk "monthly spending")
+        "$ b s" '(my/ledger-report-subscriptions :wk "subscriptions")
+        "$ b r" '(my/ledger-report-register :wk "full register")
+        "$ b n" '(my/ledger-report-net-worth :wk "net worth"))
+
+      (mr-x/leader-def
         "P" '(:ignore t :wk "Project Dashboard")
         "P p" '(project-dashboard-launch :wk "Launch project")
         "P a" '(project-dashboard-add-project :wk "Add project")
@@ -1690,7 +1710,9 @@ TASK-ID is the ID shown when Claude runs a background command."
         "; l" '(lsp :wk "Start LSP")
         "; q" '(lsp-disconnect :wk "Disconnect LSP")
         "; w" '(lsp-restart-workspace :wk "Restart workspace")
-        "; I" '(lsp-ui-imenu :wk "Imenu"))
+        "; I" '(:ignore t :wk "Imenu")
+        "; I i" '(counsel-imenu :wk "Imenu")
+        "; I I" '(lsp-ui-imenu :wk "LSP Imenu"))
 
   )
 
@@ -1903,7 +1925,20 @@ TASK-ID is the ID shown when Claude runs a background command."
 (use-package counsel
   :ensure t
   :config
-  (counsel-mode 1))
+  (counsel-mode 1)
+
+  ;; Auto-preview symbols in counsel-imenu as you navigate
+  (defvar my/imenu-preview-pos nil
+    "Saved position before counsel-imenu for restore on cancel.")
+
+  (advice-add 'counsel-imenu :before
+    (lambda (&rest _) (setq my/imenu-preview-pos (point))))
+
+  (ivy-configure 'counsel-imenu
+    :update-fn #'ivy-call
+    :unwind-fn (lambda ()
+                 (when my/imenu-preview-pos
+                   (goto-char my/imenu-preview-pos)))))
 
 (global-set-key (kbd "M-x") 'counsel-M-x)
 (global-set-key (kbd "C-x C-f") 'counsel-find-file)
@@ -2044,7 +2079,7 @@ TASK-ID is the ID shown when Claude runs a background command."
  _j_: next           _c_: new shell       _m_: set mode
  _k_: prev           _i_: interrupt       _M_: set model
  _RET_: select       _K_: kill            _n_: set label
- _v_/_S-RET_: peek   _r_: restart         _l_: toggle logging
+ _v_/_<S-return>_: peek   _r_: restart         _l_: toggle logging
  _p_: preview        _d_: delete killed   _t_: view traffic
 
  Frame/Filter
@@ -2053,8 +2088,8 @@ TASK-ID is the ID shown when Claude runs a background command."
     ("j" next-line)
     ("k" previous-line)
     ("RET" agent-shell-manager-select :exit t)
-    ("v" agent-shell-manager-peek :exit t)
-    ("<S-return>" agent-shell-manager-peek :exit t)
+    ("v" agent-shell-manager-peek)
+    ("<S-return>" agent-shell-manager-peek)
     ("p" agent-shell-manager-enter-preview)
     ("c" agent-shell-manager-new)
     ("i" agent-shell-manager-interrupt)
@@ -2510,7 +2545,7 @@ If the buffers already exist, kills them first."
 ;; LSP UI for better LSP experience
 (use-package lsp-ui
   :ensure t
-  :commands lsp-ui-mode
+  :commands (lsp-ui-mode lsp-ui-imenu)
   :hook (lsp-mode . lsp-ui-mode)
   :config
   (setq lsp-ui-sideline-enable nil)       ;; No sideline
@@ -2762,8 +2797,9 @@ If the buffers already exist, kills them first."
       ;; When no permission: pass to evil's digit-argument for motion counts
       (defun mr-x/agent-shell-permission-or-digit (key action)
         "If permission pending in current buffer, run ACTION. Otherwise pass KEY as digit-argument."
-        (if (and mr-x/pending-permissions
-                 (eq (current-buffer) (plist-get (cdar mr-x/pending-permissions) :buffer)))
+        (if (and mr-x/pending-permissions-queue
+                 (cl-some (lambda (p) (eq (current-buffer) (plist-get p :buffer)))
+                          mr-x/pending-permissions-queue))
             (funcall action)
           ;; No permission pending - let evil handle as count prefix
           (let ((last-command-event (string-to-char key)))
@@ -3106,60 +3142,98 @@ If the buffers already exist, kills them first."
       ;; Custom Permission System (v0.42.1+ hook-based)
       ;; Uses agent-shell-permission-responder-function to stash
       ;; the respond callback, then SPC c 1/2/3 calls it directly.
-      ;; No button interaction needed.
+      ;; Supports stacked permissions via a queue.
       ;; ============================================
 
-      (defvar mr-x/pending-permission nil
-        "Most recent pending permission.
-  Plist with :respond (callback function) and :options (list of actions).")
+      (defvar mr-x/pending-permissions-queue nil
+        "Queue of pending permissions, most recent first.
+  Each entry is a plist with :respond, :options, :tool-call, :buffer, :tool-call-id.")
 
-      ;; Legacy variable — referenced by diff view, context-sensitive keys, etc.
-      (defvar mr-x/pending-permissions nil
-        "Compat shim: list of (TOOL-CALL-ID . plist) for downstream code.")
+      ;; Legacy aliases for backward compat with context-sensitive keys
+      (defvar mr-x/pending-permission nil)
+      (defvar mr-x/pending-permissions nil)
+
+      (defun mr-x/pending-permissions-update-legacy ()
+        "Sync legacy variables from queue head."
+        (if mr-x/pending-permissions-queue
+            (let ((head (car mr-x/pending-permissions-queue)))
+              (setq mr-x/pending-permission head)
+              (setq mr-x/pending-permissions
+                    (list (cons (plist-get head :tool-call-id)
+                                (list :buffer (plist-get head :buffer)
+                                      :state nil :request nil)))))
+          (setq mr-x/pending-permission nil)
+          (setq mr-x/pending-permissions nil)))
+
+      (defun mr-x/pending-permissions-remove (tool-call-id)
+        "Remove the permission with TOOL-CALL-ID from the queue."
+        (setq mr-x/pending-permissions-queue
+              (cl-remove-if (lambda (p) (equal (plist-get p :tool-call-id) tool-call-id))
+                            mr-x/pending-permissions-queue))
+        (mr-x/pending-permissions-update-legacy))
 
       (setq agent-shell-permission-responder-function
             (lambda (permission)
               ;; Stash the respond function and options for SPC c 1/2/3
-              (setq mr-x/pending-permission
-                    (list :respond (map-elt permission :respond)
-                          :options (map-elt permission :options)
-                          :tool-call (map-elt permission :tool-call)))
-              ;; Populate legacy variable for diff view / context keys
               (let* ((tool-call (map-elt permission :tool-call))
+                     (tool-call-id (map-elt tool-call :tool-call-id))
                      (has-diff (map-elt tool-call :diff))
                      (shell-buf (or (and (derived-mode-p 'agent-shell-mode) (current-buffer))
                                     (seq-first (agent-shell-project-buffers)))))
-                (setq mr-x/pending-permissions
-                      (list (cons (map-elt tool-call :tool-call-id)
-                                  (list :buffer shell-buf
-                                        :state nil
-                                        :request nil))))
-                (message "Permission: %s [1=allow 2=deny 3=always%s]"
+                ;; Push onto queue (most recent first)
+                (push (list :respond (map-elt permission :respond)
+                            :options (map-elt permission :options)
+                            :tool-call tool-call
+                            :tool-call-id tool-call-id
+                            :buffer shell-buf)
+                      mr-x/pending-permissions-queue)
+                (mr-x/pending-permissions-update-legacy)
+                (message "Permission: %s [1=allow 2=deny 3=always%s]%s"
                          (map-elt tool-call :title)
-                         (if has-diff " 0=view" "")))
+                         (if has-diff " 0=view" "")
+                         (if (> (length mr-x/pending-permissions-queue) 1)
+                             (format " (%d queued)" (length mr-x/pending-permissions-queue))
+                           "")))
               ;; Return nil so the button UI still renders as fallback
               nil))
 
+      ;; Auto-remove from queue when permission is resolved (by any mechanism)
+      (advice-add 'agent-shell--send-permission-response :after
+                  (lambda (&rest args)
+                    (let ((tool-call-id (plist-get args :tool-call-id)))
+                      (when tool-call-id
+                        (mr-x/pending-permissions-remove tool-call-id)))))
+
       (defun mr-x/respond-to-permission (kind)
-        "Respond to the pending permission with KIND.
+        "Respond to the most recent pending permission with KIND.
   KIND should be \"allow_once\", \"reject_once\", or \"allow_always\"."
-        (unless mr-x/pending-permission
+        (unless mr-x/pending-permissions-queue
           (user-error "No pending permission request"))
-        (let* ((respond-fn (plist-get mr-x/pending-permission :respond))
-               (options (plist-get mr-x/pending-permission :options))
+        (let* ((pending (car mr-x/pending-permissions-queue))
+               (respond-fn (plist-get pending :respond))
+               (options (plist-get pending :options))
                (option (seq-find (lambda (o) (equal (map-elt o :kind) kind))
                                  options))
                (option-id (map-elt option :option-id)))
           (unless option
             (user-error "No '%s' option available" kind))
-          (funcall respond-fn option-id)
-          (setq mr-x/pending-permission nil)
-          (setq mr-x/pending-permissions nil)
-          (message "Permission %s"
-                   (pcase kind
-                     ("allow_once" "allowed")
-                     ("reject_once" "denied")
-                     ("allow_always" "always allowed")))))
+          (condition-case err
+              (funcall respond-fn option-id)
+            (error
+             ;; Remove stale permission and report
+             (mr-x/pending-permissions-remove (plist-get pending :tool-call-id))
+             (user-error "Permission response failed (process may have exited): %s"
+                         (error-message-string err))))
+          ;; Queue cleanup happens via the advice on agent-shell--send-permission-response
+          (let ((remaining (length mr-x/pending-permissions-queue)))
+            (message "Permission %s%s"
+                     (pcase kind
+                       ("allow_once" "allowed")
+                       ("reject_once" "denied")
+                       ("allow_always" "always allowed"))
+                     (if (> remaining 0)
+                         (format " (%d remaining)" remaining)
+                       "")))))
 
       (defun mr-x/agent-shell-allow ()
         "Allow the current permission request."
@@ -3211,9 +3285,10 @@ If the buffers already exist, kills them first."
       (defun mr-x/agent-shell-view-diff ()
         "View the diff for the current pending permission with syntax highlighting."
         (interactive)
-        (if-let* ((pending mr-x/pending-permission)
+        (if-let* ((pending (car mr-x/pending-permissions-queue))
                   (tool-call (plist-get pending :tool-call))
-                  (diff (map-elt tool-call :diff)))
+                  (diff (map-elt tool-call :diff))
+                  (shell-buf (plist-get pending :buffer)))
             (let* ((filename (map-elt diff :file))
                    (mode-fn (assoc-default filename auto-mode-alist 'string-match)))
               (agent-shell-diff
@@ -3233,33 +3308,29 @@ If the buffers already exist, kills them first."
                   (define-key map (kbd "p") 'diff-hunk-prev)
                   (define-key map (kbd "y") (lambda ()
                                               (interactive)
-                                              (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
-                                                (kill-current-buffer)
-                                                (mr-x/agent-shell-allow)
-                                                (when (buffer-live-p shell-buf)
-                                                  (pop-to-buffer shell-buf)))))
+                                              (kill-current-buffer)
+                                              (mr-x/agent-shell-allow)
+                                              (when (buffer-live-p shell-buf)
+                                                (pop-to-buffer shell-buf))))
                   (define-key map (kbd "!") (lambda ()
                                               (interactive)
-                                              (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
-                                                (kill-current-buffer)
-                                                (mr-x/agent-shell-allow-always)
-                                                (when (buffer-live-p shell-buf)
-                                                  (pop-to-buffer shell-buf)))))
+                                              (kill-current-buffer)
+                                              (mr-x/agent-shell-allow-always)
+                                              (when (buffer-live-p shell-buf)
+                                                (pop-to-buffer shell-buf))))
                   (define-key map (kbd "r") (lambda ()
                                               (interactive)
-                                              (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
-                                                (kill-current-buffer)
-                                                (mr-x/agent-shell-deny)
-                                                (when (buffer-live-p shell-buf)
-                                                  (pop-to-buffer shell-buf)))))
+                                              (kill-current-buffer)
+                                              (mr-x/agent-shell-deny)
+                                              (when (buffer-live-p shell-buf)
+                                                (pop-to-buffer shell-buf))))
                   (define-key map (kbd "q") (lambda ()
                                               (interactive)
-                                              (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
-                                                ;; Disable on-exit to prevent "Accept changes?" prompt
-                                                (setq agent-shell-on-exit nil)
-                                                (kill-current-buffer)
-                                                (when (buffer-live-p shell-buf)
-                                                  (pop-to-buffer shell-buf)))))
+                                              ;; Disable on-exit to prevent "Accept changes?" prompt
+                                              (setq agent-shell-on-exit nil)
+                                              (kill-current-buffer)
+                                              (when (buffer-live-p shell-buf)
+                                                (pop-to-buffer shell-buf))))
                   (use-local-map map))
                 (setq header-line-format
                       (concat "  "
@@ -3288,10 +3359,11 @@ If the buffers already exist, kills them first."
       (defun mr-x/agent-shell-diff-clean-exit ()
         "Exit diff buffer cleanly and return to agent-shell."
         (interactive)
-        (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+        (let ((shell-buf (when (car mr-x/pending-permissions-queue)
+                           (plist-get (car mr-x/pending-permissions-queue) :buffer))))
           (setq agent-shell-on-exit nil)
           (kill-current-buffer)
-          (when (buffer-live-p shell-buf)
+          (when (and shell-buf (buffer-live-p shell-buf))
             (pop-to-buffer shell-buf))))
       
       ;; Apply clean exit and action keys to all agent-shell diff buffers
@@ -3300,25 +3372,28 @@ If the buffers already exist, kills them first."
                   (when (string-match-p "\\*agent-shell.*diff\\*" (buffer-name))
                     (local-set-key (kbd "q") #'mr-x/agent-shell-diff-clean-exit)
                     (local-set-key (kbd "y") (lambda () (interactive)
-                                               (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+                                               (let ((shell-buf (when (car mr-x/pending-permissions-queue)
+                                                                  (plist-get (car mr-x/pending-permissions-queue) :buffer))))
                                                  (setq agent-shell-on-exit nil)
                                                  (kill-current-buffer)
                                                  (mr-x/agent-shell-allow)
-                                                 (when (buffer-live-p shell-buf)
+                                                 (when (and shell-buf (buffer-live-p shell-buf))
                                                    (pop-to-buffer shell-buf)))))
                     (local-set-key (kbd "!") (lambda () (interactive)
-                                               (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+                                               (let ((shell-buf (when (car mr-x/pending-permissions-queue)
+                                                                  (plist-get (car mr-x/pending-permissions-queue) :buffer))))
                                                  (setq agent-shell-on-exit nil)
                                                  (kill-current-buffer)
                                                  (mr-x/agent-shell-allow-always)
-                                                 (when (buffer-live-p shell-buf)
+                                                 (when (and shell-buf (buffer-live-p shell-buf))
                                                    (pop-to-buffer shell-buf)))))
                     (local-set-key (kbd "r") (lambda () (interactive)
-                                               (let ((shell-buf (plist-get (cdar mr-x/pending-permissions) :buffer)))
+                                               (let ((shell-buf (when (car mr-x/pending-permissions-queue)
+                                                                  (plist-get (car mr-x/pending-permissions-queue) :buffer))))
                                                  (setq agent-shell-on-exit nil)
                                                  (kill-current-buffer)
                                                  (mr-x/agent-shell-deny)
-                                                 (when (buffer-live-p shell-buf)
+                                                 (when (and shell-buf (buffer-live-p shell-buf))
                                                    (pop-to-buffer shell-buf))))))))
       ;; Use existing Claude CLI login
       (setq agent-shell-anthropic-default-model-id "claude-opus-4-6")
@@ -3342,7 +3417,12 @@ If the buffers already exist, kills them first."
   	    ((name . "ask-user")
   	     (command . "node")
   	     (args . ["/Users/marcosandrade/roaming/projects/MCP servers/ask-user-mcp/build/index.js"])
-  	     (env . []))))
+  	     (env . []))
+
+              ((name . "chrome-devtools")
+               (command . "npx")
+               (args . ["-y" "chrome-devtools-mcp@latest"])
+               (env . []))))
 
 
 
@@ -3651,6 +3731,14 @@ If the buffers already exist, kills them first."
       (agent-recall-browse-preview nil)
       :hook (agent-shell-mode . agent-recall-track-sessions))
 
+    (use-package agent-shell-macext
+      :ensure (:host github :repo "cxa/agent-shell-macext")
+      :hook (agent-shell-mode . agent-shell-macext-setup)
+      :custom
+      (agent-shell-macext-file-copy-policy 'auto)
+      (agent-shell-macext-notifications t)
+      (agent-shell-macext-notify-current-buffer nil))
+
     ;; Permission UI Override - Hybrid Style (cleaner vertical layout)
     (defvar mr-x/permission-ui-style 'hybrid
       "Style for permission UI. Options:
@@ -3691,32 +3779,62 @@ If the buffers already exist, kills them first."
       (defun mr-x/agent-shell--make-tool-call-permission-text (&rest args)
         "Minimal vertical permission UI override with multiple styles."
         (let* ((request (plist-get args :acp-request))
+               (client (plist-get args :client))
                (state (plist-get args :state))
                (tool-call-id (map-nested-elt request '(params toolCall toolCallId)))
                (tool-title (map-nested-elt request '(params toolCall title)))
                (tool-kind (map-nested-elt request '(params toolCall kind)))
-               ;; Use title if available, otherwise kind, otherwise generic
                (tool-name (or tool-title tool-kind "tool"))
                (diff (map-nested-elt state `(:tool-calls ,tool-call-id :diff)))
                (diff-available diff)
                (style mr-x/permission-ui-style)
-               ;; Build keymaps
+               (request-id (map-elt request 'id))
+               (shell-buffer (map-elt state :buffer))
+               (actions (agent-shell--make-permission-actions
+                         (map-nested-elt request '(params options))))
+               ;; Helper to make a respond function for a given action kind
+               (make-respond
+                (lambda (kind)
+                  (when-let ((action (seq-find (lambda (a) (equal (map-elt a :kind) kind)) actions)))
+                    (lambda ()
+                      (interactive)
+                      (agent-shell--send-permission-response
+                       :client client
+                       :request-id request-id
+                       :option-id (map-elt action :option-id)
+                       :state state
+                       :tool-call-id tool-call-id
+                       :message-text (map-elt action :option))
+                      (when (equal kind "reject_once")
+                        (with-current-buffer shell-buffer
+                          (agent-shell-interrupt t)))))))
+               (allow-fn (funcall make-respond "allow_once"))
+               (deny-fn (funcall make-respond "reject_once"))
+               (always-fn (funcall make-respond "allow_always"))
+               ;; Build keymaps using closures
                (yes-map (let ((map (make-sparse-keymap)))
-                          (define-key map [mouse-1] #'agent-shell-permission-accept-immediately)
-                          (define-key map (kbd "RET") #'agent-shell-permission-accept-immediately)
+                          (when allow-fn
+                            (define-key map [mouse-1] allow-fn)
+                            (define-key map (kbd "RET") allow-fn))
                           map))
                (no-map (let ((map (make-sparse-keymap)))
-                         (define-key map [mouse-1] #'agent-shell-permission-deny)
-                         (define-key map (kbd "RET") #'agent-shell-permission-deny)
+                         (when deny-fn
+                           (define-key map [mouse-1] deny-fn)
+                           (define-key map (kbd "RET") deny-fn))
                          map))
                (always-map (let ((map (make-sparse-keymap)))
-                             (define-key map [mouse-1] #'agent-shell-permission-always-allow)
-                             (define-key map (kbd "RET") #'agent-shell-permission-always-allow)
+                             (when always-fn
+                               (define-key map [mouse-1] always-fn)
+                               (define-key map (kbd "RET") always-fn))
                              map))
                (diff-map (when diff-available
-                           (let ((map (make-sparse-keymap)))
-                             (define-key map [mouse-1] #'agent-shell-permission-view-diff)
-                             (define-key map (kbd "RET") #'agent-shell-permission-view-diff)
+                           (let ((map (make-sparse-keymap))
+                                 (view-fn (agent-shell--make-diff-viewing-function
+                                           :diff diff :actions actions
+                                           :client client :request-id request-id
+                                           :state state :tool-call-id tool-call-id)))
+                             (define-key map [mouse-1] view-fn)
+                             (define-key map (kbd "RET") view-fn)
                              map)))
                ;; Separator line for hybrid/separator styles
                (separator (when (memq style '(separator hybrid))
@@ -4435,16 +4553,140 @@ Strip everything up to and including the thinking block."
               (evil-insert-state))))))
 
 (use-package ledger-mode
-  :ensure t
-  :mode ("\\.dat\\'"
+    :ensure t
+    :mode ("\\.dat\\'"
 	   "\\.ledger\\'")
-  :bind (:map ledger-mode-map
+    :bind (:map ledger-mode-map
 		("C-x C-s" . my/ledger-save))
-  :preface
-  (defun my/ledger-save ()
-    "Automatically clean the ledger buffer at each save."
-    (interactive)
-    (save-excursion
+    :preface
+    (defvar my/ledger-finances-dir "~/roaming/personal/finances/"
+      "Directory containing year-based ledger transaction files.")
+
+    (defun my/ledger-current-year-file ()
+      "Return path to current year's transaction file."
+      (expand-file-name
+       (format "%s-transactions.dat" (format-time-string "%Y"))
+       my/ledger-finances-dir))
+
+    (defun my/ledger-save ()
+      "Automatically clean the ledger buffer at each save."
+      (interactive)
+      (save-excursion
 	(when (buffer-modified-p)
 	  (with-demoted-errors (ledger-mode-clean-buffer))
-	  (save-buffer)))))
+	  (save-buffer))))
+
+    (defun my/ledger-get-accounts ()
+      "Extract account names from current and previous year ledger files."
+      (require 'ledger-mode)
+      (let ((files (list (my/ledger-current-year-file)))
+            (prev-year-file
+             (expand-file-name
+              (format "%s-transactions.dat"
+                      (number-to-string (1- (string-to-number (format-time-string "%Y")))))
+              my/ledger-finances-dir)))
+        (when (file-exists-p prev-year-file)
+          (push prev-year-file files))
+        (with-temp-buffer
+          (dolist (f files)
+            (when (file-exists-p f)
+              (goto-char (point-max))
+              (insert-file-contents f nil nil nil t)))
+          (let ((delay-mode-hooks t))
+            (ledger-mode))
+          (ledger-accounts-list-in-buffer))))
+
+    (defun my/ledger-quick-add ()
+      "Quickly add a ledger transaction from anywhere in Emacs.
+Prompts for payee, amount, expense account, and payment source.
+Appends to the current year's transaction file."
+      (interactive)
+      (require 'ledger-mode)
+      (let* ((accounts (my/ledger-get-accounts))
+             (date (format-time-string "%Y/%m/%d"))
+             (payee (read-string "Payee: "))
+             (amount (read-string "Amount: $"))
+             (expense-account (completing-read "Expense account: " accounts nil nil "Expenses:"))
+             (payment-source (completing-read "Payment source: " accounts nil nil))
+             (file (my/ledger-current-year-file))
+             (transaction (format "%s %s\n    %s  $%s\n    %s\n"
+                                  date payee expense-account amount payment-source)))
+        (with-temp-buffer
+          (when (file-exists-p file)
+            (insert-file-contents file)
+            (goto-char (point-max)))
+          (unless (or (bobp) (looking-back "\n\n" nil))
+            (insert "\n"))
+          (insert transaction)
+          (write-region (point-min) (point-max) file))
+        (when-let ((buf (find-buffer-visiting file)))
+          (with-current-buffer buf
+            (revert-buffer t t t)))
+        (message "Added: %s %s | %s $%s -> %s"
+                 date payee expense-account amount payment-source)))
+
+    (defun my/ledger-simplefin-sync ()
+      "Sync transactions from SimpleFIN into ledger."
+      (interactive)
+      (unless (y-or-n-p "Pull transactions from SimpleFIN? ")
+        (user-error "Sync cancelled"))
+      (let* ((script (expand-file-name "~/.dotfiles/scripts/simplefin-sync.py"))
+             (buf (get-buffer-create "*simplefin-sync*")))
+        (with-current-buffer buf
+          (erase-buffer)
+          (insert "Syncing from SimpleFIN...\n\n"))
+        (display-buffer buf)
+        (set-process-sentinel
+         (start-process "simplefin-sync" buf "python3" script)
+         (lambda (proc _event)
+           (when (eq (process-status proc) 'exit)
+             (let ((file (my/ledger-current-year-file)))
+               (when-let ((visited (find-buffer-visiting file)))
+                 (with-current-buffer visited
+                   (revert-buffer t t t))))
+             (with-current-buffer (process-buffer proc)
+               (goto-char (point-max))
+               (insert "\nDone.")))))))
+
+    (defun my/ledger-report-run (name cmd)
+      "Run a ledger report CMD and display in buffer NAME."
+      (let ((buf (get-buffer-create (format "*ledger: %s*" name)))
+            (file (my/ledger-current-year-file)))
+        (with-current-buffer buf
+          (erase-buffer)
+          (insert (format "── %s ──\n\n" name))
+          (call-process-shell-command
+           (format "ledger -f %s %s" (shell-quote-argument file) cmd)
+           nil buf t)
+          (goto-char (point-min)))
+        (display-buffer buf)))
+
+    (defun my/ledger-report-balance ()
+      "Show all account balances."
+      (interactive)
+      (my/ledger-report-run "Balances" "balance"))
+
+    (defun my/ledger-report-expenses ()
+      "Show expenses sorted by amount."
+      (interactive)
+      (my/ledger-report-run "Expenses" "balance Expenses --sort \"-amount\""))
+
+    (defun my/ledger-report-monthly ()
+      "Show monthly spending breakdown."
+      (interactive)
+      (my/ledger-report-run "Monthly Spending" "register Expenses --monthly --collapse"))
+
+    (defun my/ledger-report-subscriptions ()
+      "Show subscription spending."
+      (interactive)
+      (my/ledger-report-run "Subscriptions" "balance Expenses:Subscriptions"))
+
+    (defun my/ledger-report-register ()
+      "Show full transaction register."
+      (interactive)
+      (my/ledger-report-run "Register" "register"))
+
+    (defun my/ledger-report-net-worth ()
+      "Show net worth (Assets + Liabilities)."
+      (interactive)
+      (my/ledger-report-run "Net Worth" "balance Assets Liabilities")))
