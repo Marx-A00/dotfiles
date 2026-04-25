@@ -2472,6 +2472,17 @@ If the buffers already exist, kills them first."
   (advice-add 'markdown-export-file-name :around
               #'mr-x/markdown-export-file-name-redirect))
 
+  ;; Export markdown to gruvbox-themed PDF via pandoc
+  (defun my/md-to-pdf ()
+    "Export current markdown buffer to gruvbox PDF."
+    (interactive)
+    (let* ((input (buffer-file-name))
+           (output (concat (file-name-sans-extension input) ".pdf"))
+           (script (expand-file-name "~/roaming/futura-renaissance/pax-paints/to-pdf.sh")))
+      (save-buffer)
+      (shell-command (format "%s %s %s" script (shell-quote-argument input) (shell-quote-argument output)))
+      (message "Exported: %s" output)))
+
 ;; Cache treesit-auto's remap alist — without this, the expensive
 ;; treesit-language-available-p gets called for all 53 languages on
 ;; EVERY file open (~0.7s each), destroying org-agenda perf (87 files).
