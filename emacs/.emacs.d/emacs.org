@@ -40,6 +40,7 @@
 ** Elpaca
 #+begin_src emacs-lisp
 
+
   (defvar elpaca-installer-version 0.11)
   (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
   (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
@@ -2683,8 +2684,16 @@ If the buffers already exist, kills them first."
     (advice-add 'markdown-export-file-name :around
                 #'mr-x/markdown-export-file-name-redirect))
 
-
-
+    ;; Export markdown to gruvbox-themed PDF via pandoc
+    (defun my/md-to-pdf ()
+      "Export current markdown buffer to gruvbox PDF."
+      (interactive)
+      (let* ((input (buffer-file-name))
+             (output (concat (file-name-sans-extension input) ".pdf"))
+             (script (expand-file-name "~/roaming/futura-renaissance/pax-paints/to-pdf.sh")))
+        (save-buffer)
+        (shell-command (format "%s %s %s" script (shell-quote-argument input) (shell-quote-argument output)))
+        (message "Exported: %s" output)))
 
 
 
