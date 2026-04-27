@@ -64,6 +64,13 @@ Each entry is (PROJECT-NAME . PLIST) where PLIST can contain:
                                              (:separator-char character))))
   :group 'project-dashboard)
 
+(defcustom project-dashboard-project-links
+  '(("futura-renaissance" . "https://drive.google.com/drive/u/1/folders/1_CyP1Jv4LpaeN0dyVRCYj8qdMzTpvJmD"))
+  "Alist mapping project names to external URLs.
+Press \\`D' in the dashboard to open the link for the current project."
+  :type '(alist :key-type string :value-type string)
+  :group 'project-dashboard)
+
 (defcustom project-dashboard-refresh-interval 5
   "Seconds between auto-refresh when `project-dashboard-auto-refresh' is enabled."
   :type 'integer
@@ -694,8 +701,13 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
    (propertize (format "%s\n" (make-string 60 ?─)) 'face 'project-dashboard-separator-face))
   (insert "\n")
   ;; Build horizontal legend string
-  (let* ((actions '(("a" . "Agent") ("d" . "Dired") ("m" . "Magit") ("f" . "Find")
-                    ("v" . "Vterm") ("t" . "Tasks") ("r" . "Refresh") ("q" . "Quit")))
+  (let* ((project-name (file-name-nondirectory
+                        (directory-file-name project-dashboard--project-root)))
+         (has-link (assoc project-name project-dashboard-project-links))
+         (actions (append '(("a" . "Agent") ("d" . "Dired") ("m" . "Magit") ("f" . "Find")
+                            ("v" . "Vterm") ("t" . "Tasks"))
+                          (when has-link '(("D" . "Drive")))
+                          '(("r" . "Refresh") ("q" . "Quit"))))
          (legend-parts
           (mapcar (lambda (action)
                     (concat (propertize (format "[%s]" (car action)) 
@@ -793,6 +805,16 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
     (if (fboundp 'magit-status)
         (magit-status)
       (message "magit not available"))))
+
+(defun project-dashboard-open-link ()
+  "Open the external link configured for the current project."
+  (interactive)
+  (let* ((project-name (file-name-nondirectory
+                        (directory-file-name project-dashboard--project-root)))
+         (url (cdr (assoc project-name project-dashboard-project-links))))
+    (if url
+        (browse-url url)
+      (message "No external link configured for %s" project-name))))
 
 (defun project-dashboard-find-file ()
   "Find file in the current project."
@@ -943,6 +965,7 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
     (define-key map (kbd "a") #'project-dashboard-open-agent-shell)
     (define-key map (kbd "d") #'project-dashboard-open-dired)
     (define-key map (kbd "m") #'project-dashboard-open-magit)
+    (define-key map (kbd "D") #'project-dashboard-open-link)
     (define-key map (kbd "f") #'project-dashboard-find-file)
     (define-key map (kbd "v") #'project-dashboard-open-vterm)
     (define-key map (kbd "t") project-dashboard-tasks-map)
@@ -989,6 +1012,7 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
     (kbd "a") #'project-dashboard-open-agent-shell
     (kbd "d") #'project-dashboard-open-dired
     (kbd "m") #'project-dashboard-open-magit
+    (kbd "D") #'project-dashboard-open-link
     (kbd "f") #'project-dashboard-find-file
     (kbd "v") #'project-dashboard-open-vterm
     (kbd "t t") #'project-dashboard-open-tag-tasks
