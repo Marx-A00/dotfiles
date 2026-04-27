@@ -32,6 +32,37 @@ daemon_running() {
     emacsclient --socket-name="$SOCKET_NAME" --eval "t" &>/dev/null
 }
 
+# Save which display the sandbox window is on (match by PID)
+save_display() {
+    if daemon_running; then
+        local pid
+        pid=$(emacsclient --socket-name="$SOCKET_NAME" --eval "(emacs-pid)" 2>/dev/null | tr -d '"')
+        if [[ -n "$pid" ]]; then
+            yabai -m query --windows | jq -r \
+                ".[] | select(.app == \"Emacs\" and .pid == $pid) | .display" \
+                | head -1 > /tmp/emacs-sandbox-display
+        fi
+    fi
+}
+
+# Move the sandbox window back to its saved display (match by PID)
+restore_display() {
+    if [[ -f /tmp/emacs-sandbox-display ]]; then
+        DISPLAY_IDX=$(cat /tmp/emacs-sandbox-display)
+        if [[ -n "$DISPLAY_IDX" ]]; then
+            sleep 0.5
+            local pid
+            pid=$(emacsclient --socket-name="$SOCKET_NAME" --eval "(emacs-pid)" 2>/dev/null | tr -d '"')
+            if [[ -n "$pid" ]]; then
+                WID=$(yabai -m query --windows | jq -r \
+                    ".[] | select(.app == \"Emacs\" and .pid == $pid) | .id" | head -1)
+                [[ -n "$WID" ]] && yabai -m window "$WID" --display "$DISPLAY_IDX" && yabai -m window "$WID" --focus
+            fi
+        fi
+        rm /tmp/emacs-sandbox-display
+    fi
+}
+
 # Stop the daemon gracefully
 kill_daemon() {
     if daemon_running; then
@@ -50,12 +81,14 @@ fi
 
 # --restart: kill daemon, then continue to restart + spawn
 if [[ -n "$RESTART" ]]; then
+    save_display
     kill_daemon
 fi
 
 # --fresh: nuke everything and rebuild
 if [[ -n "$FRESH" ]]; then
     echo "Nuking sandbox and resyncing from main config..."
+    save_display
     kill_daemon
     rm -rf "$SANDBOX_DIR"
 fi
@@ -116,3 +149,5 @@ if [[ -n "$AUTO_TEST" ]]; then
 else
     emacsclient --socket-name="$SOCKET_NAME" -c -n
 fi
+
+restore_display
