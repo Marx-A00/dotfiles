@@ -116,6 +116,7 @@
   (set-default-coding-systems 'utf-8)
   (set-terminal-coding-system 'utf-8)
   (set-keyboard-coding-system 'utf-8)
+
 #+end_src
 
 ** Garbage Collection
@@ -1692,8 +1693,14 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         "c s" '(agent-shell-send-screenshot :wk "Send screenshot")
         "c i" '(agent-shell-interrupt :wk "Interrupt")
         "c o" '(agent-shell-other-buffer :wk "Other buffer (viewport/shell)")
-        "c m" '(agent-shell-set-session-mode :wk "Set mode")
-        "c M" '(agent-shell-cycle-session-mode :wk "Cycle mode")
+        "c m" '(:ignore t :wk "Mode")
+        "c m m" '(agent-shell-set-session-mode :wk "Pick mode...")
+        "c m c" '(agent-shell-cycle-session-mode :wk "Cycle")
+        "c m d" '((lambda () (interactive) (mr-x/agent-shell-set-mode-direct "default")) :wk "Default")
+        "c m e" '((lambda () (interactive) (mr-x/agent-shell-set-mode-direct "acceptEdits")) :wk "Accept Edits")
+        "c m p" '((lambda () (interactive) (mr-x/agent-shell-set-mode-direct "plan")) :wk "Plan")
+        "c m a" '((lambda () (interactive) (mr-x/agent-shell-set-mode-direct "dontAsk")) :wk "Don't Ask")
+        "c m b" '((lambda () (interactive) (mr-x/agent-shell-set-mode-direct "bypassPermissions")) :wk "Bypass Perms")
         "c ." '(agent-shell-set-session-model :wk "Set model")
         "c T" '(agent-shell-open-transcript :wk "Open transcript")
         "c q" '(agent-shell-queue-request :wk "Queue request")
@@ -1740,6 +1747,39 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
 
       ;; Bind after agent-shell loads
       (with-eval-after-load 'agent-shell
+        (defun mr-x/agent-shell-set-mode-direct (mode-id)
+          "Set agent-shell session mode directly by MODE-ID, skipping the picker."
+          (let* ((buf (or (and (derived-mode-p 'agent-shell-mode) (current-buffer))
+                         (seq-first (agent-shell-project-buffers))))
+                 (state (and buf (buffer-local-value 'agent-shell--state buf))))
+            (unless buf (user-error "No agent-shell buffer found"))
+            (with-current-buffer buf
+              (unless (map-nested-elt state '(:session :id))
+                (user-error "No active session"))
+              (let ((current (map-nested-elt state '(:session :mode-id))))
+                (when (and current (string= mode-id current))
+                  (user-error "Already in %s mode" (or (agent-shell--resolve-session-mode-name
+                                                        mode-id (agent-shell--get-available-modes state))
+                                                       mode-id)))
+                (agent-shell--send-request
+                 :state state
+                 :client (map-elt state :client)
+                 :request (acp-make-session-set-mode-request
+                           :session-id (map-nested-elt state '(:session :id))
+                           :mode-id mode-id)
+                 :buffer buf
+                 :on-success (lambda (_)
+                               (let ((session (map-elt (agent-shell--state) :session)))
+                                 (map-put! session :mode-id mode-id)
+                                 (map-put! (agent-shell--state) :session session)
+                                 (message "Session mode: %s"
+                                          (or (agent-shell--resolve-session-mode-name
+                                               mode-id (agent-shell--get-available-modes (agent-shell--state)))
+                                              mode-id)))
+                               (agent-shell--update-header-and-mode-line))
+                 :on-failure (lambda (err _)
+                               (message "Failed to set mode: %s" err)))))))
+
         (mr-x/leader-def
           "g m" '(mr-x/ai-commit-message :wk "AI commit message")))
 
@@ -1758,6 +1798,15 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         "$ b s" '(my/ledger-report-subscriptions :wk "subscriptions")
         "$ b r" '(my/ledger-report-register :wk "full register")
         "$ b n" '(my/ledger-report-net-worth :wk "net worth"))
+
+      (mr-x/leader-def
+        "r" '(:ignore t :wk "reading")
+        "r r" '(mr-x/select-reading-book :wk "select book")
+        "r n" '(mr-x/book-new :wk "new book")
+        "r f" '(mr-x/book-mark-finished :wk "mark finished")
+        "r s" '(mr-x/book-update-progress :wk "save progress")
+        "r l" '((lambda () (interactive) (dired mr-x/books-directory)) :wk "browse books")
+        "r o" '(mr-x/book-open-notes :wk "open notes"))
 
       (mr-x/leader-def
         "P" '(:ignore t :wk "Project Dashboard")
@@ -2563,6 +2612,169 @@ If the buffers already exist, kills them first."
     :ensure (:host github :repo "org-noter/org-noter")
     :after pdf-tools)
 
+  ;;; Book Reading Feature
+  ;;; Quick access to currently reading books via org-roam + pdf-tools
+
+  (defvar mr-x/books-directory "~/Documents/Books/"
+    "Directory where PDF books are stored.")
+
+  (defun mr-x/org-roam-get-reading-books ()
+    "Return list of org-roam nodes tagged with 'reading'."
+    (seq-filter
+     (lambda (node)
+       (member "reading" (org-roam-node-tags node)))
+     (org-roam-node-list)))
+
+  (defun mr-x/book-format-candidate (node)
+    "Format NODE as 'Title - Author' for ivy display."
+    (let* ((title (org-roam-node-title node))
+           (author (or (cdr (assoc "AUTHOR" (org-roam-node-properties node)))
+                       "Unknown")))
+      (cons (format "%s - %s" title author) node)))
+
+  (defun mr-x/select-reading-book ()
+    "Select a currently reading book and open its PDF at saved page."
+    (interactive)
+    (let* ((books (mr-x/org-roam-get-reading-books))
+           (candidates (mapcar #'mr-x/book-format-candidate books)))
+      (if (null candidates)
+          (user-error "No books currently being read. Use SPC r n to add one")
+        (ivy-read "Select book: " candidates
+                  :action (lambda (selection)
+                            (mr-x/book-open-pdf (cdr selection)))))))
+
+  (defun mr-x/book-open-pdf (node)
+    "Open the PDF for org-roam NODE at the saved page."
+    (let* ((props (org-roam-node-properties node))
+           (pdf-path (cdr (assoc "PDF_PATH" props)))
+           (page (string-to-number (or (cdr (assoc "CURRENT_PAGE" props)) "1"))))
+      (if (and pdf-path (file-exists-p (expand-file-name pdf-path)))
+          (progn
+            (find-file (expand-file-name pdf-path))
+            (pdf-view-goto-page page))
+        (user-error "PDF not found: %s" pdf-path))))
+
+  (defun mr-x/book-open-notes ()
+    "Open the org-roam note for a reading book."
+    (interactive)
+    (let* ((books (mr-x/org-roam-get-reading-books))
+           (candidates (mapcar #'mr-x/book-format-candidate books)))
+      (if (null candidates)
+          (user-error "No books currently being read")
+        (ivy-read "Open notes for: " candidates
+                  :action (lambda (selection)
+                            (find-file (org-roam-node-file (cdr selection))))))))
+
+  (defun mr-x/book-new ()
+    "Create a new book note by selecting a PDF interactively."
+    (interactive)
+    (let* ((pdf (read-file-name "Select book PDF: " mr-x/books-directory nil t nil
+                                 (lambda (f) (or (directory-name-p f)
+                                                 (string-suffix-p ".pdf" f t)))))
+           (pdf-path (abbreviate-file-name pdf))
+           (default-title (file-name-sans-extension (file-name-nondirectory pdf)))
+           (title (read-string (format "Book title [%s]: " default-title) nil nil default-title))
+           (author (read-string "Author: "))
+           (total-pages (let ((n (string-trim
+                                  (shell-command-to-string
+                                   (format "mdls -name kMDItemNumberOfPages -raw %s"
+                                           (shell-quote-argument (expand-file-name pdf)))))))
+                          (if (string-match-p "^[0-9]+$" n) n
+                            (number-to-string (read-number "Total pages: "))))))
+      (org-roam-capture-
+       :node (org-roam-node-create :title title)
+       :templates
+       `(("b" "book" plain
+          "* Summary\n\n%?"
+          :if-new (file+head
+                   "${slug}.org"
+                   ,(format ":PROPERTIES:\n:AUTHOR: %s\n:PDF_PATH: %s\n:CURRENT_PAGE: 1\n:TOTAL_PAGES: %s\n:NOTER_DOCUMENT: %s\n:END:\n#+title: ${title}\n#+filetags: reading\n"
+                            author pdf-path total-pages pdf-path))
+          :unnarrowed t)))))
+
+  (defun mr-x/book-update-progress ()
+    "Save current PDF page as reading progress in the matching org-roam note."
+    (interactive)
+    (unless (derived-mode-p 'pdf-view-mode)
+      (user-error "Not in a PDF buffer"))
+    (let* ((current-page (pdf-view-current-page))
+           (pdf-file (expand-file-name (buffer-file-name)))
+           (books (mr-x/org-roam-get-reading-books))
+           (node (seq-find
+                  (lambda (n)
+                    (let ((p (cdr (assoc "PDF_PATH" (org-roam-node-properties n)))))
+                      (and p (string= (expand-file-name p) pdf-file))))
+                  books)))
+      (unless node
+        (user-error "No reading note found for this PDF"))
+      (let ((org-file (org-roam-node-file node)))
+        (with-current-buffer (find-file-noselect org-file)
+          (goto-char (point-min))
+          (org-entry-put (point) "CURRENT_PAGE" (number-to-string current-page))
+          (save-buffer))
+        (message "Progress saved: page %d" current-page))))
+
+  (defun mr-x/book-mark-finished ()
+    "Mark a reading book as finished (tag: reading -> read)."
+    (interactive)
+    (let* ((books (mr-x/org-roam-get-reading-books))
+           (candidates (mapcar #'mr-x/book-format-candidate books)))
+      (if (null candidates)
+          (user-error "No books currently being read")
+        (ivy-read "Mark finished: " candidates
+                  :action (lambda (selection)
+                            (let* ((node (cdr selection))
+                                   (file (org-roam-node-file node)))
+                              (with-current-buffer (find-file-noselect file)
+                                (goto-char (point-min))
+                                (when (re-search-forward "^#\\+filetags:.*\\breading\\b" nil t)
+                                  (replace-match
+                                   (replace-regexp-in-string
+                                    "\\breading\\b" "read" (match-string 0)))
+                                  (save-buffer)
+                                  (message "Marked '%s' as finished!"
+                                           (org-roam-node-title node))))))))))
+
+  (use-package hydra
+    :ensure t)
+
+  (with-eval-after-load 'pdf-tools
+    (defhydra hydra-pdf (:hint nil :color pink :foreign-keys run)
+      "
+  PDF View
+  ─────────────────────────────────────────────────
+  _j_/_k_: next/prev page     _+_/_-_: zoom in/out
+  _J_/_K_: scroll down/up     _0_: reset zoom
+  _g_: goto page               _f_: fit page
+  _G_: last page               _w_: fit width
+                               _H_: fit height
+
+  _s_: search    _d_: dark mode     _o_: org-noter
+  _r_: revert    _a_: annotations   _c_: copy region
+
+  _q_: quit
+  "
+      ("j" pdf-view-next-page)
+      ("k" pdf-view-previous-page)
+      ("J" pdf-view-scroll-up-or-next-page)
+      ("K" pdf-view-scroll-down-or-previous-page)
+      ("g" pdf-view-goto-page)
+      ("G" pdf-view-last-page)
+      ("+" pdf-view-enlarge)
+      ("-" pdf-view-shrink)
+      ("0" pdf-view-scale-reset)
+      ("f" pdf-view-fit-page-to-window)
+      ("w" pdf-view-fit-width-to-window)
+      ("H" pdf-view-fit-height-to-window)
+      ("s" isearch-forward :color blue)
+      ("d" pdf-view-midnight-minor-mode)
+      ("o" org-noter :color blue)
+      ("a" pdf-annot-list-annotations :color blue)
+      ("r" revert-buffer)
+      ("c" pdf-view-kill-ring-save :color blue)
+      ("q" nil :color blue))
+
+    (evil-define-key 'normal pdf-view-mode-map (kbd ",") #'hydra-pdf/body))
 
 
 #+end_src
