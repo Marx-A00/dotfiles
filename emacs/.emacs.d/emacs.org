@@ -1274,6 +1274,15 @@ Shows all warnings in the echo area."
   					  ; opacity - same value for focused and unfocused (consistent transparency)
     (set-frame-parameter (selected-frame) 'alpha '(80 80))
     (add-to-list 'default-frame-alist '(alpha-background . 20))
+
+    (defun my/clone-buffer-to-new-frame ()
+      "Spawn a new frame showing the current buffer."
+      (interactive)
+      (let ((buf (current-buffer)))
+        (select-frame-set-input-focus (make-frame))
+        (switch-to-buffer buf)))
+    (global-set-key (kbd "s-M-E") #'my/clone-buffer-to-new-frame)
+
   					  ; keybindings section
     (global-unset-key (kbd "s-t")) ; Disable macOS font panel (ns-popup-font-panel)
     (global-set-key (kbd "C-<escape>") #'universal-argument)
