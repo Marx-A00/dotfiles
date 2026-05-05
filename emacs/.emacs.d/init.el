@@ -251,59 +251,327 @@
 
 
 
-    (setq org-agenda-custom-commands
-	    '(("p" "Projects Agenda"
-	       ((todo "NEXT"
-		      ((org-agenda-overriding-header
-			(concat "Projects\n" (make-string (window-width) 9472) "\n\n"))
-		       (org-agenda-files '("~/roaming/notes/stable-elpaca.org"
-					   "~/roaming/notes/customize-org-agenda.org"
-					   "~/roaming/notes/omi-live.org"
+    ;; Habit skip helpers for agenda views
+    (defun my/org-agenda-skip-habits ()
+      "Skip entries that are habits."
+      (let ((end (save-excursion (org-end-of-subtree t))))
+        (when (string= (org-entry-get nil "STYLE") "habit")
+          end)))
 
-					   "~/roaming/notes/openpair.org"
-					   "~/roaming/notes/rec.org"
-					   "~/roaming/notes/amazon-orders-sorting.org"
-					   "~/roaming/notes/personal-website.org"
-					   "~/roaming/notes/guitar-fretboard-js.org"
-					   "~/roaming/notes/typingpracticeapplication.org"))))))
-	      ("c" "Custom Projects & Agenda"
-	       ((agenda ""
-			((org-agenda-overriding-header "Agenda")
-			 (org-agenda-prefix-format
-			  '((agenda . "  %?-12t% s")
-			    (timeline . "  % s")
-			    (todo . "  ")
-			    (tags . "  ")
-			    (search . "  ")))
-			 (org-agenda-log-mode-items '(closed clock))))
-		(todo "NEXT"
-		      ((org-agenda-overriding-header
-			(concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
-		       (org-agenda-files '("~/roaming/notes/stable-elpaca.org"
-					   "~/roaming/notes/omi-live.org"
-					   "~/roaming/notes/customize-org-agenda.org"
-					   "~/roaming/notes/openpair.org"
-					   "~/roaming/notes/rec.org"
-					   "~/roaming/notes/amazon-orders-sorting.org"
-					   "~/roaming/notes/personal-website.org"
-"~/roaming/notes/vibe-coding-video.org"
-"~/roaming/notes/kountdown.org"
-					   "~/roaming/notes/guitar-fretboard-js.org"
-					   "~/roaming/notes/virtual-museum.org"
-					   "~/roaming/notes/track01-s-w.org"
-					   "~/roaming/notes/typingpracticeapplication.org")))))
-	       nil)))
+    (defun my/org-agenda-skip-non-habits ()
+      "Skip entries that are NOT habits."
+      (let ((end (save-excursion (org-end-of-subtree t))))
+        (unless (string= (org-entry-get nil "STYLE") "habit")
+          end)))
+
+    (defun my/org-agenda-skip-untimed ()
+      "Skip entries without a time-of-day in scheduled/deadline."
+      (let ((end (save-excursion (org-end-of-subtree t)))
+            (scheduled (org-entry-get nil "SCHEDULED"))
+            (deadline (org-entry-get nil "DEADLINE")))
+        (unless (or (and scheduled (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" scheduled))
+                    (and deadline (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" deadline)))
+          end)))
+
+    (defun my/org-agenda-skip-timed ()
+      "Skip entries with a time-of-day in scheduled/deadline."
+      (let ((end (save-excursion (org-end-of-subtree t)))
+            (scheduled (org-entry-get nil "SCHEDULED"))
+            (deadline (org-entry-get nil "DEADLINE")))
+        (when (or (and scheduled (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" scheduled))
+                  (and deadline (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" deadline)))
+          end)))
+
+    (defun my/org-agenda-skip-if-deadline ()
+      "Skip entries that have a DEADLINE."
+      (let ((end (save-excursion (org-end-of-subtree t))))
+        (when (org-entry-get nil "DEADLINE")
+          end)))
+
+    (setq org-agenda-custom-commands
+          '(("c" "Classic Agenda"
+             ((agenda ""
+                      ((org-agenda-overriding-header "Agenda")
+                       (org-agenda-prefix-format
+                        '((agenda . "  %?-12t% s")
+                          (timeline . "  % s")
+                          (todo . "  ")
+                          (tags . "  ")
+                          (search . "  ")))
+                       (org-agenda-log-mode-items '(closed clock))))
+              (todo "NEXT"
+                    ((org-agenda-overriding-header
+                      (concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
+                     (org-agenda-files '("~/roaming/notes/stable-elpaca.org"
+                                         "~/roaming/notes/omi-live.org"
+                                         "~/roaming/notes/customize-org-agenda.org"
+                                         "~/roaming/notes/openpair.org"
+                                         "~/roaming/notes/rec.org"
+                                         "~/roaming/notes/amazon-orders-sorting.org"
+                                         "~/roaming/notes/personal-website.org"
+                                         "~/roaming/notes/vibe-coding-video.org"
+                                         "~/roaming/notes/kountdown.org"
+                                         "~/roaming/notes/guitar-fretboard-js.org"
+                                         "~/roaming/notes/virtual-museum.org"
+                                         "~/roaming/notes/track01-s-w.org"
+                                         "~/roaming/notes/typingpracticeapplication.org")))))
+             nil)
+
+
+
+            ("d" "Dashboard"
+             ((alltodo ""
+                       ((org-agenda-overriding-header
+                         (concat "􀌂  Inbox\n" (make-string (window-width) 9472) "\n"))
+                        (org-agenda-files '("~/roaming/notes/Inbox.org"))
+                        (org-agenda-prefix-format "  ")))
+              (agenda ""
+                      ((org-agenda-overriding-header
+                        (concat "\n􀋀  Timeline\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-span 'day)
+                       (org-habit-show-habits nil)
+                       (org-agenda-skip-function
+                        '(or (my/org-agenda-skip-habits)
+                             (my/org-agenda-skip-untimed)))
+                       (org-agenda-prefix-format '((agenda . "  %?-12t")))
+                       (org-agenda-time-grid '((daily today require-timed)
+                                               (800 1000 1200 1400 1600 1800 2000)
+                                               "" ""))))
+              (agenda ""
+                      ((org-agenda-overriding-header
+                        (concat "\n􀋀  Do Today\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-span 'day)
+                       (org-habit-show-habits nil)
+                       (org-agenda-skip-function
+                        '(or (my/org-agenda-skip-habits)
+                             (my/org-agenda-skip-timed)))
+                       (org-agenda-prefix-format '((agenda . "  ")))
+                       (org-agenda-time-grid nil)
+                       (org-agenda-format-date "")))
+              (agenda ""
+                      ((org-agenda-overriding-header
+                        (concat "\n􀁑  Habits\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-span 'day)
+                       (org-habit-show-habits t)
+                       (org-agenda-skip-function '(my/org-agenda-skip-non-habits))
+                       (org-agenda-prefix-format '((agenda . "  ")))
+                       (org-agenda-time-grid nil)
+                       (org-agenda-format-date "")))
+              (tags-todo "+PRIORITY=\"A\"|+PRIORITY=\"B\""
+                         ((org-agenda-overriding-header
+                           (concat "\n􀀤  Priority\n" (make-string (window-width) 9472) "\n"))
+                          (org-agenda-prefix-format "  ")
+                          (org-agenda-sorting-strategy '(priority-down))
+                          (org-agenda-skip-function
+                           '(org-agenda-skip-entry-if 'scheduled)))))
+             ((org-agenda-remove-tags t)
+              (org-agenda-scheduled-leaders '("" ""))
+              (org-agenda-deadline-leaders '("" "In %3d d. " "%2d d. ago "))
+              (org-agenda-current-time-string "◀━━━━━━━━━━━━━━━━━━━━━━━━ now")
+              (org-agenda-compact-blocks nil)
+              (org-agenda-format-date "\n  %A, %B %e")))
+
+            ("f" "Focus"
+             ((agenda ""
+                      ((org-agenda-overriding-header
+                        (concat "􀎆  Schedule\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-span 'day)
+                       (org-habit-show-habits nil)
+                       (org-agenda-skip-function
+                        '(or (my/org-agenda-skip-habits)
+                             (my/org-agenda-skip-untimed)))
+                       (org-agenda-prefix-format '((agenda . "  %-12t")))
+                       (org-agenda-time-grid '((daily today)
+                                               (800 1000 1200 1400 1600 1800 2000)
+                                               "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈" "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈"))))
+              (agenda ""
+                      ((org-agenda-overriding-header
+                        (concat "\n􀋀  Do Today\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-span 'day)
+                       (org-habit-show-habits nil)
+                       (org-agenda-skip-function
+                        '(or (my/org-agenda-skip-habits)
+                             (my/org-agenda-skip-timed)
+                             (my/org-agenda-skip-if-deadline)))
+                       (org-agenda-prefix-format '((agenda . "  %-12c›  ")))
+                       (org-agenda-time-grid nil)
+                       (org-agenda-format-date "")))
+              (agenda ""
+                      ((org-agenda-overriding-header
+                        (concat "\n􀞟  Deadlines\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-span 'day)
+                       (org-habit-show-habits nil)
+                       (org-agenda-entry-types '(:deadline))
+                       (org-deadline-warning-days 14)
+                       (org-agenda-prefix-format '((agenda . "  %-12c›  ")))
+                       (org-agenda-deadline-leaders '("Due!  " "In %3d d. " "%2d d. ago "))
+                       (org-agenda-time-grid nil)
+                       (org-agenda-format-date "")))
+              (tags-todo "+PRIORITY=\"A\""
+                         ((org-agenda-overriding-header
+                           (concat "\n􀀤  Do Next\n" (make-string (window-width) 9472) "\n"))
+                          (org-agenda-prefix-format "  %-12c›  ")
+                          (org-agenda-skip-function
+                           '(org-agenda-skip-entry-if 'scheduled)))))
+             ((org-agenda-remove-tags t)
+              (org-agenda-scheduled-leaders '("" ""))
+              (org-agenda-deadline-leaders '("" "In %3d d. " "%2d d. ago "))
+              (org-agenda-skip-deadline-if-done t)
+              (org-agenda-skip-scheduled-if-done t)
+              (org-agenda-current-time-string "◀━━━━━━━━━━━━━━━━━━━━━━━━ now")
+              (org-agenda-compact-blocks nil)
+              (org-agenda-format-date "\n  %A, %B %e")))
+
+            ("v" "Full View"
+             ((alltodo ""
+                       ((org-agenda-overriding-header
+                         (concat "􀌂  Inbox\n" (make-string (window-width) 9472) "\n"))
+                        (org-agenda-files '("~/roaming/notes/Inbox.org"))
+                        (org-agenda-prefix-format "  ")))
+              (agenda ""
+                      ((org-agenda-overriding-header
+                        (concat "\n􀋀  Timeline\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-span 'day)
+                       (org-habit-show-habits nil)
+                       (org-agenda-skip-function
+                        '(or (my/org-agenda-skip-habits)
+                             (my/org-agenda-skip-untimed)))
+                       (org-agenda-prefix-format '((agenda . "  %?-12t")))
+                       (org-agenda-time-grid '((daily today require-timed)
+                                               (800 1000 1200 1400 1600 1800 2000)
+                                               "" ""))))
+              (agenda ""
+                      ((org-agenda-overriding-header
+                        (concat "\n􀋀  Do Today\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-span 'day)
+                       (org-habit-show-habits nil)
+                       (org-agenda-skip-function
+                        '(or (my/org-agenda-skip-habits)
+                             (my/org-agenda-skip-timed)))
+                       (org-agenda-prefix-format '((agenda . "  ")))
+                       (org-agenda-time-grid nil)
+                       (org-agenda-format-date "")))
+              (agenda ""
+                      ((org-agenda-overriding-header
+                        (concat "\n􀁑  Habits\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-span 'day)
+                       (org-habit-show-habits t)
+                       (org-agenda-skip-function '(my/org-agenda-skip-non-habits))
+                       (org-agenda-prefix-format '((agenda . "  ")))
+                       (org-agenda-time-grid nil)
+                       (org-agenda-format-date "")))
+              (todo "TODO|NEXT"
+                    ((org-agenda-overriding-header
+                      (concat "\n􀋀  Unscheduled\n" (make-string (window-width) 9472) "\n"))
+                     (org-agenda-prefix-format "  ")
+                     (org-agenda-skip-function
+                      '(or (my/org-agenda-skip-habits)
+                           (org-agenda-skip-entry-if 'scheduled 'deadline)))))
+              (agenda ""
+                      ((org-agenda-overriding-header
+                        (concat "\n􀞟  Upcoming Deadlines\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-span 7)
+                       (org-agenda-entry-types '(:deadline))
+                       (org-agenda-time-grid nil)
+                       (org-agenda-prefix-format "  %?-12t"))))
+             ((org-agenda-remove-tags t)
+              (org-agenda-scheduled-leaders '("" ""))
+              (org-agenda-deadline-leaders '("" "In %3d d. " "%2d d. ago "))
+              (org-agenda-current-time-string "◀━━━━━━━━━━━━━━━━━━━━━━━━ now")
+              (org-agenda-compact-blocks nil)
+              (org-agenda-format-date "\n  %A, %B %e")))))
     (setq org-agenda-format-date (lambda (date)
 				     (concat"\n"(make-string(window-width)9472)
 					    "\n"(org-agenda-format-date-aligned date))))
     (setq org-cycle-separator-lines 2)
 
+    ;; Agenda visual styling
+    (setq org-agenda-todo-keyword-format "")
+    (setq org-agenda-block-separator "")
+
+    ;; Custom habit glyphs
+    (setq org-habit-completed-glyph ?●
+          org-habit-today-glyph ?◌
+          org-habit-missed-glyph ?○)
+
+    ;; Overdue indicator advice: replace "Sched.34x:" with clean symbols
+    (defun my/org-agenda-overdue-indicator (orig-fn extra txt &rest args)
+      "Replace verbose scheduled leader with visual overdue indicators."
+      (let* ((new-extra
+              (if (and (stringp extra)
+                       (string-match "^-\\([0-9]+\\)$" extra))
+                  (let ((d (string-to-number (match-string 1 extra))))
+                    (cond
+                     ((< d 1)  "")
+                     ((< d 3)  " ·")
+                     ((< d 7)  " !")
+                     ((< d 14) " ‼")
+                     (t        " ✖")))
+                (or extra ""))))
+        (apply orig-fn new-extra txt args)))
+
+    (advice-add 'org-agenda-format-item :around
+                #'my/org-agenda-overdue-indicator)
+
+    ;; Priority as exclamation marks
+    (defun my/org-agenda-prettify-priorities ()
+      "Replace [#A] [#B] [#C] with exclamation marks."
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "\\[#A\\]" nil t)
+          (replace-match "!!!" t t))
+        (goto-char (point-min))
+        (while (re-search-forward "\\[#B\\]" nil t)
+          (replace-match "!!" t t))
+        (goto-char (point-min))
+        (while (re-search-forward "\\[#C\\]" nil t)
+          (replace-match "!" t t))))
+
+    ;; Strike-through for done items
+    (defun my/org-agenda-strike-through-done ()
+      "Apply strike-through to DONE items in agenda."
+      (save-excursion
+        (goto-char (point-min))
+        (while (not (eobp))
+          (when (member (org-get-at-bol 'todo-state) org-done-keywords)
+            (let* ((ov (make-overlay (line-beginning-position) (line-end-position)))
+                   (existing (get-text-property (point) 'face))
+                   (new-face (if existing
+                                 (list existing '(:strike-through t))
+                               '(:strike-through t))))
+              (overlay-put ov 'face new-face)
+              (overlay-put ov 'org-agenda-strike t)))
+          (forward-line 1))))
+
+    ;; Section header styling
+    (defun my/org-agenda-style-section-headers ()
+      "Style section headers (with SF Symbol icons) with larger, bold text."
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^.\\{0,4\\}\\(Schedule\\|Do Today\\|Do Next\\|Deadlines\\|Habits\\|Timeline\\|Inbox\\|Priority\\|Unscheduled\\|Upcoming Deadlines\\)" nil t)
+          (let ((ov (make-overlay (line-beginning-position) (match-end 0))))
+            (overlay-put ov 'face '(:height 1.3 :weight bold))))))
+
     (add-hook 'org-agenda-finalize-hook
 		(lambda ()
-		  (setq visual-fill-column-width 100) 
+		  ;; Centered layout
+		  (setq visual-fill-column-width 110)
 		  (setq visual-fill-column-center-text t)
 		  (visual-fill-column-mode t)
-		  (display-line-numbers-mode 1)))
+		  ;; Subtle line spacing
+		  (setq-local line-spacing 0.15)
+		  ;; Hide mode-line
+		  (setq-local mode-line-format nil)
+		  ;; Collapse excessive blank lines
+		  (let ((inhibit-read-only t))
+		    (save-excursion
+		      (goto-char (point-min))
+		      (while (re-search-forward "\n\\(\n\\)\\(\n\\)+" nil t)
+			(replace-match "\n\n"))))
+		  ;; Apply visual effects
+		  (my/org-agenda-prettify-priorities)
+		  (my/org-agenda-strike-through-done)
+		  (my/org-agenda-style-section-headers)))
 
 
 
@@ -831,7 +1099,10 @@ Shows all warnings in the echo area."
 
 (defun mr-x/set-font-faces ()
   (message "Setting faces!")
-  (set-face-attribute 'default nil :font "JuliaMono" :height 240))
+  (set-face-attribute 'default nil :font "JuliaMono" :height 240)
+  ;; Enable SF Symbols rendering (macOS)
+  (when (eq system-type 'darwin)
+    (set-fontset-font t nil "SF Pro Display" nil 'append)))
 
   ;; Set the fixed pitch face
 
@@ -1164,6 +1435,15 @@ Shows all warnings in the echo area."
 					  ; opacity - same value for focused and unfocused (consistent transparency)
   (set-frame-parameter (selected-frame) 'alpha '(80 80))
   (add-to-list 'default-frame-alist '(alpha-background . 20))
+
+  (defun my/clone-buffer-to-new-frame ()
+    "Spawn a new frame showing the current buffer."
+    (interactive)
+    (let ((buf (current-buffer)))
+      (select-frame-set-input-focus (make-frame))
+      (switch-to-buffer buf)))
+  (global-set-key (kbd "s-M-E") #'my/clone-buffer-to-new-frame)
+
 					  ; keybindings section
   (global-unset-key (kbd "s-t")) ; Disable macOS font panel (ns-popup-font-panel)
   (global-set-key (kbd "C-<escape>") #'universal-argument)
@@ -1447,7 +1727,12 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
 
     (with-eval-after-load 'general
       (mr-x/leader-def
-        "a" 'mr-x/org-agenda-custom
+        "a" '(:ignore t :wk "agenda")
+        "a a" '(org-agenda :wk "dispatcher")
+        "a c" '(mr-x/org-agenda-custom :wk "classic")
+        "a d" '(mr-x/org-agenda-dashboard :wk "dashboard")
+        "a f" '(mr-x/org-agenda-focus :wk "focus")
+        "a v" '(mr-x/org-agenda-full :wk "full view")
         ;; "m" 'mu4e
         "f" 'link-hint-open-link
         "p" 'projectile-command-map
@@ -1776,6 +2061,18 @@ TASK-ID is the ID shown when Claude runs a background command."
     (defun mr-x/org-agenda-custom ()
       (interactive)
       (org-agenda nil "c"))
+
+    (defun mr-x/org-agenda-dashboard ()
+      (interactive)
+      (org-agenda nil "d"))
+
+    (defun mr-x/org-agenda-focus ()
+      (interactive)
+      (org-agenda nil "f"))
+
+    (defun mr-x/org-agenda-full ()
+      (interactive)
+      (org-agenda nil "v"))
 
 (winner-mode 1)
 
