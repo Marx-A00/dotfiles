@@ -221,6 +221,18 @@ sketchybar --add item imessage right                                 \
                                drawing=off                           \
                                click_script='open -a Messages'
 
+# whatsapp unread count
+sketchybar --add item whatsapp right                                 \
+           --set      whatsapp icon=󰖣                                \
+                               icon.color=$GREEN                     \
+                               label.color=0xFFFFFFFF                 \
+                               background.border_color=$GREEN         \
+                               script='./plugins/whatsapp.sh'        \
+                               update_freq=5                         \
+                               updates=on                            \
+                               drawing=off                           \
+                               click_script='open -a WhatsApp'
+
 
 sketchybar --add item title_proxy right                             \
            --set      title_proxy y_offset=100                      \
