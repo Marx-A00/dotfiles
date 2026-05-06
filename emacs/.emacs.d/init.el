@@ -2827,9 +2827,6 @@ If the buffers already exist, kills them first."
                                 (message "Marked '%s' as finished!"
                                          (org-roam-node-title node))))))))))
 
-(use-package hydra
-  :ensure t)
-
 (with-eval-after-load 'pdf-tools
   (defhydra hydra-pdf (:hint nil :color pink :foreign-keys run)
     "
