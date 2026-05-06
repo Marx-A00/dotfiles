@@ -281,6 +281,22 @@
   	      (insert (number-to-string streak))))
   	  (forward-line 1)))
 
+      ;; Auto-refresh agenda when org files are saved
+      (defun my/org-agenda-auto-refresh ()
+        "Refresh visible agenda buffers when an org file is saved."
+        (when (derived-mode-p 'org-mode)
+          (dolist (buf (buffer-list))
+            (with-current-buffer buf
+              (when (derived-mode-p 'org-agenda-mode)
+                (run-with-idle-timer 0.5 nil
+                  (lambda (b)
+                    (when (buffer-live-p b)
+                      (with-current-buffer b
+                        (org-agenda-redo-all))))
+                  buf))))))
+
+      (add-hook 'after-save-hook #'my/org-agenda-auto-refresh)
+
       (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
 
       (defun my/style-org-agenda()
@@ -426,7 +442,7 @@
                ((org-agenda-remove-tags t)
                 (org-agenda-scheduled-leaders '("" ""))
                 (org-agenda-deadline-leaders '("" "In %3d d. " "%2d d. ago "))
-                (org-agenda-current-time-string "◀━━━━━━━━━━━━━━━━━━━━━━━━ now")
+                (org-agenda-current-time-string "")
                 (org-agenda-compact-blocks nil)
                 (org-agenda-format-date "\n  %A, %B %e")))
 
@@ -477,6 +493,7 @@
                 (org-agenda-deadline-leaders '("" "In %3d d. " "%2d d. ago "))
                 (org-agenda-skip-deadline-if-done t)
                 (org-agenda-skip-scheduled-if-done t)
+                (org-agenda-show-log nil)
                 (org-agenda-current-time-string "◀━━━━━━━━━━━━━━━━━━━━━━━━ now")
                 (org-agenda-compact-blocks nil)
                 (org-agenda-format-date "\n  %A, %B %e")))
@@ -627,6 +644,25 @@
   		      (goto-char (point-min))
   		      (while (re-search-forward "\n\\(\n\\)\\(\n\\)+" nil t)
   			(replace-match "\n\n"))))
+  		  ;; Highlight the time grid line closest to current time
+  		  (save-excursion
+  		    (goto-char (point-min))
+  		    (let* ((now-mins (+ (* (string-to-number (format-time-string "%H")) 60)
+  				       (string-to-number (format-time-string "%M"))))
+  			   (best-pos nil)
+  			   (best-diff 999))
+  		      (while (re-search-forward "^  \([0-9]\{1,2\}\):\([0-9]\{2\}\)" nil t)
+  			(let* ((h (string-to-number (match-string 1)))
+  			       (m (string-to-number (match-string 2)))
+  			       (grid-mins (+ (* h 60) m))
+  			       (diff (abs (- now-mins grid-mins))))
+  			  (when (< diff best-diff)
+  			    (setq best-diff diff
+  				  best-pos (line-beginning-position)))))
+  		      (when best-pos
+  			(goto-char best-pos)
+  			(let ((ov (make-overlay (line-beginning-position) (line-end-position))))
+  			  (overlay-put ov 'face '(:foreground "#e5c07b" :weight bold))))))
   		  ;; Apply visual effects
   		  (my/org-agenda-prettify-priorities)
   		  (my/org-agenda-strike-through-done)
