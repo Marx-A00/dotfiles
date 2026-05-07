@@ -240,6 +240,21 @@
   	:ensure t
   	:hook (org-mode . org-tidy-mode))
 
+      (use-package org-super-agenda
+  	:ensure t
+  	:after org
+  	:config
+  	(setq org-super-agenda-header-map nil)
+  	(org-super-agenda-mode 1))
+
+      (defun my/org-get-category (item)
+  	"Return capitalized category for ITEM, without 'Category: ' prefix."
+  	(when-let ((marker (or (get-text-property 0 'org-marker item)
+  			       (get-text-property 0 'org-hd-marker item))))
+  	  (with-current-buffer (marker-buffer marker)
+  	    (goto-char marker)
+  	    (capitalize (org-get-category (point))))))
+
       ;; Distraction-free centered reading for Mdox reader
       (use-package olivetti
   	:ensure t
@@ -399,7 +414,7 @@
                          ((org-agenda-overriding-header
                            (concat "􀌂  Inbox\n" (make-string (window-width) 9472) "\n"))
                           (org-agenda-files '("~/roaming/notes/Inbox.org"))
-                          (org-agenda-prefix-format "  ")))
+                          (org-agenda-prefix-format "  ▲ ")))
                 (agenda ""
                         ((org-agenda-overriding-header
                           (concat "\n􀋀  Timeline\n" (make-string (window-width) 9472) "\n"))
@@ -420,7 +435,7 @@
                          (org-agenda-skip-function
                           '(or (my/org-agenda-skip-habits)
                                (my/org-agenda-skip-timed)))
-                         (org-agenda-prefix-format '((agenda . "  ")))
+                         (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (agenda ""
@@ -429,14 +444,15 @@
                          (org-agenda-span 'day)
                          (org-habit-show-habits t)
                          (org-agenda-skip-function '(my/org-agenda-skip-non-habits))
-                         (org-agenda-prefix-format '((agenda . "  ")))
+                         (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (tags-todo "+PRIORITY=\"A\"|+PRIORITY=\"B\""
                            ((org-agenda-overriding-header
                              (concat "\n􀀤  Priority\n" (make-string (window-width) 9472) "\n"))
-                            (org-agenda-prefix-format "  ")
+                            (org-agenda-prefix-format "  ▲ ")
                             (org-agenda-sorting-strategy '(priority-down))
+                            (org-super-agenda-groups '((:auto-map my/org-get-category)))
                             (org-agenda-skip-function
                              '(org-agenda-skip-entry-if 'scheduled)))))
                ((org-agenda-remove-tags t)
@@ -468,7 +484,8 @@
                           '(or (my/org-agenda-skip-habits)
                                (my/org-agenda-skip-timed)
                                (my/org-agenda-skip-if-deadline)))
-                         (org-agenda-prefix-format '((agenda . "  %-12c›  ")))
+                         (org-super-agenda-groups '((:auto-map my/org-get-category)))
+                         (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (agenda ""
@@ -478,14 +495,16 @@
                          (org-habit-show-habits nil)
                          (org-agenda-entry-types '(:deadline))
                          (org-deadline-warning-days 14)
-                         (org-agenda-prefix-format '((agenda . "  %-12c›  ")))
+                         (org-super-agenda-groups '((:auto-map my/org-get-category)))
+                         (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-deadline-leaders '("Due!  " "In %3d d. " "%2d d. ago "))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (tags-todo "+PRIORITY=\"A\""
                            ((org-agenda-overriding-header
                              (concat "\n􀀤  Do Next\n" (make-string (window-width) 9472) "\n"))
-                            (org-agenda-prefix-format "  %-12c›  ")
+                            (org-agenda-prefix-format "  ▲ ")
+                            (org-super-agenda-groups '((:auto-map my/org-get-category)))
                             (org-agenda-skip-function
                              '(org-agenda-skip-entry-if 'scheduled)))))
                ((org-agenda-remove-tags t)
@@ -494,7 +513,7 @@
                 (org-agenda-skip-deadline-if-done t)
                 (org-agenda-skip-scheduled-if-done t)
                 (org-agenda-show-log nil)
-                (org-agenda-current-time-string "◀━━━━━━━━━━━━━━━━━━━━━━━━ now")
+                (org-agenda-current-time-string "")
                 (org-agenda-compact-blocks nil)
                 (org-agenda-format-date "\n  %A, %B %e")))
 
@@ -503,7 +522,7 @@
                          ((org-agenda-overriding-header
                            (concat "􀌂  Inbox\n" (make-string (window-width) 9472) "\n"))
                           (org-agenda-files '("~/roaming/notes/Inbox.org"))
-                          (org-agenda-prefix-format "  ")))
+                          (org-agenda-prefix-format "  ▲ ")))
                 (agenda ""
                         ((org-agenda-overriding-header
                           (concat "\n􀋀  Timeline\n" (make-string (window-width) 9472) "\n"))
@@ -524,7 +543,7 @@
                          (org-agenda-skip-function
                           '(or (my/org-agenda-skip-habits)
                                (my/org-agenda-skip-timed)))
-                         (org-agenda-prefix-format '((agenda . "  ")))
+                         (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (agenda ""
@@ -533,15 +552,16 @@
                          (org-agenda-span 'day)
                          (org-habit-show-habits t)
                          (org-agenda-skip-function '(my/org-agenda-skip-non-habits))
-                         (org-agenda-prefix-format '((agenda . "  ")))
+                         (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (todo "TODO|NEXT"
                       ((org-agenda-overriding-header
                         (concat "\n􀋀  Unscheduled\n" (make-string (window-width) 9472) "\n"))
-                       (org-agenda-prefix-format "  ")
+                       (org-agenda-prefix-format "  ▲ ")
                        (org-agenda-skip-function
                         '(or (my/org-agenda-skip-habits)
+                            (org-super-agenda-groups '((:auto-map my/org-get-category)))
                              (org-agenda-skip-entry-if 'scheduled 'deadline)))))
                 (agenda ""
                         ((org-agenda-overriding-header
@@ -553,7 +573,7 @@
                ((org-agenda-remove-tags t)
                 (org-agenda-scheduled-leaders '("" ""))
                 (org-agenda-deadline-leaders '("" "In %3d d. " "%2d d. ago "))
-                (org-agenda-current-time-string "◀━━━━━━━━━━━━━━━━━━━━━━━━ now")
+                (org-agenda-current-time-string "")
                 (org-agenda-compact-blocks nil)
                 (org-agenda-format-date "\n  %A, %B %e")))))
       (setq org-agenda-format-date (lambda (date)
