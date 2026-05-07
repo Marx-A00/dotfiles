@@ -255,6 +255,30 @@
 
     (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
 
+    (defun my/clean-current-time-line ()
+	"Remove trailing grid characters from the current-time line in agenda."
+	(save-excursion
+	  (goto-char (point-min))
+	  (while (not (eobp))
+	    (let* ((beg (line-beginning-position))
+		   (end (line-end-position))
+		   (has-face nil))
+	      (save-excursion
+		(goto-char beg)
+		(while (< (point) end)
+		  (when (eq (get-text-property (point) 'face) 'org-agenda-current-time)
+		    (setq has-face t))
+		  (forward-char 1)))
+	      (when has-face
+		(let ((inhibit-read-only t))
+		  (save-excursion
+		    (goto-char beg)
+		    (when (re-search-forward "\\([0-9]+:[0-9]+\\)[┈─·.…]+" end t)
+		      (replace-match "\\1")
+		      (put-text-property beg (line-end-position) 'face 'org-agenda-current-time))))))
+	    (forward-line 1))))
+    (add-hook 'org-agenda-finalize-hook 'my/clean-current-time-line)
+
     (defun my/style-org-agenda()
 	(setq org-agenda-window-setup 'only-window)
 	(set-face-attribute 'org-agenda-date nil :height 1.1)
@@ -264,7 +288,8 @@
 			    :background nil        
 			    :weight 'bold
 			    :underline nil)           ;; Make it bold
-	(set-face-attribute 'org-agenda-date-weekend nil :height 1.1))
+	(set-face-attribute 'org-agenda-date-weekend nil :height 1.1)
+	(set-face-attribute 'org-agenda-current-time nil :foreground "#fabd2f" :weight 'bold))
 
     (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
 
