@@ -297,6 +297,15 @@
   	  (forward-line 1)))
 
       ;; Auto-refresh agenda when org files are saved
+      (defun my/org-agenda-redo-preserving-position ()
+  	"Redo agenda and restore cursor to the same line."
+  	(let ((line (line-number-at-pos))
+  	      (col (current-column)))
+  	  (org-agenda-redo-all)
+  	  (goto-char (point-min))
+  	  (forward-line (1- line))
+  	  (move-to-column col)))
+
       (defun my/org-agenda-auto-refresh ()
         "Refresh visible agenda buffers when an org file is saved."
         (when (derived-mode-p 'org-mode)
@@ -307,7 +316,7 @@
                   (lambda (b)
                     (when (buffer-live-p b)
                       (with-current-buffer b
-                        (org-agenda-redo-all))))
+                        (my/org-agenda-redo-preserving-position))))
                   buf))))))
 
       (add-hook 'after-save-hook #'my/org-agenda-auto-refresh)
@@ -338,6 +347,16 @@
   	    (forward-line 1))))
       (add-hook 'org-agenda-finalize-hook 'my/clean-current-time-line)
 
+      (defun my/colorize-agenda-triangles ()
+  	"Apply color to ▲ icons in the agenda."
+  	(save-excursion
+  	  (goto-char (point-min))
+  	  (let ((inhibit-read-only t))
+  	    (while (search-forward "▲" nil t)
+  	      (put-text-property (match-beginning 0) (match-end 0)
+  				 'face '(:foreground "#fabd2f"))))))
+      (add-hook 'org-agenda-finalize-hook 'my/colorize-agenda-triangles)
+
       (defun my/style-org-agenda()
   	(setq org-agenda-window-setup 'only-window)
   	(set-face-attribute 'org-agenda-date nil :height 1.1)
@@ -348,7 +367,8 @@
   			    :weight 'bold
   			    :underline nil)           ;; Make it bold
   	(set-face-attribute 'org-agenda-date-weekend nil :height 1.1)
-  	(set-face-attribute 'org-agenda-current-time nil :foreground "#fabd2f" :weight 'bold))
+  	(set-face-attribute 'org-agenda-current-time nil :foreground "#fabd2f" :weight 'bold)
+  	(set-face-attribute 'org-super-agenda-header nil :foreground "#8ec07c" :weight 'bold))
 
       (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
 
@@ -2725,6 +2745,88 @@ TASK-ID is the ID shown when Claude runs a background command."
       ("f" agent-shell-manager-cycle-filter)
       ("g" agent-shell-manager-refresh)
       ("q" nil :exit t))
+
+    ;; ── Org-Agenda Hydra ──────────────────────────────────────
+    (defun my/org-agenda-next-section ()
+      "Jump to next section header (org-agenda-structure face)."
+      (interactive)
+      (forward-line 1)
+      (let ((found nil))
+        (while (and (not found) (not (eobp)))
+          (when (eq (get-text-property (point) 'face) 'org-agenda-structure)
+            (setq found t))
+          (unless found (forward-line 1)))
+        (unless found (message "No more sections"))))
+
+    (defun my/org-agenda-prev-section ()
+      "Jump to previous section header (org-agenda-structure face)."
+      (interactive)
+      (forward-line -1)
+      (let ((found nil))
+        (while (and (not found) (not (bobp)))
+          (when (eq (get-text-property (point) 'face) 'org-agenda-structure)
+            (setq found t))
+          (unless found (forward-line -1)))
+        (unless found (message "No more sections"))))
+
+    (defun my/org-agenda-next-header ()
+      "Jump to next category header (org-super-agenda-header face)."
+      (interactive)
+      (forward-line 1)
+      (let ((found nil))
+        (while (and (not found) (not (eobp)))
+          (when (eq (get-text-property (point) 'face) 'org-super-agenda-header)
+            (setq found t))
+          (unless found (forward-line 1)))
+        (unless found (message "No more headers"))))
+
+    (defun my/org-agenda-prev-header ()
+      "Jump to previous category header (org-super-agenda-header face)."
+      (interactive)
+      (forward-line -1)
+      (let ((found nil))
+        (while (and (not found) (not (bobp)))
+          (when (eq (get-text-property (point) 'face) 'org-super-agenda-header)
+            (setq found t))
+          (unless found (forward-line -1)))
+        (unless found (message "No more headers"))))
+
+    (defhydra hydra-org-agenda (:hint nil :foreign-keys run)
+      "
+  ╭─── Agenda ────────────────────────────────────────────────╮
+   Navigate            Actions             Views
+   _j_: next header      _t_: cycle TODO       _d_: day view
+   _k_: prev header      _s_: schedule         _w_: week view
+   _J_: next section     _S_: deadline         _f_: Focus
+   _K_: prev section     _r_: refile           _v_: Full View
+   _TAB_: goto entry     _a_: archive          _c_: Classic
+                        _u_: undo
+   Refresh
+   _g_: refresh          _._: goto today
+  ╰──────────────────────────── _q_: quit ─────────────────────╯"
+      ("j" my/org-agenda-next-header)
+      ("k" my/org-agenda-prev-header)
+      ("J" my/org-agenda-next-section)
+      ("K" my/org-agenda-prev-section)
+      ("TAB" org-agenda-goto :exit t)
+      ("t" org-agenda-todo)
+      ("s" org-agenda-schedule :exit t)
+      ("S" org-agenda-deadline :exit t)
+      ("r" org-agenda-refile :exit t)
+      ("a" org-agenda-archive-default-with-confirmation)
+      ("u" org-agenda-undo)
+      ("g" org-agenda-redo-all)
+      ("." org-agenda-goto-today)
+      ("d" org-agenda-day-view)
+      ("w" org-agenda-week-view)
+      ("f" (org-agenda nil "f") :exit t)
+      ("v" (org-agenda nil "v") :exit t)
+      ("c" (org-agenda nil "c") :exit t)
+      ("q" nil :exit t))
+
+    (with-eval-after-load 'evil
+      (evil-define-key 'motion org-agenda-mode-map
+        (kbd ",") 'hydra-org-agenda/body))
 
     ;; Wire them into leader keys after general loads
     (with-eval-after-load 'general
