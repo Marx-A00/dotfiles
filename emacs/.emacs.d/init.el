@@ -298,6 +298,36 @@
 				 'face '(:foreground "#fabd2f"))))))
     (add-hook 'org-agenda-finalize-hook 'my/colorize-agenda-triangles)
 
+    (defun my/style-routine-entries ()
+      "Add icon to routine entries in the agenda."
+      (save-excursion
+        (goto-char (point-min))
+        (let ((inhibit-read-only t))
+          (while (not (eobp))
+            (when (string= (get-text-property (point) 'type) "sexp")
+              (let* ((bol (line-beginning-position))
+                     (eol (line-end-position))
+                     (line (buffer-substring-no-properties bol eol))
+                     (props (text-properties-at bol)))
+                (when (string-match "\\([0-9]\\{1,2\\}:[0-9]\\{2\\}\\).*?\\([A-Za-z].*\\)" line)
+                  (let ((time (match-string 1 line))
+                        (desc (string-trim (match-string 2 line))))
+                    (delete-region bol eol)
+                    (insert (propertize (format "%7s " time)
+                                        'face 'org-time-grid
+                                        'type "sexp"
+                                        'org-category (plist-get props 'org-category))
+                            (propertize "● "
+                                        'face '(:foreground "#fabd2f")
+                                        'type "sexp"
+                                        'org-category (plist-get props 'org-category))
+                            (propertize desc
+                                        'face '(:foreground "#ebdbb2")
+                                        'type "sexp"
+                                        'org-category (plist-get props 'org-category)))))))
+            (forward-line 1)))))
+    (add-hook 'org-agenda-finalize-hook 'my/style-routine-entries)
+
     (defun my/style-org-agenda()
 	(setq org-agenda-window-setup 'only-window)
 	(set-face-attribute 'org-agenda-date nil :height 1.1)
@@ -2425,284 +2455,311 @@ TASK-ID is the ID shown when Claude runs a background command."
 (advice-add 'swiper--cleanup :after #'mr-x/swiper-refresh-org-fontification)
 
 ;; with-editor must be configured BEFORE magit loads
-(use-package with-editor
-  :ensure t
-  :hook ((shell-mode . with-editor-export-editor)
-         (eshell-mode . with-editor-export-editor)
-         (term-exec . with-editor-export-editor)
-         (vterm-mode . with-editor-export-editor))
-  :config
-  ;; Fix for daemon mode - explicitly set the emacsclient path
-  (setq with-editor-emacsclient-executable
-        "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"))
+  (use-package with-editor
+    :ensure t
+    :hook ((shell-mode . with-editor-export-editor)
+           (eshell-mode . with-editor-export-editor)
+           (term-exec . with-editor-export-editor)
+           (vterm-mode . with-editor-export-editor))
+    :config
+    ;; Fix for daemon mode - explicitly set the emacsclient path
+    (setq with-editor-emacsclient-executable
+          "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"))
 
-(use-package magit
-  :ensure t
-  :after with-editor
-  :commands (magit-status magit-get-current-branch)
-  :custom
-  ;; Fullframe by default - magit takes over, restores on quit
-  (magit-display-buffer-function #'magit-display-buffer-fullcolumn-most-v1)
-  :init
-  ;; Fix for daemon mode - set EDITOR globally so git uses emacsclient
-  (setenv "EDITOR" "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"))
+  (use-package magit
+    :ensure t
+    :after with-editor
+    :commands (magit-status magit-get-current-branch)
+    :custom
+    ;; Fullframe by default - magit takes over, restores on quit
+    (magit-display-buffer-function #'magit-display-buffer-fullcolumn-most-v1)
+    :init
+    ;; Fix for daemon mode - set EDITOR globally so git uses emacsclient
+    (setenv "EDITOR" "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"))
 
-;; Side-window magit for IDE-style peek
-(defun mr-x/magit-status-side-window ()
-  "Open magit-status in a side window on the right."
-  (interactive)
-  (let ((magit-display-buffer-function
-         (lambda (buffer)
-           (display-buffer buffer
-                           '((display-buffer-in-side-window)
-                             (side . right)
-                             (window-width . 0.4))))))
-    (magit-status)))
-
-;; Syntax highlighting in Magit diffs via delta
-(use-package magit-delta
-  :ensure t
-  :hook (magit-mode . magit-delta-mode)
-  :config
-  (setq magit-delta-delta-args '("--syntax-theme" "gruvbox-dark")))
-
-;; Hydra — persistent key hint popups
-(use-package hydra
-  :ensure t
-  :config
-
-  ;; ── Window Management Hydra ──────────────────────────────────
-  ;; SPC w enters evil-window-map; press W from there to enter this hydra.
-  ;; Stay in the hydra to resize/split/navigate repeatedly with single keys.
-  (defhydra hydra-window (:hint nil :foreign-keys run)
-    "
-╭─── Window ─────────────────────────────────────────╮
- Navigate      Resize           Split/Layout
- _h_: ←  _l_: →    _H_: shrink-h  _L_: grow-h  _s_: horizontal  _=_: balance
- _j_: ↓  _k_: ↑    _J_: shrink-v  _K_: grow-v  _v_: vertical    _o_: only
-                                             _d_: delete     _u_: undo layout
-╰────────────────────────────── _q_: quit ────────────╯"
-    ("h" evil-window-left)
-    ("j" evil-window-down)
-    ("k" evil-window-up)
-    ("l" evil-window-right)
-    ("H" shrink-window-horizontally)
-    ("J" shrink-window)
-    ("K" enlarge-window)
-    ("L" enlarge-window-horizontally)
-    ("s" evil-window-split)
-    ("v" evil-window-vsplit)
-    ("=" balance-windows)
-    ("o" delete-other-windows :exit t)
-    ("d" evil-window-delete)
-    ("u" winner-undo)
-    ("q" nil :exit t))
-
-  ;; ── Text Zoom Hydra ──────────────────────────────────────────
-  (defhydra hydra-zoom (:hint nil)
-    "
-╭─── Zoom ────────────────╮
- _+_/_=_: in   _-_: out   _0_: reset
-╰──────── _q_: quit ──────╯"
-    ("+" text-scale-increase)
-    ("=" text-scale-increase)
-    ("-" text-scale-decrease)
-    ("0" (text-scale-set 0) :exit t)
-    ("q" nil :exit t))
-
-  ;; ── Org-Mode Hydra ──────────────────────────────────────────
-  (defhydra hydra-org (:hint nil :foreign-keys run)
-    "
-╭─── Org ────────────────────────────────────────────────╮
- Navigate          Heading           Misc
- _n_: next heading   _H_: promote        _t_: cycle TODO
- _p_: prev heading   _L_: demote         _T_: set TODO keyword
- _u_: up heading     _K_: move up        _x_: toggle checkbox
- _N_: next visible   _J_: move down      _,_: set priority
- _P_: prev visible   _h_: promote tree   _:_: set tags
-                    _l_: demote tree    _d_: deadline
-                                       _s_: schedule
-╰──────────────────────────── _q_: quit ─────────────────╯"
-    ("n" org-next-visible-heading)
-    ("p" org-previous-visible-heading)
-    ("u" outline-up-heading)
-    ("N" org-forward-heading-same-level)
-    ("P" org-backward-heading-same-level)
-    ("H" org-do-promote)
-    ("L" org-do-demote)
-    ("h" org-promote-subtree)
-    ("l" org-demote-subtree)
-    ("K" org-move-subtree-up)
-    ("J" org-move-subtree-down)
-    ("t" org-todo)
-    ("T" org-todo :exit t)
-    ("x" org-toggle-checkbox)
-    ("," org-priority)
-    (":" org-set-tags-command :exit t)
-    ("d" org-deadline :exit t)
-    ("s" org-schedule :exit t)
-    ("q" nil :exit t))
-
-  ;; ── Agent Shell Manager Hydra ─────────────────────────────
-  (defhydra hydra-agent (:hint nil :foreign-keys run)
-    "
-╭─── Agent Shell Manager ──────────────────────────────────────────╮
- Navigate          Actions            Settings
- _j_: next           _c_: new shell       _m_: set mode
- _k_: prev           _i_: interrupt       _M_: set model
- _RET_: select       _K_: kill            _n_: set label
- _v_/_<S-return>_: peek   _r_: restart         _l_: toggle logging
- _p_: preview        _d_: delete killed   _t_: view traffic
-
- Frame/Filter
- _F_: toggle frame   _f_: cycle filter    _g_: refresh
-╰──────────────────────────────── _q_: quit ────────────────────────╯"
-    ("j" next-line)
-    ("k" previous-line)
-    ("RET" agent-shell-manager-select :exit t)
-    ("v" agent-shell-manager-peek)
-    ("<S-return>" agent-shell-manager-peek)
-    ("p" agent-shell-manager-enter-preview)
-    ("c" agent-shell-manager-new)
-    ("i" agent-shell-manager-interrupt)
-    ("K" agent-shell-manager-kill)
-    ("r" agent-shell-manager-restart)
-    ("d" agent-shell-manager-delete-killed)
-    ("m" agent-shell-manager-set-mode)
-    ("M" agent-shell-manager-set-model)
-    ("n" agent-shell-manager-set-label)
-    ("l" agent-shell-manager-toggle-logging)
-    ("t" agent-shell-manager-view-traffic :exit t)
-    ("F" agent-shell-manager-toggle-frame)
-    ("f" agent-shell-manager-cycle-filter)
-    ("g" agent-shell-manager-refresh)
-    ("q" nil :exit t))
-
-  ;; ── Org-Agenda Hydra ──────────────────────────────────────
-  (defun my/org-agenda-next-section ()
-    "Jump to next section header (org-agenda-structure face)."
+  ;; Side-window magit for IDE-style peek
+  (defun mr-x/magit-status-side-window ()
+    "Open magit-status in a side window on the right."
     (interactive)
-    (forward-line 1)
-    (let ((found nil))
-      (while (and (not found) (not (eobp)))
-        (when (eq (get-text-property (point) 'face) 'org-agenda-structure)
-          (setq found t))
-        (unless found (forward-line 1)))
-      (unless found (message "No more sections"))))
+    (let ((magit-display-buffer-function
+           (lambda (buffer)
+             (display-buffer buffer
+                             '((display-buffer-in-side-window)
+                               (side . right)
+                               (window-width . 0.4))))))
+      (magit-status)))
 
-  (defun my/org-agenda-prev-section ()
-    "Jump to previous section header (org-agenda-structure face)."
-    (interactive)
-    (forward-line -1)
-    (let ((found nil))
-      (while (and (not found) (not (bobp)))
-        (when (eq (get-text-property (point) 'face) 'org-agenda-structure)
-          (setq found t))
-        (unless found (forward-line -1)))
-      (unless found (message "No more sections"))))
+  ;; Syntax highlighting in Magit diffs via delta
+  (use-package magit-delta
+    :ensure t
+    :hook (magit-mode . magit-delta-mode)
+    :config
+    (setq magit-delta-delta-args '("--syntax-theme" "gruvbox-dark")))
 
-  (defun my/org-agenda-next-header ()
-    "Jump to next category header (org-super-agenda-header face)."
-    (interactive)
-    (forward-line 1)
-    (let ((found nil))
-      (while (and (not found) (not (eobp)))
-        (when (eq (get-text-property (point) 'face) 'org-super-agenda-header)
-          (setq found t))
-        (unless found (forward-line 1)))
-      (unless found (message "No more headers"))))
+  ;; diff-hl — inline git diff markers in the fringe
+  (use-package diff-hl
+    :ensure t
+    :hook ((prog-mode . diff-hl-mode)
+           (text-mode . diff-hl-mode)
+           (dired-mode . diff-hl-dired-mode)
+           (magit-post-refresh . diff-hl-magit-post-refresh))
+    :config
+    (diff-hl-flydiff-mode 1))
 
-  (defun my/org-agenda-prev-header ()
-    "Jump to previous category header (org-super-agenda-header face)."
-    (interactive)
-    (forward-line -1)
-    (let ((found nil))
-      (while (and (not found) (not (bobp)))
-        (when (eq (get-text-property (point) 'face) 'org-super-agenda-header)
-          (setq found t))
-        (unless found (forward-line -1)))
-      (unless found (message "No more headers"))))
+  ;; treesit-fold — code folding via tree-sitter
+  (use-package treesit-fold
+    :ensure (:host github :repo "emacs-tree-sitter/treesit-fold")
+    :hook ((prog-mode . treesit-fold-mode))
+    :config
+    (defhydra hydra-fold (:color pink :hint nil)
+      "
+ _o_: open   _c_: close   _t_: toggle   _O_: open all   _C_: close all   _q_: quit
+"
+      ("o" treesit-fold-open)
+      ("c" treesit-fold-close)
+      ("t" treesit-fold-toggle)
+      ("O" treesit-fold-open-all)
+      ("C" treesit-fold-close-all)
+      ("q" nil :exit t))
+    (evil-define-key 'normal prog-mode-map (kbd "z f") #'hydra-fold/body))
 
-  (defhydra hydra-org-agenda (:hint nil :foreign-keys run)
-    "
-╭─── Agenda ────────────────────────────────────────────────╮
- Navigate            Actions             Views
- _j_: next header      _t_: cycle TODO       _d_: day view
- _k_: prev header      _s_: schedule         _w_: week view
- _J_: next section     _S_: deadline         _f_: Focus
- _K_: prev section     _r_: refile           _v_: Full View
- _TAB_: goto entry     _a_: archive          _c_: Classic
-                      _u_: undo
- Refresh
- _g_: refresh          _._: goto today
-╰──────────────────────────── _q_: quit ─────────────────────╯"
-    ("j" my/org-agenda-next-header)
-    ("k" my/org-agenda-prev-header)
-    ("J" my/org-agenda-next-section)
-    ("K" my/org-agenda-prev-section)
-    ("TAB" org-agenda-goto :exit t)
-    ("t" org-agenda-todo)
-    ("s" org-agenda-schedule :exit t)
-    ("S" org-agenda-deadline :exit t)
-    ("r" org-agenda-refile :exit t)
-    ("a" org-agenda-archive-default-with-confirmation)
-    ("u" org-agenda-undo)
-    ("g" org-agenda-redo-all)
-    ("." org-agenda-goto-today)
-    ("d" org-agenda-day-view)
-    ("w" org-agenda-week-view)
-    ("f" (org-agenda nil "f") :exit t)
-    ("v" (org-agenda nil "v") :exit t)
-    ("c" (org-agenda nil "c") :exit t)
-    ("q" nil :exit t))
+  ;; Hydra — persistent key hint popups
+  (use-package hydra
+    :ensure t
+    :config
 
-  (with-eval-after-load 'evil
-    (evil-define-key 'motion org-agenda-mode-map
-      (kbd ",") 'hydra-org-agenda/body))
+    ;; ── Window Management Hydra ──────────────────────────────────
+    ;; SPC w enters evil-window-map; press W from there to enter this hydra.
+    ;; Stay in the hydra to resize/split/navigate repeatedly with single keys.
+    (defhydra hydra-window (:hint nil :foreign-keys run)
+      "
+  ╭─── Window ─────────────────────────────────────────╮
+   Navigate      Resize           Split/Layout
+   _h_: ←  _l_: →    _H_: shrink-h  _L_: grow-h  _s_: horizontal  _=_: balance
+   _j_: ↓  _k_: ↑    _J_: shrink-v  _K_: grow-v  _v_: vertical    _o_: only
+                                               _d_: delete     _u_: undo layout
+  ╰────────────────────────────── _q_: quit ────────────╯"
+      ("h" evil-window-left)
+      ("j" evil-window-down)
+      ("k" evil-window-up)
+      ("l" evil-window-right)
+      ("H" shrink-window-horizontally)
+      ("J" shrink-window)
+      ("K" enlarge-window)
+      ("L" enlarge-window-horizontally)
+      ("s" evil-window-split)
+      ("v" evil-window-vsplit)
+      ("=" balance-windows)
+      ("o" delete-other-windows :exit t)
+      ("d" evil-window-delete)
+      ("u" winner-undo)
+      ("q" nil :exit t))
 
-  ;; Wire them into leader keys after general loads
-  (with-eval-after-load 'general
-    (mr-x/leader-def
-      "W" '(hydra-window/body :wk "Window hydra")
-      "z" '(hydra-zoom/body :wk "Zoom hydra")
-      "c h" '(hydra-agent/body :wk "Agent hydra"))
-    ;; Org hydra available in org-mode via SPC o
-    (general-define-key
-     :states '(normal visual)
-     :keymaps 'org-mode-map
-     :prefix "SPC"
-     "o" '(hydra-org/body :wk "Org hydra"))))
+    ;; ── Text Zoom Hydra ──────────────────────────────────────────
+    (defhydra hydra-zoom (:hint nil)
+      "
+  ╭─── Zoom ────────────────╮
+   _+_/_=_: in   _-_: out   _0_: reset
+  ╰──────── _q_: quit ──────╯"
+      ("+" text-scale-increase)
+      ("=" text-scale-increase)
+      ("-" text-scale-decrease)
+      ("0" (text-scale-set 0) :exit t)
+      ("q" nil :exit t))
 
-;; Side-by-side diffs with vdiff + hydra
-(use-package vdiff
-  :ensure t
-  :after hydra
-  :config
-  (evil-define-key 'normal vdiff-mode-map "\\" vdiff-mode-prefix-map)
-  (evil-define-key 'normal vdiff-mode-map "q" #'vdiff-quit)
-  (evil-define-key 'normal vdiff-mode-map "?" #'vdiff-hydra/body)
-  ;; Background-only faces so syntax highlighting shows through (delta-style)
-  (set-face-attribute 'vdiff-addition-face nil :background "#2e3b2e" :foreground 'unspecified :inherit nil)
-  (set-face-attribute 'vdiff-subtraction-face nil :background "#3b2626" :foreground 'unspecified :inherit nil)
-  (set-face-attribute 'vdiff-change-face nil :background "#3b3520" :foreground 'unspecified :inherit nil))
+    ;; ── Org-Mode Hydra ──────────────────────────────────────────
+    (defhydra hydra-org (:hint nil :foreign-keys run)
+      "
+  ╭─── Org ────────────────────────────────────────────────╮
+   Navigate          Heading           Misc
+   _n_: next heading   _H_: promote        _t_: cycle TODO
+   _p_: prev heading   _L_: demote         _T_: set TODO keyword
+   _u_: up heading     _K_: move up        _x_: toggle checkbox
+   _N_: next visible   _J_: move down      _,_: set priority
+   _P_: prev visible   _h_: promote tree   _:_: set tags
+                      _l_: demote tree    _d_: deadline
+                                         _s_: schedule
+  ╰──────────────────────────── _q_: quit ─────────────────╯"
+      ("n" org-next-visible-heading)
+      ("p" org-previous-visible-heading)
+      ("u" outline-up-heading)
+      ("N" org-forward-heading-same-level)
+      ("P" org-backward-heading-same-level)
+      ("H" org-do-promote)
+      ("L" org-do-demote)
+      ("h" org-promote-subtree)
+      ("l" org-demote-subtree)
+      ("K" org-move-subtree-up)
+      ("J" org-move-subtree-down)
+      ("t" org-todo)
+      ("T" org-todo :exit t)
+      ("x" org-toggle-checkbox)
+      ("," org-priority)
+      (":" org-set-tags-command :exit t)
+      ("d" org-deadline :exit t)
+      ("s" org-schedule :exit t)
+      ("q" nil :exit t))
 
-(use-package vdiff-magit
-  :ensure t
-  :after (magit vdiff)
-  :config
-  (setq vdiff-magit-stage-is-2way t)
-  (define-key magit-mode-map "e" #'vdiff-magit-dwim)
-  (define-key magit-mode-map "E" #'vdiff-magit-popup))
+    ;; ── Agent Shell Manager Hydra ─────────────────────────────
+    (defhydra hydra-agent (:hint nil :foreign-keys run)
+      "
+  ╭─── Agent Shell Manager ──────────────────────────────────────────╮
+   Navigate          Actions            Settings
+   _j_: next           _c_: new shell       _m_: set mode
+   _k_: prev           _i_: interrupt       _M_: set model
+   _RET_: select       _K_: kill            _n_: set label
+   _v_/_<S-return>_: peek   _r_: restart         _l_: toggle logging
+   _p_: preview        _d_: delete killed   _t_: view traffic
 
-;; Forge - GitHub/GitLab PR and issue management
-(use-package forge
-  :ensure t
-  :after magit
-  :config
-  ;; Use gh CLI for authentication (recommended)
-  (setq forge-add-default-bindings t)
-  ;; Pull topics when entering repo
-  (setq forge-pull-notifications t))
+   Frame/Filter
+   _F_: toggle frame   _f_: cycle filter    _g_: refresh
+  ╰──────────────────────────────── _q_: quit ────────────────────────╯"
+      ("j" next-line)
+      ("k" previous-line)
+      ("RET" agent-shell-manager-select :exit t)
+      ("v" agent-shell-manager-peek)
+      ("<S-return>" agent-shell-manager-peek)
+      ("p" agent-shell-manager-enter-preview)
+      ("c" agent-shell-manager-new)
+      ("i" agent-shell-manager-interrupt)
+      ("K" agent-shell-manager-kill)
+      ("r" agent-shell-manager-restart)
+      ("d" agent-shell-manager-delete-killed)
+      ("m" agent-shell-manager-set-mode)
+      ("M" agent-shell-manager-set-model)
+      ("n" agent-shell-manager-set-label)
+      ("l" agent-shell-manager-toggle-logging)
+      ("t" agent-shell-manager-view-traffic :exit t)
+      ("F" agent-shell-manager-toggle-frame)
+      ("f" agent-shell-manager-cycle-filter)
+      ("g" agent-shell-manager-refresh)
+      ("q" nil :exit t))
+
+    ;; ── Org-Agenda Hydra ──────────────────────────────────────
+    (defun my/org-agenda-next-section ()
+      "Jump to next section header (org-agenda-structure face)."
+      (interactive)
+      (forward-line 1)
+      (let ((found nil))
+        (while (and (not found) (not (eobp)))
+          (when (eq (get-text-property (point) 'face) 'org-agenda-structure)
+            (setq found t))
+          (unless found (forward-line 1)))
+        (unless found (message "No more sections"))))
+
+    (defun my/org-agenda-prev-section ()
+      "Jump to previous section header (org-agenda-structure face)."
+      (interactive)
+      (forward-line -1)
+      (let ((found nil))
+        (while (and (not found) (not (bobp)))
+          (when (eq (get-text-property (point) 'face) 'org-agenda-structure)
+            (setq found t))
+          (unless found (forward-line -1)))
+        (unless found (message "No more sections"))))
+
+    (defun my/org-agenda-next-header ()
+      "Jump to next category header (org-super-agenda-header face)."
+      (interactive)
+      (forward-line 1)
+      (let ((found nil))
+        (while (and (not found) (not (eobp)))
+          (when (eq (get-text-property (point) 'face) 'org-super-agenda-header)
+            (setq found t))
+          (unless found (forward-line 1)))
+        (unless found (message "No more headers"))))
+
+    (defun my/org-agenda-prev-header ()
+      "Jump to previous category header (org-super-agenda-header face)."
+      (interactive)
+      (forward-line -1)
+      (let ((found nil))
+        (while (and (not found) (not (bobp)))
+          (when (eq (get-text-property (point) 'face) 'org-super-agenda-header)
+            (setq found t))
+          (unless found (forward-line -1)))
+        (unless found (message "No more headers"))))
+
+    (defhydra hydra-org-agenda (:hint nil :foreign-keys run)
+      "
+  ╭─── Agenda ────────────────────────────────────────────────╮
+   Navigate            Actions             Views
+   _j_: next header      _t_: cycle TODO       _d_: day view
+   _k_: prev header      _s_: schedule         _w_: week view
+   _J_: next section     _S_: deadline         _f_: Focus
+   _K_: prev section     _r_: refile           _v_: Full View
+   _TAB_: goto entry     _a_: archive          _c_: Classic
+                        _u_: undo
+   Refresh
+   _g_: refresh          _._: goto today
+  ╰──────────────────────────── _q_: quit ─────────────────────╯"
+      ("j" my/org-agenda-next-header)
+      ("k" my/org-agenda-prev-header)
+      ("J" my/org-agenda-next-section)
+      ("K" my/org-agenda-prev-section)
+      ("TAB" org-agenda-goto :exit t)
+      ("t" org-agenda-todo)
+      ("s" org-agenda-schedule :exit t)
+      ("S" org-agenda-deadline :exit t)
+      ("r" org-agenda-refile :exit t)
+      ("a" org-agenda-archive-default-with-confirmation)
+      ("u" org-agenda-undo)
+      ("g" org-agenda-redo-all)
+      ("." org-agenda-goto-today)
+      ("d" org-agenda-day-view)
+      ("w" org-agenda-week-view)
+      ("f" (org-agenda nil "f") :exit t)
+      ("v" (org-agenda nil "v") :exit t)
+      ("c" (org-agenda nil "c") :exit t)
+      ("q" nil :exit t))
+
+    (with-eval-after-load 'evil
+      (evil-define-key 'motion org-agenda-mode-map
+        (kbd ",") 'hydra-org-agenda/body))
+
+    ;; Wire them into leader keys after general loads
+    (with-eval-after-load 'general
+      (mr-x/leader-def
+        "W" '(hydra-window/body :wk "Window hydra")
+        "z" '(hydra-zoom/body :wk "Zoom hydra")
+        "c h" '(hydra-agent/body :wk "Agent hydra"))
+      ;; Org hydra available in org-mode via SPC o
+      (general-define-key
+       :states '(normal visual)
+       :keymaps 'org-mode-map
+       :prefix "SPC"
+       "o" '(hydra-org/body :wk "Org hydra"))))
+
+  ;; Side-by-side diffs with vdiff + hydra
+  (use-package vdiff
+    :ensure t
+    :after hydra
+    :config
+    (evil-define-key 'normal vdiff-mode-map "\\" vdiff-mode-prefix-map)
+    (evil-define-key 'normal vdiff-mode-map "q" #'vdiff-quit)
+    (evil-define-key 'normal vdiff-mode-map "?" #'vdiff-hydra/body)
+    ;; Background-only faces so syntax highlighting shows through (delta-style)
+    (set-face-attribute 'vdiff-addition-face nil :background "#2e3b2e" :foreground 'unspecified :inherit nil)
+    (set-face-attribute 'vdiff-subtraction-face nil :background "#3b2626" :foreground 'unspecified :inherit nil)
+    (set-face-attribute 'vdiff-change-face nil :background "#3b3520" :foreground 'unspecified :inherit nil))
+
+  (use-package vdiff-magit
+    :ensure t
+    :after (magit vdiff)
+    :config
+    (setq vdiff-magit-stage-is-2way t)
+    (define-key magit-mode-map "e" #'vdiff-magit-dwim)
+    (define-key magit-mode-map "E" #'vdiff-magit-popup))
+
+  ;; Forge - GitHub/GitLab PR and issue management
+  (use-package forge
+    :ensure t
+    :after magit
+    :config
+    ;; Use gh CLI for authentication (recommended)
+    (setq forge-add-default-bindings t)
+    ;; Pull topics when entering repo
+    (setq forge-pull-notifications t))
 
 (setq ediff-split-window-function 'split-window-horizontally)
 (setq ediff-window-setup-function 'ediff-setup-windows-plain)
@@ -4395,6 +4452,14 @@ _q_: quit
 
       (setq agent-shell-attention-notify-function #'mr-x/agent-shell-notify)
       (agent-shell-attention-mode 1))
+
+
+    ;; Agent Shell Tool Group - Collapse consecutive tool calls under foldable headers
+    (use-package agent-shell-tool-group
+      :ensure (:host github :repo "Gleek/agent-shell-tool-group")
+      :after agent-shell
+      :config
+      (agent-shell-tool-group-mode 1))
 
 
     ;; Agent Shell Manager - Dashboard for managing multiple agent sessions
