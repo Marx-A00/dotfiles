@@ -149,7 +149,7 @@
   	  (visual-line-mode 1)
   	  (auto-fill-mode 0)
   	  (setq org-hide-leading-stars t)
-  	  (setq org-agenda-include-diary t)
+  	  (setq org-agenda-include-diary nil)
   	  (setq org-fold-core-style 'overlays)
   	  (setq org-agenda-span 'day)
   	  (setq evil-auto-indent nil))
@@ -386,6 +386,23 @@
 
 
 
+      ;; Diary-sexp helpers for schedule time markers
+      ;; `date' must be dynamically bound for org diary-sexp evaluation
+      (defvar date nil "Dynamic variable used by org diary-sexp evaluation.")
+      (defun my/daily (_date) "Every day." t)
+      (defun my/weekdays (date)
+        "Monday through Friday."
+        (memq (calendar-day-of-week date) '(1 2 3 4 5)))
+      (defun my/weekends (date)
+        "Saturday and Sunday."
+        (memq (calendar-day-of-week date) '(0 6)))
+      (defun my/on-days (date &rest days)
+        "Match specific DAYS (symbols: mon tue wed thu fri sat sun)."
+        (let ((day-map '((sun . 0) (mon . 1) (tue . 2) (wed . 3)
+                         (thu . 4) (fri . 5) (sat . 6))))
+          (memq (calendar-day-of-week date)
+                (mapcar (lambda (d) (cdr (assq d day-map))) days))))
+
       ;; Habit skip helpers for agenda views
       (defun my/org-agenda-skip-habits ()
         "Skip entries that are habits."
@@ -399,22 +416,28 @@
           (unless (string= (org-entry-get nil "STYLE") "habit")
             end)))
 
+      (defun my/org-agenda-routine-p ()
+        "Return non-nil if entry at point is a routine."
+        (string= (or (org-entry-get nil "CATEGORY" t) "") "Routines"))
+
       (defun my/org-agenda-skip-untimed ()
-        "Skip entries without a time-of-day in scheduled/deadline."
+        "Skip entries without a time-of-day (keeps routines)."
         (let ((end (save-excursion (org-end-of-subtree t)))
               (scheduled (org-entry-get nil "SCHEDULED"))
               (deadline (org-entry-get nil "DEADLINE")))
           (unless (or (and scheduled (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" scheduled))
-                      (and deadline (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" deadline)))
+                      (and deadline (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" deadline))
+                      (my/org-agenda-routine-p))
             end)))
 
       (defun my/org-agenda-skip-timed ()
-        "Skip entries with a time-of-day in scheduled/deadline."
+        "Skip entries with a time-of-day (skips routines)."
         (let ((end (save-excursion (org-end-of-subtree t)))
               (scheduled (org-entry-get nil "SCHEDULED"))
               (deadline (org-entry-get nil "DEADLINE")))
           (when (or (and scheduled (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" scheduled))
-                    (and deadline (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" deadline)))
+                    (and deadline (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" deadline))
+                    (my/org-agenda-routine-p))
             end)))
 
       (defun my/org-agenda-skip-if-deadline ()
@@ -545,13 +568,11 @@
                          (org-agenda-deadline-leaders '("Due!  " "In %3d d. " "%2d d. ago "))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
-                (tags-todo "+PRIORITY=\"A\""
-                           ((org-agenda-overriding-header
-                             (concat "\n􀀤  Do Next\n" (make-string (window-width) 9472) "\n"))
-                            (org-agenda-prefix-format "  ▲ ")
-                            (org-super-agenda-groups '((:auto-map my/org-get-category)))
-                            (org-agenda-skip-function
-                             '(org-agenda-skip-entry-if 'scheduled)))))
+                (todo "NEXT"
+                      ((org-agenda-overriding-header
+                        (concat "\n􀀤  Do Next\n" (make-string (window-width) 9472) "\n"))
+                       (org-agenda-prefix-format "  ▲ ")
+                       (org-super-agenda-groups '((:auto-map my/org-get-category))))))
                ((org-agenda-remove-tags t)
                 (org-agenda-scheduled-leaders '("" ""))
                 (org-agenda-deadline-leaders '("" "In %3d d. " "%2d d. ago "))
