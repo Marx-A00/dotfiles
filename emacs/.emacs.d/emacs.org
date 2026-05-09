@@ -372,8 +372,16 @@
                     (let ((time (match-string 1 line))
                           (desc (string-trim (match-string 2 line))))
                       (delete-region bol eol)
-                      (insert (propertize (format "%7s ● %s" time desc)
+                      (insert (propertize (format "%7s " time)
+                                          'face 'org-time-grid
+                                          'type "sexp"
+                                          'org-category (plist-get props 'org-category))
+                              (propertize "● "
                                           'face '(:foreground "#fabd2f")
+                                          'type "sexp"
+                                          'org-category (plist-get props 'org-category))
+                              (propertize desc
+                                          'face '(:foreground "#ebdbb2")
                                           'type "sexp"
                                           'org-category (plist-get props 'org-category)))))))
               (forward-line 1)))))
@@ -2677,6 +2685,33 @@ TASK-ID is the ID shown when Claude runs a background command."
     :config
     (setq magit-delta-delta-args '("--syntax-theme" "gruvbox-dark")))
 
+  ;; diff-hl — inline git diff markers in the fringe
+  (use-package diff-hl
+    :ensure t
+    :hook ((prog-mode . diff-hl-mode)
+           (text-mode . diff-hl-mode)
+           (dired-mode . diff-hl-dired-mode)
+           (magit-post-refresh . diff-hl-magit-post-refresh))
+    :config
+    (diff-hl-flydiff-mode 1))
+
+  ;; treesit-fold — code folding via tree-sitter
+  (use-package treesit-fold
+    :ensure (:host github :repo "emacs-tree-sitter/treesit-fold")
+    :hook ((prog-mode . treesit-fold-mode))
+    :config
+    (defhydra hydra-fold (:color pink :hint nil)
+      "
+ _o_: open   _c_: close   _t_: toggle   _O_: open all   _C_: close all   _q_: quit
+"
+      ("o" treesit-fold-open)
+      ("c" treesit-fold-close)
+      ("t" treesit-fold-toggle)
+      ("O" treesit-fold-open-all)
+      ("C" treesit-fold-close-all)
+      ("q" nil :exit t))
+    (evil-define-key 'normal prog-mode-map (kbd "z f") #'hydra-fold/body))
+
   ;; Hydra — persistent key hint popups
   (use-package hydra
     :ensure t
@@ -4669,6 +4704,14 @@ If the buffers already exist, kills them first."
 
         (setq agent-shell-attention-notify-function #'mr-x/agent-shell-notify)
         (agent-shell-attention-mode 1))
+
+
+      ;; Agent Shell Tool Group - Collapse consecutive tool calls under foldable headers
+      (use-package agent-shell-tool-group
+        :ensure (:host github :repo "Gleek/agent-shell-tool-group")
+        :after agent-shell
+        :config
+        (agent-shell-tool-group-mode 1))
 
 
       ;; Agent Shell Manager - Dashboard for managing multiple agent sessions
