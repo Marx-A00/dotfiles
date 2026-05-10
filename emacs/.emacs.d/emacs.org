@@ -2525,6 +2525,65 @@ TASK-ID is the ID shown when Claude runs a background command."
     (expand-file-name "session-state.el" user-emacs-directory)
     "File to store session state before daemon restart.")
 
+  (defun mr-x/--buffer-restore-spec (buffer)
+    "Return a restore-spec for BUFFER, or nil for plain buffers.
+Each spec is a list whose car is a type tag dispatched on at restore time.
+Stateful buffers (vterm, agent-shell, etc.) that can't survive a daemon
+restart are reconstructed by their respective restore handler.
+
+Handlers in mr-x/--restore-buffer-from-spec must stay in sync with this."
+    (with-current-buffer buffer
+      (cond
+       ((eq major-mode 'vterm-mode)
+        `(vterm :dir ,default-directory))
+       ((derived-mode-p 'agent-shell-mode)
+        (when (fboundp 'agent-shell--state)
+          (let ((session-id (ignore-errors
+                              (map-nested-elt (agent-shell--state) '(:session :id)))))
+            (when session-id
+              `(agent-shell :session-id ,session-id :dir ,default-directory)))))
+       ((eq major-mode 'project-dashboard-mode)
+        (when (boundp 'project-dashboard--project-root)
+          `(project-dashboard :project ,project-dashboard--project-root)))
+       ((eq major-mode 'magit-status-mode)
+        `(magit-status :dir ,default-directory))
+       ((eq major-mode 'dired-mode)
+        `(dired :dir ,default-directory))
+       (t nil))))
+
+  (defun mr-x/--serialize-window-tree (window)
+    "Serialize WINDOW tree into a readable sexp of splits and buffer info."
+    (if (window-live-p window)
+        (list :type 'leaf
+              :buffer (buffer-name (window-buffer window))
+              :file (buffer-file-name (window-buffer window))
+              :restore-spec (mr-x/--buffer-restore-spec (window-buffer window))
+              :point (window-point window)
+              :start (window-start window)
+              :dedicated (window-dedicated-p window))
+      ;; Internal node — has children
+      (let* ((horizontal (window-left-child window))
+             (children (window-child-windows-recursive
+                        (or horizontal (window-top-child window))))
+             (sizes (mapcar (lambda (w)
+                              (if horizontal
+                                  (window-total-width w)
+                                (window-total-height w)))
+                            children)))
+        (list :type 'split
+              :direction (if horizontal :horizontal :vertical)
+              :sizes sizes
+              :children (mapcar #'mr-x/--serialize-window-tree children)))))
+
+  (defun window-child-windows-recursive (first-child)
+    "Return list of sibling windows starting from FIRST-CHILD."
+    (let ((windows nil)
+          (w first-child))
+      (while w
+        (push w windows)
+        (setq w (window-next-sibling w)))
+      (nreverse windows)))
+
   (defun mr-x/save-session-state ()
     "Save buffer list, window configurations, and frame geometry for restore after daemon restart."
     (interactive)
@@ -2538,54 +2597,154 @@ TASK-ID is the ID shown when Claude runs a background command."
                             :width (frame-parameter f 'width)
                             :height (frame-parameter f 'height)
                             :fullscreen (frame-parameter f 'fullscreen)
-                            :buffers (mapcar (lambda (w)
-                                              (list :buffer (buffer-name (window-buffer w))
-                                                    :file (buffer-file-name (window-buffer w))
-                                                    :point (window-point w)
-                                                    :start (window-start w)))
-                                            (window-list f 'no-mini))
-                            :window-config (window-state-get (frame-root-window f))))
+                            :window-tree (mr-x/--serialize-window-tree
+                                          (frame-root-window f))))
                     frames)))
       (with-temp-file mr-x/session-file
-        (prin1 frame-data (current-buffer)))
+        (let ((print-length nil)
+              (print-level nil))
+          (prin1 frame-data (current-buffer))))
       (message "Session saved: %d frames" (length frame-data))))
 
+  (defun mr-x/--collect-tree-buffers (tree)
+    "Collect all buffer names from a serialized window TREE."
+    (if (eq (plist-get tree :type) 'leaf)
+        (list (plist-get tree :buffer))
+      (apply #'append
+             (mapcar #'mr-x/--collect-tree-buffers
+                     (plist-get tree :children)))))
+
+  (defun mr-x/session-state-summary ()
+    "Return a human-readable summary of saved session state."
+    (if (not (file-exists-p mr-x/session-file))
+        "No session state file"
+      (with-temp-buffer
+        (insert-file-contents mr-x/session-file)
+        (let* ((data (read (current-buffer))))
+          (mapconcat
+           (lambda (fd)
+             (let ((bufs (mr-x/--collect-tree-buffers
+                          (plist-get fd :window-tree))))
+               (format "Frame [%dx%d]: %s"
+                       (plist-get fd :width) (plist-get fd :height)
+                       (string-join bufs " | "))))
+           data "\n")))))
+
+  (defun mr-x/--restore-buffer-from-spec (spec)
+    "Reconstruct a stateful buffer from SPEC. Returns the new buffer or nil.
+Errors are swallowed per-handler so one bad spec doesn't abort the whole restore."
+    (condition-case err
+        (pcase (car spec)
+          ('vterm
+           (when (require 'vterm nil t)
+             (let ((default-directory (or (plist-get (cdr spec) :dir)
+                                          default-directory)))
+               (save-window-excursion (vterm)))))
+          ('agent-shell
+           (when (and (fboundp 'agent-shell--start)
+                      (fboundp 'agent-shell--resolve-preferred-config))
+             (let* ((default-directory (or (plist-get (cdr spec) :dir)
+                                           default-directory))
+                    (config (agent-shell--resolve-preferred-config))
+                    (session-id (plist-get (cdr spec) :session-id)))
+               (when (and config session-id)
+                 (agent-shell--start :config config
+                                     :session-id session-id
+                                     :session-strategy 'new
+                                     :no-focus t
+                                     :new-session t)))))
+          ('project-dashboard
+           (when (fboundp 'project-dashboard-open)
+             (save-window-excursion
+               (project-dashboard-open (plist-get (cdr spec) :project)))
+             (get-buffer (format "*Project: %s*"
+                                 (file-name-nondirectory
+                                  (directory-file-name
+                                   (plist-get (cdr spec) :project)))))))
+          ('magit-status
+           (when (fboundp 'magit-status-setup-buffer)
+             (let ((default-directory (plist-get (cdr spec) :dir)))
+               (save-window-excursion (magit-status-setup-buffer)))))
+          ('dired
+           (dired-noselect (plist-get (cdr spec) :dir)))
+          (_ nil))
+      (error
+       (message "Restore handler failed for %S: %S" (car spec) err)
+       nil)))
+
+  (defun mr-x/--restore-window-tree (window tree)
+    "Restore TREE into WINDOW, splitting as needed.
+Each leaf tries restore strategies in order: file path -> restore-spec
+handler (vterm/agent-shell/dashboard/etc.) -> existing buffer by name ->
+*scratch* fallback. This ensures stateful buffers reconstruct themselves
+when possible rather than silently becoming scratch."
+    (if (eq (plist-get tree :type) 'leaf)
+        (let* ((file (plist-get tree :file))
+               (buf-name (plist-get tree :buffer))
+               (spec (plist-get tree :restore-spec))
+               (buf (or (and file (file-exists-p file) (find-file-noselect file))
+                        (and spec (mr-x/--restore-buffer-from-spec spec))
+                        (get-buffer buf-name)
+                        (get-buffer-create "*scratch*"))))
+          (set-window-buffer window buf)
+          (set-window-point window (or (plist-get tree :point) 1))
+          (set-window-start window (or (plist-get tree :start) 1)))
+      ;; Split node
+      (let* ((direction (plist-get tree :direction))
+             (children-data (plist-get tree :children))
+             (sizes (plist-get tree :sizes))
+             (total (apply #'+ sizes))
+             (windows (list window)))
+        ;; Create splits for each child after the first
+        (dotimes (i (1- (length children-data)))
+          (let* ((size (nth (1+ i) sizes))
+                 (fraction (- (round (* (/ (float size) total)
+                                        (if (eq direction :horizontal)
+                                            (window-total-width window)
+                                          (window-total-height window)))))))
+            (push (split-window (car (last windows))
+                                fraction
+                                (if (eq direction :horizontal) 'right 'below))
+                  windows)))
+        (setq windows (nreverse windows))
+        ;; Recurse into each child
+        (cl-loop for w in windows
+                 for child in children-data
+                 do (mr-x/--restore-window-tree w child)))))
+
   (defun mr-x/restore-session-state ()
-    "Restore frames, buffers, and window configurations from saved session state."
+    "Restore frames, buffers, and window configurations from saved session state.
+Frames are created on the NS (macOS native) window system regardless of the
+caller's terminal — important because emacsclient -e runs in a TTY context
+where make-frame would otherwise error with \"Unknown terminal type\"."
     (interactive)
     (if (not (file-exists-p mr-x/session-file))
         (message "No session state file found")
       (let ((frame-data (with-temp-buffer
                           (insert-file-contents mr-x/session-file)
-                          (read (current-buffer)))))
-        ;; Restore each frame
+                          (read (current-buffer))))
+            (errors nil))
         (dolist (fd frame-data)
-          (let ((frame (make-frame
-                        (list (cons 'left (plist-get fd :left))
-                              (cons 'top (plist-get fd :top))
-                              (cons 'width (plist-get fd :width))
-                              (cons 'height (plist-get fd :height))
-                              (cons 'fullscreen (plist-get fd :fullscreen))))))
-            ;; Restore files/buffers first so they exist
-            (dolist (buf-info (plist-get fd :buffers))
-              (let ((file (plist-get buf-info :file))
-                    (name (plist-get buf-info :buffer)))
-                (when (and file (file-exists-p file))
-                  (find-file-noselect file))))
-            ;; Restore window configuration
-            (condition-case nil
-                (window-state-put (plist-get fd :window-config)
-                                  (frame-root-window frame)
-                                  'safe)
-              (error
-               ;; Fallback: just show the first buffer
-               (let* ((first-buf (car (plist-get fd :buffers)))
-                      (file (plist-get first-buf :file))
-                      (name (plist-get first-buf :buffer)))
-                 (when file
-                   (select-frame frame)
-                   (find-file file)))))))
-        (message "Session restored: %d frames" (length frame-data)))))
+          (condition-case err
+              (let ((frame (make-frame
+                            (list (cons 'window-system 'ns)
+                                  (cons 'left (plist-get fd :left))
+                                  (cons 'top (plist-get fd :top))
+                                  (cons 'width (plist-get fd :width))
+                                  (cons 'height (plist-get fd :height))
+                                  (cons 'fullscreen (plist-get fd :fullscreen))))))
+                (select-frame frame)
+                (mr-x/--restore-window-tree
+                 (frame-root-window frame)
+                 (plist-get fd :window-tree)))
+            (error
+             (push (format "Frame restore failed: %S" err) errors))))
+        (if errors
+            (format "Restored %d frames, %d errors: %s"
+                    (- (length frame-data) (length errors))
+                    (length errors)
+                    (string-join errors "; "))
+          (format "Session restored: %d frames" (length frame-data))))))
 
 #+end_src
 
