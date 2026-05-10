@@ -1725,8 +1725,21 @@ Shows all warnings in the echo area."
       ;; (set-face-attribute 'mode-line-inactive nil :height 0.9)
       
       ;; Minimal modeline for agent-shell (just evil state, buffer name, line number)
+      (doom-modeline-def-segment agent-shell-refs
+        "Show 📎N when refs are attached in agent-shell."
+        (when (and (derived-mode-p 'agent-shell-mode)
+                   (bound-and-true-p agent-shell-refs--list))
+          (propertize (format " 📎%d" (length agent-shell-refs--list))
+                      'face 'agent-shell-refs-modeline-face
+                      'help-echo "Attached references — click to preview"
+                      'mouse-face 'mode-line-highlight
+                      'local-map (let ((map (make-sparse-keymap)))
+                                   (define-key map [mode-line mouse-1]
+                                               #'agent-shell-refs-preview)
+                                   map))))
+
       (doom-modeline-def-modeline 'agent-shell-minimal
-        '(bar modals buffer-info)
+        '(bar modals buffer-info agent-shell-refs)
         '(buffer-position))
       
       (add-hook 'agent-shell-mode-hook
