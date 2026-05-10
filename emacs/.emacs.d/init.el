@@ -227,13 +227,27 @@
 
       ;; Auto-refresh agenda when org files are saved
       (defun my/org-agenda-redo-preserving-position ()
-  	"Redo agenda and restore cursor to the same line."
-  	(let ((line (line-number-at-pos))
-  	      (col (current-column)))
+  	"Redo agenda and restore cursor to the closest matching entry."
+  	(let* ((marker (or (org-get-at-bol 'org-hd-marker)
+  			   (org-get-at-bol 'org-marker)))
+  	       (entry-text (buffer-substring-no-properties
+  			    (line-beginning-position) (line-end-position)))
+  	       (win-start (window-start)))
   	  (org-agenda-redo-all)
-  	  (goto-char (point-min))
-  	  (forward-line (1- line))
-  	  (move-to-column col)))
+  	  ;; Try to find the same entry by marker
+  	  (let ((found nil))
+  	    (when marker
+  	      (goto-char (point-min))
+  	      (while (and (not found) (not (eobp)))
+  		(when (equal marker (or (org-get-at-bol 'org-hd-marker)
+  					(org-get-at-bol 'org-marker)))
+  		  (setq found t))
+  		(unless found (forward-line 1))))
+  	    ;; Fallback: search for matching text
+  	    (unless found
+  	      (goto-char (point-min))
+  	      (unless (search-forward entry-text nil t)
+  		(goto-char (point-min)))))))
 
       (defun my/org-agenda-auto-refresh ()
         "Refresh visible agenda buffers when an org file is saved."
@@ -316,8 +330,32 @@
               (forward-line 1)))))
       (add-hook 'org-agenda-finalize-hook 'my/style-routine-entries)
 
+      (defun my/mark-next-tasks-in-agenda ()
+        "Add a ◆ icon next to NEXT tasks in the agenda."
+        (save-excursion
+          (goto-char (point-min))
+          (let ((inhibit-read-only t))
+            (while (not (eobp))
+              (when (string= (get-text-property (point) 'todo-state) "NEXT")
+                (beginning-of-line)
+                (when (search-forward "▲" (line-end-position) t)
+                  (replace-match
+                   (concat (propertize "▲" 'face '(:foreground "#fabd2f"))
+                           " "
+                           (propertize "◆" 'face '(:foreground "#b8bb26"))))))
+              (forward-line 1)))))
+      (add-hook 'org-agenda-finalize-hook 'my/mark-next-tasks-in-agenda)
+
+      ;; Must be set before agenda opens, not in a hook
+      (setq org-agenda-window-setup 'only-window)
+
+      ;; Go to top when agenda first opens
+      (defun my/org-agenda-goto-top ()
+        "Move to the top of the agenda buffer on initial open."
+        (goto-char (point-min)))
+      (add-hook 'org-agenda-after-show-hook #'my/org-agenda-goto-top)
+
       (defun my/style-org-agenda()
-  	(setq org-agenda-window-setup 'only-window)
   	(set-face-attribute 'org-agenda-date nil :height 1.1)
   	(set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
   	(set-face-attribute 'org-agenda-date-today nil
@@ -603,11 +641,13 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                          (org-agenda-deadline-leaders '("Due!  " "In %3d d. " "%2d d. ago "))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
-                (todo "NEXT"
-                      ((org-agenda-overriding-header
-                        (concat "\n􀀤  Do Next\n" (make-string (window-width) 9472) "\n"))
-                       (org-agenda-prefix-format "  ▲ ")
-                       (org-super-agenda-groups '((:auto-map my/org-get-category))))))
+                (tags-todo "+Active/NEXT"
+                           ((org-agenda-overriding-header
+                             (concat "\n􀀤  Do Next\n" (make-string (window-width) 9472) "\n"))
+                            (org-agenda-skip-function
+                             '(org-agenda-skip-entry-if 'scheduled))
+                            (org-agenda-prefix-format "  ▲ ")
+                            (org-super-agenda-groups '((:auto-map my/org-get-category))))))
                ((org-agenda-remove-tags t)
                 (org-agenda-scheduled-leaders '("" ""))
                 (org-agenda-deadline-leaders '("" "In %3d d. " "%2d d. ago "))
