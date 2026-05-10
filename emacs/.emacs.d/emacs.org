@@ -513,9 +513,30 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
 
       (add-hook 'org-after-todo-state-change-hook #'my/prompt-for-next-action)
 
-      ;; Stuck projects configuration
-      (setq org-stuck-projects
-            '("+Project/-DONE-CANC" ("NEXT") nil ""))
+      ;; Stuck projects: custom function that lists Active project names with no NEXT task
+      (defun my/stuck-projects-block (&rest _)
+        "Insert stuck Active projects into agenda buffer."
+        (let ((inhibit-read-only t)
+              stuck)
+          (dolist (file (org-agenda-files))
+            (when-let* ((buf (org-get-agenda-file-buffer file)))
+              (with-current-buffer buf
+                (org-with-wide-buffer
+                 (goto-char (point-min))
+                 (when (and (re-search-forward "^#\\+filetags:.*Active" nil t)
+                            (not (progn
+                                   (goto-char (point-min))
+                                   (re-search-forward "^\\*+ NEXT " nil t))))
+                   (let ((title (or (cadr (car (org-collect-keywords '("TITLE"))))
+                                    (file-name-base (buffer-file-name)))))
+                     (push title stuck)))))))
+          (insert (concat "\n" (propertize
+                                (concat "⚠  Stuck Projects\n" (make-string (window-width) 9472) "\n")
+                                'face 'org-super-agenda-header) "\n"))
+          (insert (if stuck
+                      (mapconcat (lambda (p) (format "  ▲ %s\n" p))
+                                 (nreverse stuck) "")
+                    "  No stuck projects!\n"))))
 
       (setq org-agenda-custom-commands
             '(("c" "Classic Agenda"
@@ -662,10 +683,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                            (concat "􀌂  Inbox\n" (make-string (window-width) 9472) "\n"))
                           (org-agenda-files '("~/roaming/notes/Inbox.org"))
                           (org-agenda-prefix-format "  ▲ ")))
-                (stuck ""
-                       ((org-agenda-overriding-header
-                         (concat "\n⚠  Stuck Projects\n" (make-string (window-width) 9472) "\n"))
-                        (org-agenda-prefix-format "  ▲ ")))
+                (my/stuck-projects-block "")
                 (todo "WAIT"
                       ((org-agenda-overriding-header
                         (concat "\n⏳  Waiting On\n" (make-string (window-width) 9472) "\n"))
@@ -5107,14 +5125,16 @@ If the buffers already exist, kills them first."
           (kbd "C-c r") #'agent-shell-refs-preview
           (kbd "C-c R") #'agent-shell-refs-clear))
 
-      ;; Leader key refs bindings
-      (general-define-key
-       :states '(normal visual)
-       :prefix "SPC"
-       "c x r" '(agent-shell-refs-capture :wk "Capture ref")
-       "c x c" '(agent-shell-refs-clear :wk "Clear refs")
-       "c x p" '(agent-shell-refs-preview :wk "Preview refs")
-       "c x d" '(agent-shell-refs-remove :wk "Remove ref"))
+      ;; Leader key refs bindings — defer until general is loaded so init.el
+      ;; doesn't error out on top-level general-define-key calls.
+      (with-eval-after-load 'general
+        (general-define-key
+         :states '(normal visual)
+         :prefix "SPC"
+         "c x r" '(agent-shell-refs-capture :wk "Capture ref")
+         "c x c" '(agent-shell-refs-clear :wk "Clear refs")
+         "c x p" '(agent-shell-refs-preview :wk "Preview refs")
+         "c x d" '(agent-shell-refs-remove :wk "Remove ref")))
 
 
       ;; Agent Shell Tool Group - Collapse consecutive tool calls under foldable headers
@@ -5214,6 +5234,10 @@ If the buffers already exist, kills them first."
         :ensure nil
         :load-path "~/roaming/projects/agent-recall"
         :after agent-shell
+        :init
+        ;; Ensure load-path is set up early so :commands autoloads can
+        ;; find the file even before agent-shell triggers :after.
+        (add-to-list 'load-path (expand-file-name "~/roaming/projects/agent-recall"))
         :commands (agent-recall-search agent-recall-search-live
                    agent-recall-browse agent-recall-resume
                    agent-recall-backfill agent-recall-stats)
