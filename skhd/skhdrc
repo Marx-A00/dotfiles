@@ -14,6 +14,7 @@ f15 : emacsclient --eval "(mr-x/agent-shell-allow-always)"
 f16 : emacsclient --eval "(mr-x/agent-shell-view-diff)"
 cmd + shift - a : ~/.dotfiles/scripts/org-agenda-frame.sh
 cmd + shift - r : ~/.dotfiles/scripts/emacs-restart.sh
+cmd + shift + alt - r : ~/.dotfiles/scripts/emacs-restart-restore.sh
 cmd + shift - s : ~/.dotfiles/scripts/emacs-sandbox.sh --restart
 cmd + shift + ctrl - s : ~/.dotfiles/scripts/emacs-sandbox.sh --test
 cmd + shift - v : emacsclient --eval "(with-current-buffer (or (car (agent-shell-buffers)) (current-buffer)) (agent-shell-yank-dwim))"

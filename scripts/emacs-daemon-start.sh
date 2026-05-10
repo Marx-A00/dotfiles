@@ -5,8 +5,9 @@
 EMACS="/opt/homebrew/opt/emacs-plus@30/bin/emacs"
 EMACSCLIENT="/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"
 
-# Kill any existing Emacs processes (daemon or otherwise)
-pkill -9 -f "emacs" 2>/dev/null || true
+# Kill any existing Emacs processes (the binary, not scripts/emacsclient)
+pkill -9 -x "Emacs" 2>/dev/null || true
+pkill -9 -x "emacs" 2>/dev/null || true
 
 # Clean up any stale socket files
 rm -f /tmp/emacs$(id -u)/server 2>/dev/null || true
@@ -23,7 +24,12 @@ ATTEMPT=0
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     if $EMACSCLIENT -e '(+ 1 1)' &>/dev/null; then
-        $EMACSCLIENT -c -n
+        # Skip default frame if restore script will handle it
+        if [ -f /tmp/emacs-restore-session ]; then
+            echo "Restore flag found, skipping default frame"
+        else
+            $EMACSCLIENT -c -n
+        fi
         exit 0
     fi
     sleep 1
