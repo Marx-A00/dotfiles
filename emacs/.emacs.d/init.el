@@ -2088,6 +2088,62 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
   :config
   (point-stack-setup-advices))
 
+
+;; Ultra-scroll — smooth pixel scrolling for trackpad/wheel
+(use-package ultra-scroll
+  :ensure (:host github :repo "jdtsmith/ultra-scroll")
+  :bind (("C-<wheel-down>" . nil)
+         ("C-<wheel-up>" . nil)
+         ("C-M-<wheel-down>" . nil)
+         ("C-M-<wheel-up>" . nil))
+  :init
+  (setq scroll-conservatively 99
+        scroll-margin 0)
+  :config
+  (ultra-scroll-mode 1))
+
+;; Rotate windows — cycle buffer contents across panes
+;; From Gleek's core-window.el
+(defun mr-x/rotate-windows (arg)
+  "Rotate buffer contents across windows. Prefix arg reverses direction."
+  (interactive "P")
+  (if (not (> (count-windows) 1))
+      (message "You can't rotate a single window!")
+    (let* ((rotate-times (prefix-numeric-value arg))
+           (direction (if (or (< rotate-times 0) (equal arg '(4)))
+                          'reverse 'identity)))
+      (dotimes (_ (abs rotate-times))
+        (dotimes (i (- (count-windows) 1))
+          (let* ((w1 (elt (funcall direction (window-list)) i))
+                 (w2 (elt (funcall direction (window-list)) (+ i 1)))
+                 (b1 (window-buffer w1))
+                 (b2 (window-buffer w2))
+                 (s1 (window-start w1))
+                 (s2 (window-start w2))
+                 (p1 (window-point w1))
+                 (p2 (window-point w2)))
+            (set-window-buffer-start-and-point w1 b2 s2 p2)
+            (set-window-buffer-start-and-point w2 b1 s1 p1)))))))
+
+;; Keyfreq — track command usage frequency
+(use-package keyfreq
+  :ensure t
+  :defer 2
+  :config
+  (keyfreq-mode 1)
+  (keyfreq-autosave-mode 1)
+  (setq keyfreq-excluded-commands
+        '(self-insert-command
+          org-self-insert-command
+          next-line
+          previous-line
+          mwheel-scroll)))
+
+;; ESUP — Emacs Start Up Profiler
+(use-package esup
+  :ensure t
+  :defer t)
+
 (setq visible-bell t)
 (fset 'yes-or-no-p 'y-or-n-p)
 
@@ -3099,6 +3155,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
    _h_: ←  _l_: →    _H_: shrink-h  _L_: grow-h  _s_: horizontal  _=_: balance
    _j_: ↓  _k_: ↑    _J_: shrink-v  _K_: grow-v  _v_: vertical    _o_: only
                                                _d_: delete     _u_: undo layout
+                                               _r_: rotate     _R_: rotate ←
   ╰────────────────────────────── _q_: quit ────────────╯"
       ("h" evil-window-left)
       ("j" evil-window-down)
@@ -3114,6 +3171,8 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
       ("o" delete-other-windows :exit t)
       ("d" evil-window-delete)
       ("u" winner-undo)
+      ("r" mr-x/rotate-windows)
+      ("R" (mr-x/rotate-windows '(4)))
       ("q" nil :exit t))
 
     ;; ── Text Zoom Hydra ──────────────────────────────────────────
@@ -3289,7 +3348,9 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
 
     (with-eval-after-load 'evil
       (evil-define-key 'motion org-agenda-mode-map
-        (kbd ",") 'hydra-org-agenda/body))
+        (kbd ",") 'hydra-org-agenda/body
+        (kbd "j") 'evil-next-line
+        (kbd "k") 'evil-previous-line))
 
     ;; Wire them into leader keys after general loads
     (with-eval-after-load 'general
