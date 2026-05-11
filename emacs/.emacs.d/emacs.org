@@ -2210,6 +2210,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
     :config
     (point-stack-setup-advices))
 
+
   (setq visible-bell t)
   (fset 'yes-or-no-p 'y-or-n-p)
 
