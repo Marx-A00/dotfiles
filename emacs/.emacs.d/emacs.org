@@ -2211,6 +2211,38 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
     (point-stack-setup-advices))
 
 
+  ;; Ultra-scroll — smooth pixel scrolling for trackpad/wheel
+  (use-package ultra-scroll
+    :ensure (:host github :repo "jdtsmith/ultra-scroll")
+    :bind (("C-<wheel-down>" . nil)
+           ("C-<wheel-up>" . nil)
+           ("C-M-<wheel-down>" . nil)
+           ("C-M-<wheel-up>" . nil))
+    :init
+    (setq scroll-conservatively 99
+          scroll-margin 0)
+    :config
+    (ultra-scroll-mode 1))
+
+  ;; Keyfreq — track command usage frequency
+  (use-package keyfreq
+    :ensure t
+    :defer 2
+    :config
+    (keyfreq-mode 1)
+    (keyfreq-autosave-mode 1)
+    (setq keyfreq-excluded-commands
+          '(self-insert-command
+            org-self-insert-command
+            next-line
+            previous-line
+            mwheel-scroll)))
+
+  ;; ESUP — Emacs Start Up Profiler
+  (use-package esup
+    :ensure t
+    :defer t)
+
   (setq visible-bell t)
   (fset 'yes-or-no-p 'y-or-n-p)
 
