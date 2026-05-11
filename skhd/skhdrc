@@ -27,6 +27,8 @@ cmd + shift - o : ~/.dotfiles/scripts/scratchpad-emacs.sh scratch-org
 # "pageup" : open -a "Messages"
 # "pagedown" : open -a "Discord"
 
+cmd + shift - tab : yabai -m window --focus recent
+
 alt - h : yabai -m window --focus west
 alt - j : yabai -m window --focus south
 alt - k : yabai -m window --focus north
