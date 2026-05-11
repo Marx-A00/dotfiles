@@ -295,6 +295,9 @@
 
       (add-hook 'after-save-hook #'mr-x/agenda-auto-refresh)
 
+      ;; Reset finalize hook to prevent stale functions accumulating across reloads
+      (setq org-agenda-finalize-hook nil)
+
       (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
 
       (defun mr-x/clean-current-time-line ()
