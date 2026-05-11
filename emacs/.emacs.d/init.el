@@ -154,11 +154,10 @@
   	  "Separator string used under agenda section headers.")
 
   	(defun mr-x/agenda-header (icon name)
-  	  "Build a section header with ICON, NAME, and a gray separator."
-  	  (concat "\n" icon "  " name "\n"
-  		  (propertize mr-x/agenda-separator
-  			      'face `(:foreground ,(mr-x/color 'gray)))
-  		  "\n"))
+  	  "Build a section header with ICON, NAME, and a separator line.
+  Color is applied post-render by `mr-x/style-agenda-separators'
+  since org-agenda overrides text properties on headers."
+  	  (concat "\n" icon "  " name "\n" mr-x/agenda-separator "\n"))
 
   	;; ── TODO keywords ─────────────────────────────────
   	(setq org-todo-keywords
@@ -370,6 +369,18 @@
                                      'face `(:foreground ,(mr-x/color 'gold)))))
               (forward-line 1)))))
       (add-hook 'org-agenda-finalize-hook 'mr-x/style-agenda-entries)
+
+      (defun mr-x/style-agenda-separators ()
+        "Color separator lines gray. Runs as finalize hook because
+org-agenda overrides text properties on header strings."
+        (save-excursion
+          (goto-char (point-min))
+          (let ((inhibit-read-only t)
+                (sep-re (regexp-quote mr-x/agenda-separator)))
+            (while (re-search-forward sep-re nil t)
+              (put-text-property (match-beginning 0) (match-end 0)
+                                 'face `(:foreground ,(mr-x/color 'gray)))))))
+      (add-hook 'org-agenda-finalize-hook 'mr-x/style-agenda-separators)
 
       ;; Must be set before agenda opens, not in a hook
       (setq org-agenda-window-setup 'only-window)
@@ -841,9 +852,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                 (org-agenda-compact-blocks nil)
                 (org-agenda-format-date "\n  %A, %B %e")))))
       (setq org-agenda-format-date (lambda (date)
-  				     (concat "\n"
-  					    (propertize mr-x/agenda-separator
-  							 'face `(:foreground ,(mr-x/color 'gray)))
+  				     (concat "\n" mr-x/agenda-separator
   					    "\n" (org-agenda-format-date-aligned date))))
 
       ;; Agenda visual styling
