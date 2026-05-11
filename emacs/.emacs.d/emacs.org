@@ -3543,7 +3543,9 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
 
     (with-eval-after-load 'evil
       (evil-define-key 'motion org-agenda-mode-map
-        (kbd ",") 'hydra-org-agenda/body))
+        (kbd ",") 'hydra-org-agenda/body
+        (kbd "j") 'evil-next-line
+        (kbd "k") 'evil-previous-line))
 
     ;; Wire them into leader keys after general loads
     (with-eval-after-load 'general
