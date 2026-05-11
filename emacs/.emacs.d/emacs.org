@@ -441,6 +441,15 @@ org-agenda overrides text properties on header strings."
                                  'face `(:foreground ,(mr-x/color 'gray)))))))
       (add-hook 'org-agenda-finalize-hook 'mr-x/style-agenda-separators)
 
+      ;; Sort NEXT tasks to top within category groups
+      (defun mr-x/agenda-cmp-next-first (a b)
+        "Sort NEXT entries before other todo states."
+        (let ((sa (or (get-text-property 1 'todo-state a) ""))
+              (sb (or (get-text-property 1 'todo-state b) "")))
+          (cond
+           ((and (string= sa "NEXT") (not (string= sb "NEXT"))) -1)
+           ((and (string= sb "NEXT") (not (string= sa "NEXT"))) +1))))
+
       ;; Must be set before agenda opens, not in a hook
       (setq org-agenda-window-setup 'only-window)
 
@@ -711,6 +720,8 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                          (org-agenda-skip-function
                           '(or (mr-x/agenda-skip-habits)
                                (mr-x/agenda-skip-timed)))
+                         (org-agenda-cmp-user-defined #'mr-x/agenda-cmp-next-first)
+                         (org-agenda-sorting-strategy '(user-defined-up))
                          (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
@@ -727,7 +738,8 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                            ((org-agenda-overriding-header
                              (mr-x/agenda-header "􀀤" "Priority"))
                             (org-agenda-prefix-format "  ▲ ")
-                            (org-agenda-sorting-strategy '(priority-down))
+                            (org-agenda-cmp-user-defined #'mr-x/agenda-cmp-next-first)
+                            (org-agenda-sorting-strategy '(user-defined-up priority-down))
                             (org-super-agenda-groups '((:auto-map mr-x/org-get-category)))
                             (org-agenda-skip-function
                              '(org-agenda-skip-entry-if 'scheduled)))))
@@ -762,6 +774,8 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                                (mr-x/agenda-skip-timed)
                                (mr-x/agenda-skip-if-deadline)))
                          (org-super-agenda-groups '((:auto-map mr-x/org-get-category)))
+                         (org-agenda-cmp-user-defined #'mr-x/agenda-cmp-next-first)
+                         (org-agenda-sorting-strategy '(user-defined-up))
                          (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
@@ -877,6 +891,8 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                          (org-agenda-skip-function
                           '(or (mr-x/agenda-skip-habits)
                                (mr-x/agenda-skip-timed)))
+                         (org-agenda-cmp-user-defined #'mr-x/agenda-cmp-next-first)
+                         (org-agenda-sorting-strategy '(user-defined-up))
                          (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
@@ -893,6 +909,8 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                       ((org-agenda-overriding-header
                         (mr-x/agenda-header "􀋀" "Unscheduled"))
                        (org-agenda-prefix-format "  ▲ ")
+                       (org-agenda-cmp-user-defined #'mr-x/agenda-cmp-next-first)
+                       (org-agenda-sorting-strategy '(user-defined-up))
                        (org-agenda-skip-function
                         '(or (mr-x/agenda-skip-habits)
                             (org-super-agenda-groups '((:auto-map mr-x/org-get-category)))
@@ -2182,9 +2200,19 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
   (global-set-key [remap keyboard-quit] #'mr-x/escape-quit)
   (global-set-key (kbd "<escape>") #'mr-x/escape-quit)
 
+  ;; Point Stack — cursor breadcrumbs for navigation jumps
+  ;; Auto-saves position before xref, imenu, isearch, counsel-rg, etc.
+  ;; Vendored from https://github.com/Gleek/.emacs/blob/master/packages/point-stack.el
+  (use-package point-stack
+    :ensure nil
+    :bind (("s-[" . point-stack-pop)
+           ("s-]" . point-stack-forward-stack-pop))
+    :config
+    (point-stack-setup-advices))
+
   (setq visible-bell t)
   (fset 'yes-or-no-p 'y-or-n-p)
-  
+
   ;; Auto-revert mode to automatically refresh buffers when files change on disk
   (global-auto-revert-mode 1)
   (setq global-auto-revert-non-file-buffers t)
