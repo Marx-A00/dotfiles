@@ -141,11 +141,11 @@
   		 "CANC(k@)")))
 
   	(setq org-todo-keyword-faces
-  	      '(("TODO" . "#FF1800")
-  		("NEXT" . "#FF1800")
-  		("WAIT" . "#B7CBA8")
-  		("DONE" . "#62656A")
-  		("CANC" . "#62656A")))
+  	      '(("TODO" . (:foreground "#1d2021" :background "#FF1800" :weight bold))
+  		("NEXT" . (:foreground "#1d2021" :background "#8ec07c" :weight bold))
+  		("WAIT" . (:foreground "#1d2021" :background "#B7CBA8" :weight bold))
+  		("DONE" . (:foreground "#1d2021" :background "#62656A" :weight bold))
+  		("CANC" . (:foreground "#1d2021" :background "#62656A" :weight bold))))
 
   	(custom-set-faces
   	 '(org-level-1 ((t (:foreground "#c8c8c8"))))
@@ -163,7 +163,13 @@
   	(org-modern-star 'replace)
   	(org-modern-replace-stars "❖✦⬡◈✧◇▸")
   	(org-modern-hide-stars nil)
-  	(org-modern-table nil))
+  	(org-modern-table nil)
+  	(org-modern-todo-faces
+  	 '(("TODO" . (:foreground "#1d2021" :background "#FF1800" :weight bold))
+  	   ("NEXT" . (:foreground "#1d2021" :background "#8ec07c" :weight bold))
+  	   ("WAIT" . (:foreground "#1d2021" :background "#B7CBA8" :weight bold))
+  	   ("DONE" . (:foreground "#1d2021" :background "#62656A" :weight bold))
+  	   ("CANC" . (:foreground "#1d2021" :background "#62656A" :weight bold)))))
 
       (use-package org-tidy
   	:ensure t
@@ -349,11 +355,55 @@
       ;; Must be set before agenda opens, not in a hook
       (setq org-agenda-window-setup 'only-window)
 
-      ;; Go to top when agenda first opens
-      (defun my/org-agenda-goto-top ()
-        "Move to the top of the agenda buffer on initial open."
-        (goto-char (point-min)))
-      (add-hook 'org-agenda-after-show-hook #'my/org-agenda-goto-top)
+      ;; Hide empty agenda sections
+      (defun my/org-agenda-remove-empty-sections ()
+        "Remove section headers that have no entries below them."
+        (save-excursion
+          (let ((inhibit-read-only t)
+                (section-re "\\(Schedule\\|Do Today\\|Do Next\\|Deadlines\\|Habits\\|Timeline\\|Inbox\\|Priority\\|Unscheduled\\|Upcoming Deadlines\\|Waiting On\\|Stale Tasks\\|Done This Week\\)"))
+            ;; Work backwards so deletions don't shift earlier positions
+            (goto-char (point-max))
+            (while (re-search-backward section-re nil t)
+              (let* ((header-start (line-beginning-position))
+                     (sep-end (save-excursion
+                                (goto-char (line-end-position))
+                                (forward-line 1)
+                                (if (looking-at ".*[━─┈═]\\{5,\\}")
+                                    (progn (forward-line 1) (point))
+                                  (point))))
+                     (next-section (save-excursion
+                                    (goto-char sep-end)
+                                    (if (re-search-forward section-re nil t)
+                                        (line-beginning-position)
+                                      (point-max))))
+                     (has-content nil))
+                ;; Check for non-blank lines between separator and next section
+                (save-excursion
+                  (goto-char sep-end)
+                  (while (and (< (point) next-section) (not has-content))
+                    (unless (looking-at "^[ \t]*$")
+                      (setq has-content t))
+                    (forward-line 1)))
+                ;; Delete empty section but preserve spacing between neighbors
+                (unless has-content
+                  (let ((del-start (save-excursion
+                                     (goto-char header-start)
+                                     (while (and (> (point) (point-min))
+                                                 (save-excursion
+                                                   (forward-line -1)
+                                                   (looking-at "^[ \t]*$")))
+                                       (forward-line -1))
+                                     (point))))
+                    (delete-region del-start next-section)
+                    (when (> (point) (point-min))
+                      (insert "\n")))))))))
+      (add-hook 'org-agenda-finalize-hook 'my/org-agenda-remove-empty-sections 89)
+
+      ;; Go to top when agenda is rendered (redo-preserving-position
+      ;; will reposition after refresh, so this only matters for initial open)
+      (add-hook 'org-agenda-finalize-hook
+                (lambda () (goto-char (point-min)))
+                90)  ;; high depth = runs last, after other finalize hooks
 
       (defun my/style-org-agenda()
   	(set-face-attribute 'org-agenda-date nil :height 1.1)
