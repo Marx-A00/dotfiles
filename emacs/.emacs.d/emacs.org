@@ -1003,7 +1003,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
   		      (when best-pos
   			(goto-char best-pos)
   			(let ((ov (make-overlay (line-beginning-position) (line-end-position))))
-  			  (overlay-put ov 'face '(:foreground "#e5c07b" :weight bold))))))
+  			  (overlay-put ov 'face `(:foreground ,(mr-x/color 'gold) :weight bold))))))
   		  ;; Apply visual effects
   		  (mr-x/agenda-prettify-priorities)
   		  (mr-x/agenda-strike-through-done)

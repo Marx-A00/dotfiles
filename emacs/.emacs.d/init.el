@@ -944,7 +944,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
   		      (when best-pos
   			(goto-char best-pos)
   			(let ((ov (make-overlay (line-beginning-position) (line-end-position))))
-  			  (overlay-put ov 'face '(:foreground "#e5c07b" :weight bold))))))
+  			  (overlay-put ov 'face `(:foreground ,(mr-x/color 'gold) :weight bold))))))
   		  ;; Apply visual effects
   		  (mr-x/agenda-prettify-priorities)
   		  (mr-x/agenda-strike-through-done)
@@ -2782,6 +2782,8 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   (setq evil-respect-visual-line-mode t)
   :config
   (evil-mode 1)
+  ;; ESC in normal state → progressive escape instead of evil-force-normal-state
+  (define-key evil-normal-state-map [escape] #'mr-x/escape-quit)
   ;; Make M-backspace delete word without saving to register (like normal editors)
   (define-key evil-insert-state-map (kbd "M-<backspace>")
     (lambda () (interactive) (delete-region (point) (progn (backward-word) (point))))))
