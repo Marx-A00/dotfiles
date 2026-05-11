@@ -190,6 +190,36 @@
   	(add-to-list 'org-modules 'org-habit)
   	(setq org-habit-graph-column 60)
 
+  	;; ── Color palette ──────────────────────────────────
+  	(defvar mr-x/colors
+  	  '((gold      . "#fabd2f")
+  	    (green     . "#8ec07c")
+  	    (lime      . "#b8bb26")
+  	    (cream     . "#ebdbb2")
+  	    (gray      . "#665c54")
+  	    (gray-warm . "#897d6c")
+  	    (red       . "#FF1800")
+  	    (muted     . "#62656A")
+  	    (mint      . "#B7CBA8")
+  	    (bg        . "#1d2021"))
+  	  "Central color palette for org-agenda and related UI.")
+
+  	(defun mr-x/color (name)
+  	  "Look up color NAME from `mr-x/colors'."
+  	  (alist-get name mr-x/colors))
+
+  	;; ── Agenda section header builder ──────────────────
+  	(defvar mr-x/agenda-separator "────────────────────"
+  	  "Separator string used under agenda section headers.")
+
+  	(defun mr-x/agenda-header (icon name)
+  	  "Build a section header with ICON, NAME, and a gray separator."
+  	  (concat "\n" icon "  " name "\n"
+  		  (propertize mr-x/agenda-separator
+  			      'face `(:foreground ,(mr-x/color 'gray)))
+  		  "\n"))
+
+  	;; ── TODO keywords ─────────────────────────────────
   	(setq org-todo-keywords
   	      '((sequence
   		 "TODO(t)"
@@ -199,12 +229,15 @@
   		 "DONE(d!)"
   		 "CANC(k@)")))
 
-  	(setq org-todo-keyword-faces
-  	      '(("TODO" . (:foreground "#1d2021" :background "#FF1800" :weight bold))
-  		("NEXT" . (:foreground "#1d2021" :background "#8ec07c" :weight bold))
-  		("WAIT" . (:foreground "#1d2021" :background "#B7CBA8" :weight bold))
-  		("DONE" . (:foreground "#1d2021" :background "#62656A" :weight bold))
-  		("CANC" . (:foreground "#1d2021" :background "#62656A" :weight bold))))
+  	(defvar mr-x/todo-faces
+  	  `(("TODO" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'red) :weight bold))
+  	    ("NEXT" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'green) :weight bold))
+  	    ("WAIT" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'mint) :weight bold))
+  	    ("DONE" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'muted) :weight bold))
+  	    ("CANC" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'muted) :weight bold)))
+  	  "TODO keyword faces used by both org and org-modern.")
+
+  	(setq org-todo-keyword-faces mr-x/todo-faces)
 
   	(custom-set-faces
   	 '(org-level-1 ((t (:foreground "#c8c8c8"))))
@@ -223,12 +256,7 @@
   	(org-modern-replace-stars "❖✦⬡◈✧◇▸")
   	(org-modern-hide-stars nil)
   	(org-modern-table nil)
-  	(org-modern-todo-faces
-  	 '(("TODO" . (:foreground "#1d2021" :background "#FF1800" :weight bold))
-  	   ("NEXT" . (:foreground "#1d2021" :background "#8ec07c" :weight bold))
-  	   ("WAIT" . (:foreground "#1d2021" :background "#B7CBA8" :weight bold))
-  	   ("DONE" . (:foreground "#1d2021" :background "#62656A" :weight bold))
-  	   ("CANC" . (:foreground "#1d2021" :background "#62656A" :weight bold)))))
+  	(org-modern-todo-faces mr-x/todo-faces))
 
       (use-package org-tidy
   	:ensure t
@@ -241,7 +269,7 @@
   	(setq org-super-agenda-header-map nil)
   	(org-super-agenda-mode 1))
 
-      (defun my/org-get-category (item)
+      (defun mr-x/org-get-category (item)
   	"Return capitalized category for ITEM, without 'Category: ' prefix."
   	(when-let ((marker (or (get-text-property 0 'org-marker item)
   			       (get-text-property 0 'org-hd-marker item))))
@@ -291,15 +319,13 @@
   	  (forward-line 1)))
 
       ;; Auto-refresh agenda when org files are saved
-      (defun my/org-agenda-redo-preserving-position ()
+      (defun mr-x/agenda-redo-preserving-position ()
   	"Redo agenda and restore cursor to the closest matching entry."
   	(let* ((marker (or (org-get-at-bol 'org-hd-marker)
   			   (org-get-at-bol 'org-marker)))
   	       (entry-text (buffer-substring-no-properties
-  			    (line-beginning-position) (line-end-position)))
-  	       (win-start (window-start)))
+  			    (line-beginning-position) (line-end-position))))
   	  (org-agenda-redo-all)
-  	  ;; Try to find the same entry by marker
   	  (let ((found nil))
   	    (when marker
   	      (goto-char (point-min))
@@ -308,13 +334,12 @@
   					(org-get-at-bol 'org-marker)))
   		  (setq found t))
   		(unless found (forward-line 1))))
-  	    ;; Fallback: search for matching text
   	    (unless found
   	      (goto-char (point-min))
   	      (unless (search-forward entry-text nil t)
   		(goto-char (point-min)))))))
 
-      (defun my/org-agenda-auto-refresh ()
+      (defun mr-x/agenda-auto-refresh ()
         "Refresh visible agenda buffers when an org file is saved."
         (when (derived-mode-p 'org-mode)
           (dolist (buf (buffer-list))
@@ -324,14 +349,14 @@
                   (lambda (b)
                     (when (buffer-live-p b)
                       (with-current-buffer b
-                        (my/org-agenda-redo-preserving-position))))
+                        (mr-x/agenda-redo-preserving-position))))
                   buf))))))
 
-      (add-hook 'after-save-hook #'my/org-agenda-auto-refresh)
+      (add-hook 'after-save-hook #'mr-x/agenda-auto-refresh)
 
       (add-hook 'org-agenda-finalize-hook 'org-habit-streak-count)
 
-      (defun my/clean-current-time-line ()
+      (defun mr-x/clean-current-time-line ()
   	"Remove trailing grid characters from the current-time line in agenda."
   	(save-excursion
   	  (goto-char (point-min))
@@ -353,20 +378,10 @@
   		      (replace-match "\\1")
   		      (put-text-property beg (line-end-position) 'face 'org-agenda-current-time))))))
   	    (forward-line 1))))
-      (add-hook 'org-agenda-finalize-hook 'my/clean-current-time-line)
+      (add-hook 'org-agenda-finalize-hook 'mr-x/clean-current-time-line)
 
-      (defun my/colorize-agenda-triangles ()
-  	"Apply color to ▲ icons in the agenda."
-  	(save-excursion
-  	  (goto-char (point-min))
-  	  (let ((inhibit-read-only t))
-  	    (while (search-forward "▲" nil t)
-  	      (put-text-property (match-beginning 0) (match-end 0)
-  				 'face '(:foreground "#fabd2f"))))))
-      (add-hook 'org-agenda-finalize-hook 'my/colorize-agenda-triangles)
-
-      (defun my/style-routine-entries ()
-        "Add icon to routine entries in the agenda."
+      (defun mr-x/style-routine-entries ()
+        "Reformat routine (sexp) entries with ● icon and colored segments."
         (save-excursion
           (goto-char (point-min))
           (let ((inhibit-read-only t))
@@ -385,42 +400,42 @@
                                           'type "sexp"
                                           'org-category (plist-get props 'org-category))
                               (propertize "● "
-                                          'face '(:foreground "#fabd2f")
+                                          'face `(:foreground ,(mr-x/color 'gold))
                                           'type "sexp"
                                           'org-category (plist-get props 'org-category))
                               (propertize desc
-                                          'face '(:foreground "#ebdbb2")
+                                          'face `(:foreground ,(mr-x/color 'cream))
                                           'type "sexp"
                                           'org-category (plist-get props 'org-category)))))))
               (forward-line 1)))))
-      (add-hook 'org-agenda-finalize-hook 'my/style-routine-entries)
+      (add-hook 'org-agenda-finalize-hook 'mr-x/style-routine-entries)
 
-      (defun my/mark-next-tasks-in-agenda ()
-        "Add a ◆ icon next to NEXT tasks in the agenda."
+      (defun mr-x/style-agenda-entries ()
+        "Colorize ▲ icons and add ◆ to NEXT tasks in one pass."
         (save-excursion
           (goto-char (point-min))
           (let ((inhibit-read-only t))
             (while (not (eobp))
-              (when (string= (get-text-property (point) 'todo-state) "NEXT")
-                (beginning-of-line)
-                (when (search-forward "▲" (line-end-position) t)
-                  (replace-match
-                   (concat (propertize "▲" 'face '(:foreground "#fabd2f"))
-                           " "
-                           (propertize "◆" 'face '(:foreground "#b8bb26"))))))
+              (when (search-forward "▲" (line-end-position) t)
+                (if (string= (get-text-property (line-beginning-position) 'todo-state) "NEXT")
+                    (replace-match
+                     (concat (propertize "▲" 'face `(:foreground ,(mr-x/color 'gold)))
+                             " "
+                             (propertize "◆" 'face `(:foreground ,(mr-x/color 'lime)))))
+                  (put-text-property (match-beginning 0) (match-end 0)
+                                     'face `(:foreground ,(mr-x/color 'gold)))))
               (forward-line 1)))))
-      (add-hook 'org-agenda-finalize-hook 'my/mark-next-tasks-in-agenda)
+      (add-hook 'org-agenda-finalize-hook 'mr-x/style-agenda-entries)
 
       ;; Must be set before agenda opens, not in a hook
       (setq org-agenda-window-setup 'only-window)
 
       ;; Hide empty agenda sections
-      (defun my/org-agenda-remove-empty-sections ()
+      (defun mr-x/agenda-remove-empty-sections ()
         "Remove section headers that have no entries below them."
         (save-excursion
           (let ((inhibit-read-only t)
                 (section-re "\\(Schedule\\|Do Today\\|Do Next\\|Deadlines\\|Habits\\|Timeline\\|Inbox\\|Priority\\|Unscheduled\\|Upcoming Deadlines\\|Waiting On\\|Stale Tasks\\|Done This Week\\)"))
-            ;; Work backwards so deletions don't shift earlier positions
             (goto-char (point-max))
             (while (re-search-backward section-re nil t)
               (let* ((header-start (line-beginning-position))
@@ -436,14 +451,12 @@
                                         (line-beginning-position)
                                       (point-max))))
                      (has-content nil))
-                ;; Check for non-blank lines between separator and next section
                 (save-excursion
                   (goto-char sep-end)
                   (while (and (< (point) next-section) (not has-content))
                     (unless (looking-at "^[ \t]*$")
                       (setq has-content t))
                     (forward-line 1)))
-                ;; Delete empty section but preserve spacing between neighbors
                 (unless has-content
                   (let ((del-start (save-excursion
                                      (goto-char header-start)
@@ -456,27 +469,30 @@
                     (delete-region del-start next-section)
                     (when (> (point) (point-min))
                       (insert "\n")))))))))
-      (add-hook 'org-agenda-finalize-hook 'my/org-agenda-remove-empty-sections 89)
+      (add-hook 'org-agenda-finalize-hook 'mr-x/agenda-remove-empty-sections 89)
 
       ;; Go to top when agenda is rendered (redo-preserving-position
       ;; will reposition after refresh, so this only matters for initial open)
       (add-hook 'org-agenda-finalize-hook
                 (lambda () (goto-char (point-min)))
-                90)  ;; high depth = runs last, after other finalize hooks
+                90)
 
-      (defun my/style-org-agenda()
+      (defun mr-x/style-org-agenda ()
+  	"Set face attributes for agenda mode."
   	(set-face-attribute 'org-agenda-date nil :height 1.1)
   	(set-face-attribute 'org-agenda-date-today nil :height 1.1 :slant 'italic)
   	(set-face-attribute 'org-agenda-date-today nil
-  			    :foreground "#897d6c"   
-  			    :background nil        
+  			    :foreground (mr-x/color 'gray-warm)
+  			    :background nil
   			    :weight 'bold
-  			    :underline nil)           ;; Make it bold
+  			    :underline nil)
   	(set-face-attribute 'org-agenda-date-weekend nil :height 1.1)
-  	(set-face-attribute 'org-agenda-current-time nil :foreground "#fabd2f" :weight 'bold)
-  	(set-face-attribute 'org-super-agenda-header nil :foreground "#8ec07c" :weight 'bold))
+  	(set-face-attribute 'org-agenda-current-time nil
+  			    :foreground (mr-x/color 'gold) :weight 'bold)
+  	(set-face-attribute 'org-super-agenda-header nil
+  			    :foreground (mr-x/color 'green) :weight 'bold))
 
-      (add-hook 'org-agenda-mode-hook 'my/style-org-agenda)
+      (add-hook 'org-agenda-mode-hook 'mr-x/style-org-agenda)
 
 
       (setq org-agenda-breadcrumbs-separator " ❱ "
@@ -510,49 +526,49 @@
                 (mapcar (lambda (d) (cdr (assq d day-map))) days))))
 
       ;; Habit skip helpers for agenda views
-      (defun my/org-agenda-skip-habits ()
+      (defun mr-x/agenda-skip-habits ()
         "Skip entries that are habits."
         (let ((end (save-excursion (org-end-of-subtree t))))
           (when (string= (org-entry-get nil "STYLE") "habit")
             end)))
 
-      (defun my/org-agenda-skip-non-habits ()
+      (defun mr-x/agenda-skip-non-habits ()
         "Skip entries that are NOT habits."
         (let ((end (save-excursion (org-end-of-subtree t))))
           (unless (string= (org-entry-get nil "STYLE") "habit")
             end)))
 
-      (defun my/org-agenda-routine-p ()
+      (defun mr-x/agenda-routine-p ()
         "Return non-nil if entry at point is a routine."
         (string= (or (org-entry-get nil "CATEGORY" t) "") "Routines"))
 
-      (defun my/org-agenda-skip-untimed ()
+      (defun mr-x/agenda-skip-untimed ()
         "Skip entries without a time-of-day (keeps routines)."
         (let ((end (save-excursion (org-end-of-subtree t)))
               (scheduled (org-entry-get nil "SCHEDULED"))
               (deadline (org-entry-get nil "DEADLINE")))
           (unless (or (and scheduled (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" scheduled))
                       (and deadline (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" deadline))
-                      (my/org-agenda-routine-p))
+                      (mr-x/agenda-routine-p))
             end)))
 
-      (defun my/org-agenda-skip-timed ()
+      (defun mr-x/agenda-skip-timed ()
         "Skip entries with a time-of-day (skips routines)."
         (let ((end (save-excursion (org-end-of-subtree t)))
               (scheduled (org-entry-get nil "SCHEDULED"))
               (deadline (org-entry-get nil "DEADLINE")))
           (when (or (and scheduled (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" scheduled))
                     (and deadline (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" deadline))
-                    (my/org-agenda-routine-p))
+                    (mr-x/agenda-routine-p))
             end)))
 
-      (defun my/org-agenda-skip-routines ()
+      (defun mr-x/agenda-skip-routines ()
         "Skip entries with category Routines."
         (let ((end (save-excursion (org-end-of-subtree t))))
-          (when (my/org-agenda-routine-p)
+          (when (mr-x/agenda-routine-p)
             end)))
 
-      (defun my/org-agenda-skip-if-deadline ()
+      (defun mr-x/agenda-skip-if-deadline ()
         "Skip entries that have a DEADLINE."
         (let ((end (save-excursion (org-end-of-subtree t))))
           (when (org-entry-get nil "DEADLINE")
@@ -562,7 +578,7 @@
       (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
       (require 'mr-x-popup)
 
-      (defun my/prompt-for-next-action ()
+      (defun mr-x/prompt-for-next-action ()
         "After marking a task DONE, prompt to set the next action in the project.
 Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
         (when (and (member org-state '("DONE" "CANC"))
@@ -599,10 +615,10 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                             (goto-char marker)
                             (org-todo "NEXT"))))))))))))
 
-      (add-hook 'org-after-todo-state-change-hook #'my/prompt-for-next-action)
+      (add-hook 'org-after-todo-state-change-hook #'mr-x/prompt-for-next-action)
 
       ;; Stuck projects: custom function that lists Active project names with no NEXT task
-      (defun my/stuck-projects-block (&rest _)
+      (defun mr-x/stuck-projects-block (&rest _)
         "Insert stuck Active projects into agenda buffer."
         (let ((inhibit-read-only t)
               stuck)
@@ -618,9 +634,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                    (let ((title (or (cadr (car (org-collect-keywords '("TITLE"))))
                                     (file-name-base (buffer-file-name)))))
                      (push title stuck)))))))
-          (insert (concat "\n" (propertize
-                                (concat "⚠  Stuck Projects\n" (make-string (window-width) 9472) "\n")
-                                'face 'org-super-agenda-header) "\n"))
+          (insert (mr-x/agenda-header "⚠" "Stuck Projects"))
           (insert (if stuck
                       (mapconcat (lambda (p) (format "  ▲ %s\n" p))
                                  (nreverse stuck) "")
@@ -639,7 +653,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                          (org-agenda-log-mode-items '(closed clock))))
                 (todo "NEXT"
                       ((org-agenda-overriding-header
-                        (concat "\nProjects\n" (make-string (window-width) 9472) "\n"))
+                        (mr-x/agenda-header "" "Projects"))
                        (org-agenda-files '("~/roaming/notes/stable-elpaca.org"
                                            "~/roaming/notes/omi-live.org"
                                            "~/roaming/notes/customize-org-agenda.org"
@@ -660,47 +674,47 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
               ("d" "Dashboard"
                ((alltodo ""
                          ((org-agenda-overriding-header
-                           (concat "􀌂  Inbox\n" (make-string (window-width) 9472) "\n"))
+                           (mr-x/agenda-header "􀌂" "Inbox"))
                           (org-agenda-files '("~/roaming/notes/Inbox.org"))
                           (org-agenda-prefix-format "  ▲ ")))
                 (agenda ""
                         ((org-agenda-overriding-header
-                          (concat "\n􀋀  Timeline\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "􀋀" "Timeline"))
                          (org-agenda-span 'day)
                          (org-habit-show-habits nil)
                          (org-agenda-skip-function
-                          '(or (my/org-agenda-skip-habits)
-                               (my/org-agenda-skip-untimed)))
+                          '(or (mr-x/agenda-skip-habits)
+                               (mr-x/agenda-skip-untimed)))
                          (org-agenda-prefix-format '((agenda . "  %?-12t")))
                          (org-agenda-time-grid '((daily today require-timed)
                                                  (800 1000 1200 1400 1600 1800 2000)
                                                  "" ""))))
                 (agenda ""
                         ((org-agenda-overriding-header
-                          (concat "\n􀋀  Do Today\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "􀋀" "Do Today"))
                          (org-agenda-span 'day)
                          (org-habit-show-habits nil)
                          (org-agenda-skip-function
-                          '(or (my/org-agenda-skip-habits)
-                               (my/org-agenda-skip-timed)))
+                          '(or (mr-x/agenda-skip-habits)
+                               (mr-x/agenda-skip-timed)))
                          (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (agenda ""
                         ((org-agenda-overriding-header
-                          (concat "\n􀁑  Habits\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "􀁑" "Habits"))
                          (org-agenda-span 'day)
                          (org-habit-show-habits t)
-                         (org-agenda-skip-function '(my/org-agenda-skip-non-habits))
+                         (org-agenda-skip-function '(mr-x/agenda-skip-non-habits))
                          (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (tags-todo "+PRIORITY=\"A\"|+PRIORITY=\"B\""
                            ((org-agenda-overriding-header
-                             (concat "\n􀀤  Priority\n" (make-string (window-width) 9472) "\n"))
+                             (mr-x/agenda-header "􀀤" "Priority"))
                             (org-agenda-prefix-format "  ▲ ")
                             (org-agenda-sorting-strategy '(priority-down))
-                            (org-super-agenda-groups '((:auto-map my/org-get-category)))
+                            (org-super-agenda-groups '((:auto-map mr-x/org-get-category)))
                             (org-agenda-skip-function
                              '(org-agenda-skip-entry-if 'scheduled)))))
                ((org-agenda-remove-tags t)
@@ -713,50 +727,50 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
               ("f" "Focus"
                ((agenda ""
                         ((org-agenda-overriding-header
-                          (concat "􀎆  Schedule\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "􀎆" "Schedule"))
                          (org-agenda-span 'day)
                          (org-habit-show-habits nil)
                          (org-agenda-skip-function
-                          '(or (my/org-agenda-skip-habits)
-                               (my/org-agenda-skip-untimed)))
+                          '(or (mr-x/agenda-skip-habits)
+                               (mr-x/agenda-skip-untimed)))
                          (org-agenda-prefix-format '((agenda . "  %-12t")))
                          (org-agenda-time-grid '((daily today)
                                                  (800 1000 1200 1400 1600 1800 2000)
                                                  "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈" "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈"))))
                 (agenda ""
                         ((org-agenda-overriding-header
-                          (concat "\n􀋀  Do Today\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "􀋀" "Do Today"))
                          (org-agenda-span 'day)
                          (org-habit-show-habits nil)
                          (org-agenda-include-diary nil)
                          (org-agenda-skip-function
-                          '(or (my/org-agenda-skip-habits)
-                               (my/org-agenda-skip-timed)
-                               (my/org-agenda-skip-if-deadline)))
-                         (org-super-agenda-groups '((:auto-map my/org-get-category)))
+                          '(or (mr-x/agenda-skip-habits)
+                               (mr-x/agenda-skip-timed)
+                               (mr-x/agenda-skip-if-deadline)))
+                         (org-super-agenda-groups '((:auto-map mr-x/org-get-category)))
                          (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (agenda ""
                         ((org-agenda-overriding-header
-                          (concat "\n􀞟  Deadlines\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "􀞟" "Deadlines"))
                          (org-agenda-span 'day)
                          (org-habit-show-habits nil)
                          (org-agenda-include-diary nil)
                          (org-agenda-entry-types '(:deadline))
                          (org-deadline-warning-days 14)
-                         (org-super-agenda-groups '((:auto-map my/org-get-category)))
+                         (org-super-agenda-groups '((:auto-map mr-x/org-get-category)))
                          (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-deadline-leaders '("Due!  " "In %3d d. " "%2d d. ago "))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (tags-todo "+Active/NEXT"
                            ((org-agenda-overriding-header
-                             (concat "\n􀀤  Do Next\n" (make-string (window-width) 9472) "\n"))
+                             (mr-x/agenda-header "􀀤" "Do Next"))
                             (org-agenda-skip-function
                              '(org-agenda-skip-entry-if 'scheduled))
                             (org-agenda-prefix-format "  ▲ ")
-                            (org-super-agenda-groups '((:auto-map my/org-get-category))))))
+                            (org-super-agenda-groups '((:auto-map mr-x/org-get-category))))))
                ((org-agenda-remove-tags t)
                 (org-agenda-scheduled-leaders '("" ""))
                 (org-agenda-deadline-leaders '("" "In %3d d. " "%2d d. ago "))
@@ -770,25 +784,25 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
               ("r" "Review"
                ((alltodo ""
                          ((org-agenda-overriding-header
-                           (concat "􀌂  Inbox\n" (make-string (window-width) 9472) "\n"))
+                           (mr-x/agenda-header "􀌂" "Inbox"))
                           (org-agenda-files '("~/roaming/notes/Inbox.org"))
                           (org-agenda-prefix-format "  ▲ ")))
-                (my/stuck-projects-block "")
+                (mr-x/stuck-projects-block "")
                 (todo "WAIT"
                       ((org-agenda-overriding-header
-                        (concat "\n⏳  Waiting On\n" (make-string (window-width) 9472) "\n"))
+                        (mr-x/agenda-header "⏳" "Waiting On"))
                        (org-agenda-prefix-format "  ▲ ")
-                       (org-super-agenda-groups '((:auto-map my/org-get-category)))))
+                       (org-super-agenda-groups '((:auto-map mr-x/org-get-category)))))
                 (agenda ""
                         ((org-agenda-overriding-header
-                          (concat "\n📋  Stale Tasks\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "📋" "Stale Tasks"))
                          (org-agenda-span 1)
                          (org-habit-show-habits nil)
                          (org-agenda-include-diary nil)
                          (org-scheduled-past-days 30)
                          (org-agenda-skip-function
-                          '(or (my/org-agenda-skip-habits)
-                               (my/org-agenda-skip-routines)
+                          '(or (mr-x/agenda-skip-habits)
+                               (mr-x/agenda-skip-routines)
                                (org-agenda-skip-entry-if 'notscheduled)
                                (org-agenda-skip-entry-if 'todo 'done)
                                (org-agenda-skip-entry-if 'notregexp "^.*SCHEDULED:.*<[^>]+>")
@@ -798,16 +812,16 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                                                   (org-time-string-to-time scheduled)
                                                   (current-time))))
                                    (org-end-of-subtree t)))))
-                         (org-super-agenda-groups '((:auto-map my/org-get-category)))
+                         (org-super-agenda-groups '((:auto-map mr-x/org-get-category)))
                          (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (todo "DONE"
                       ((org-agenda-overriding-header
-                        (concat "\n✓  Done This Week\n" (make-string (window-width) 9472) "\n"))
+                        (mr-x/agenda-header "✓" "Done This Week"))
                        (org-agenda-prefix-format "  ▲ ")
                        (org-super-agenda-groups
-                        '((:auto-map my/org-get-category)))
+                        '((:auto-map mr-x/org-get-category)))
                        (org-agenda-skip-function
                         '(let ((closed (org-entry-get nil "CLOSED")))
                            (if (and closed
@@ -826,52 +840,52 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
               ("v" "Full View"
                ((alltodo ""
                          ((org-agenda-overriding-header
-                           (concat "􀌂  Inbox\n" (make-string (window-width) 9472) "\n"))
+                           (mr-x/agenda-header "􀌂" "Inbox"))
                           (org-agenda-files '("~/roaming/notes/Inbox.org"))
                           (org-agenda-prefix-format "  ▲ ")))
                 (agenda ""
                         ((org-agenda-overriding-header
-                          (concat "\n􀋀  Timeline\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "􀋀" "Timeline"))
                          (org-agenda-span 'day)
                          (org-habit-show-habits nil)
                          (org-agenda-skip-function
-                          '(or (my/org-agenda-skip-habits)
-                               (my/org-agenda-skip-untimed)))
+                          '(or (mr-x/agenda-skip-habits)
+                               (mr-x/agenda-skip-untimed)))
                          (org-agenda-prefix-format '((agenda . "  %?-12t")))
                          (org-agenda-time-grid '((daily today require-timed)
                                                  (800 1000 1200 1400 1600 1800 2000)
                                                  "" ""))))
                 (agenda ""
                         ((org-agenda-overriding-header
-                          (concat "\n􀋀  Do Today\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "􀋀" "Do Today"))
                          (org-agenda-span 'day)
                          (org-habit-show-habits nil)
                          (org-agenda-skip-function
-                          '(or (my/org-agenda-skip-habits)
-                               (my/org-agenda-skip-timed)))
+                          '(or (mr-x/agenda-skip-habits)
+                               (mr-x/agenda-skip-timed)))
                          (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (agenda ""
                         ((org-agenda-overriding-header
-                          (concat "\n􀁑  Habits\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "􀁑" "Habits"))
                          (org-agenda-span 'day)
                          (org-habit-show-habits t)
-                         (org-agenda-skip-function '(my/org-agenda-skip-non-habits))
+                         (org-agenda-skip-function '(mr-x/agenda-skip-non-habits))
                          (org-agenda-prefix-format '((agenda . "  ▲ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (todo "TODO|NEXT"
                       ((org-agenda-overriding-header
-                        (concat "\n􀋀  Unscheduled\n" (make-string (window-width) 9472) "\n"))
+                        (mr-x/agenda-header "􀋀" "Unscheduled"))
                        (org-agenda-prefix-format "  ▲ ")
                        (org-agenda-skip-function
-                        '(or (my/org-agenda-skip-habits)
-                            (org-super-agenda-groups '((:auto-map my/org-get-category)))
+                        '(or (mr-x/agenda-skip-habits)
+                            (org-super-agenda-groups '((:auto-map mr-x/org-get-category)))
                              (org-agenda-skip-entry-if 'scheduled 'deadline)))))
                 (agenda ""
                         ((org-agenda-overriding-header
-                          (concat "\n􀞟  Upcoming Deadlines\n" (make-string (window-width) 9472) "\n"))
+                          (mr-x/agenda-header "􀞟" "Upcoming Deadlines"))
                          (org-agenda-span 7)
                          (org-agenda-entry-types '(:deadline))
                          (org-agenda-time-grid nil)
@@ -883,9 +897,10 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                 (org-agenda-compact-blocks nil)
                 (org-agenda-format-date "\n  %A, %B %e")))))
       (setq org-agenda-format-date (lambda (date)
-  				     (concat"\n"(make-string(window-width)9472)
-  					    "\n"(org-agenda-format-date-aligned date))))
-      (setq org-cycle-separator-lines 2)
+  				     (concat "\n"
+  					    (propertize mr-x/agenda-separator
+  							 'face `(:foreground ,(mr-x/color 'gray)))
+  					    "\n" (org-agenda-format-date-aligned date))))
 
       ;; Agenda visual styling
       (setq org-agenda-todo-keyword-format "")
@@ -897,7 +912,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
             org-habit-missed-glyph ?○)
 
       ;; Overdue indicator advice: replace "Sched.34x:" with clean symbols
-      (defun my/org-agenda-overdue-indicator (orig-fn extra txt &rest args)
+      (defun mr-x/agenda-overdue-indicator (orig-fn extra txt &rest args)
         "Replace verbose scheduled leader with visual overdue indicators."
         (let* ((new-extra
                 (if (and (stringp extra)
@@ -913,10 +928,10 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
           (apply orig-fn new-extra txt args)))
 
       (advice-add 'org-agenda-format-item :around
-                  #'my/org-agenda-overdue-indicator)
+                  #'mr-x/agenda-overdue-indicator)
 
       ;; Priority as exclamation marks
-      (defun my/org-agenda-prettify-priorities ()
+      (defun mr-x/agenda-prettify-priorities ()
         "Replace [#A] [#B] [#C] with exclamation marks."
         (save-excursion
           (goto-char (point-min))
@@ -930,7 +945,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
             (replace-match "!" t t))))
 
       ;; Strike-through for done items
-      (defun my/org-agenda-strike-through-done ()
+      (defun mr-x/agenda-strike-through-done ()
         "Apply strike-through to DONE items in agenda."
         (save-excursion
           (goto-char (point-min))
@@ -946,7 +961,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
             (forward-line 1))))
 
       ;; Section header styling
-      (defun my/org-agenda-style-section-headers ()
+      (defun mr-x/agenda-style-section-headers ()
         "Style section headers (with SF Symbol icons) with larger, bold text."
         (save-excursion
           (goto-char (point-min))
@@ -990,9 +1005,9 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
   			(let ((ov (make-overlay (line-beginning-position) (line-end-position))))
   			  (overlay-put ov 'face '(:foreground "#e5c07b" :weight bold))))))
   		  ;; Apply visual effects
-  		  (my/org-agenda-prettify-priorities)
-  		  (my/org-agenda-strike-through-done)
-  		  (my/org-agenda-style-section-headers)))
+  		  (mr-x/agenda-prettify-priorities)
+  		  (mr-x/agenda-strike-through-done)
+  		  (mr-x/agenda-style-section-headers)))
 
 
 
@@ -2128,7 +2143,33 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
     :config
     (add-hook 'org-mode-hook #'mr-x/org-mode-visual-fill))
 
-  (global-set-key (kbd "<escape>") 'keyboard-escape-quit) ; Make ESC quit prompts
+  ;; Progressive ESC — peels back UI state layer by layer instead of hard quit
+  ;; Inspired by Gleek's escape-quit (https://github.com/Gleek/.emacs)
+  (defvar mr-x/escape-hook nil
+    "Hook run by `mr-x/escape-quit'. If any function returns non-nil, stop there.")
+
+  (defun mr-x/escape-quit (&optional interactive)
+    "Layered escape: minibuffer > region > escape-hook > keyboard-quit."
+    (interactive (list 'interactive))
+    (cond
+     ;; 1. Quit minibuffer if active
+     ((minibuffer-window-active-p (minibuffer-window))
+      (when interactive (setq this-command 'abort-recursive-edit))
+      (abort-recursive-edit))
+     ;; 2. Deactivate active region/selection
+     ((region-active-p)
+      (let (select-active-regions) (deactivate-mark)) t)
+     ;; 3. Let hooked packages (which-key, popups, etc.) handle it
+     ((run-hook-with-args-until-success 'mr-x/escape-hook))
+     ;; 4. Don't interrupt macros
+     ((or defining-kbd-macro executing-kbd-macro) nil)
+     ;; 5. Fall back to regular keyboard-quit
+     ((unwind-protect (keyboard-quit)
+        (when interactive (setq this-command 'keyboard-quit))))))
+
+  (global-set-key [remap keyboard-quit] #'mr-x/escape-quit)
+  (global-set-key (kbd "<escape>") #'mr-x/escape-quit)
+
   (setq visible-bell t)
   (fset 'yes-or-no-p 'y-or-n-p)
   
@@ -2911,6 +2952,8 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     (setq evil-respect-visual-line-mode t)
     :config
     (evil-mode 1)
+    ;; ESC in normal state → progressive escape instead of evil-force-normal-state
+    (define-key evil-normal-state-map [escape] #'mr-x/escape-quit)
     ;; Make M-backspace delete word without saving to register (like normal editors)
     (define-key evil-insert-state-map (kbd "M-<backspace>")
       (lambda () (interactive) (delete-region (point) (progn (backward-word) (point))))))
@@ -3309,7 +3352,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
       ("q" nil :exit t))
 
     ;; ── Org-Agenda Hydra ──────────────────────────────────────
-    (defun my/org-agenda-next-section ()
+    (defun mr-x/agenda-next-section ()
       "Jump to next section header (org-agenda-structure face)."
       (interactive)
       (forward-line 1)
@@ -3320,7 +3363,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
           (unless found (forward-line 1)))
         (unless found (message "No more sections"))))
 
-    (defun my/org-agenda-prev-section ()
+    (defun mr-x/agenda-prev-section ()
       "Jump to previous section header (org-agenda-structure face)."
       (interactive)
       (forward-line -1)
@@ -3331,7 +3374,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
           (unless found (forward-line -1)))
         (unless found (message "No more sections"))))
 
-    (defun my/org-agenda-next-header ()
+    (defun mr-x/agenda-next-header ()
       "Jump to next category header (org-super-agenda-header face)."
       (interactive)
       (forward-line 1)
@@ -3342,7 +3385,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
           (unless found (forward-line 1)))
         (unless found (message "No more headers"))))
 
-    (defun my/org-agenda-prev-header ()
+    (defun mr-x/agenda-prev-header ()
       "Jump to previous category header (org-super-agenda-header face)."
       (interactive)
       (forward-line -1)
