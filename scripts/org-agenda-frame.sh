@@ -1,6 +1,8 @@
 #!/bin/bash
 # Dedicated org-agenda frame
-# Opens custom projects+agenda view ("c") in a new emacsclient frame
+# Opens Focus agenda view ("f") in a new emacsclient frame
+
+EMACSCLIENT="/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"
 
 # If an agenda frame already exists, focus it instead of creating a new one
 EXISTING=$(yabai -m query --windows | jq -r '.[] | select(.app == "Emacs" and (.title | contains("Agenda"))) | .id' | head -1)
@@ -8,11 +10,11 @@ EXISTING=$(yabai -m query --windows | jq -r '.[] | select(.app == "Emacs" and (.
 if [[ -n "$EXISTING" ]]; then
     yabai -m window "$EXISTING" --focus
 else
-    emacsclient --no-wait --create-frame --eval \
+    $EMACSCLIENT --no-wait --create-frame --eval \
       '(progn
          (set-frame-parameter nil (quote title) "Agenda")
          (setq frame-title-format "Agenda")
-         (org-agenda nil "c")
+         (org-agenda nil "f")
          (delete-other-windows)
          (set-window-dedicated-p (selected-window) t))'
 fi

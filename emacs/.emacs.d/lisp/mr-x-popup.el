@@ -219,6 +219,8 @@
   (evil-define-key 'normal mr-x/popup-mode-map
     (kbd "j") #'mr-x/popup--select-next
     (kbd "k") #'mr-x/popup--select-prev
+    (kbd "C-n") #'mr-x/popup--select-next
+    (kbd "C-p") #'mr-x/popup--select-prev
     (kbd "G") #'end-of-buffer
     (kbd "gg") #'beginning-of-buffer
     (kbd "RET") #'mr-x/popup--handle-return
