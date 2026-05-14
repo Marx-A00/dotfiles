@@ -42,10 +42,13 @@
   "General.el leader key system should be loaded."
   (should (featurep 'general)))
 
-(ert-deftest config-test-ivy-counsel-loaded ()
-  "Ivy and Counsel completion framework should be loaded."
-  (should (featurep 'ivy))
-  (should (featurep 'counsel)))
+(ert-deftest config-test-vertico-consult-loaded ()
+  "Vertico and Consult completion framework should be loaded."
+  (should (featurep 'vertico))
+  (should (featurep 'orderless))
+  (should (featurep 'marginalia))
+  (should (fboundp 'consult-line))
+  (should (fboundp 'embark-act)))
 
 (ert-deftest config-test-projectile-loaded ()
   "Projectile project management should be loaded."

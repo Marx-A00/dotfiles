@@ -73,6 +73,8 @@
 (setq gc-cons-threshold (* 100 1024 1024)) ;; 100MB
 (run-with-idle-timer 5 t #'garbage-collect)
 
+(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+
 (use-package org
         :ensure nil
         :demand t
@@ -130,10 +132,19 @@
   	(require 'org-habit)
   	(add-to-list 'org-modules 'org-habit)
   	(setq org-habit-graph-column 60)
+  	(advice-add 'org-habit-insert-consistency-graphs :before
+  	            (lambda (&rest _)
+  	              (setq org-habit-graph-column
+  	                    (min 60 (- (window-width) 32)))))
+
+  	;; org-habit-flex: weekday-specific habits
+  	(require 'org-habit-flex)
+  	(org-habit-flex-activate)
 
   	;; ── Color palette ──────────────────────────────────
   	(defvar mr-x/colors
   	  '((gold      . "#fabd2f")
+  	    (orange    . "#fe8019")
   	    (green     . "#8ec07c")
   	    (lime      . "#b8bb26")
   	    (cream     . "#ebdbb2")
@@ -171,7 +182,7 @@
 
   	(defvar mr-x/todo-faces
   	  `(("TODO" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'red) :weight bold))
-  	    ("NEXT" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'green) :weight bold))
+  	    ("NEXT" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'orange) :weight bold))
   	    ("WAIT" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'mint) :weight bold))
   	    ("DONE" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'muted) :weight bold))
   	    ("CANC" . (:foreground ,(mr-x/color 'bg) :background ,(mr-x/color 'muted) :weight bold)))
@@ -280,17 +291,23 @@
   		(goto-char (point-min)))))))
 
       (defun mr-x/agenda-auto-refresh ()
-        "Refresh visible agenda buffers when an org file is saved."
+        "Refresh visible agenda buffers when an org file is saved.
+  Only refreshes buffers that are currently displayed in a window —
+  `org-agenda-redo-all' calls `recenter', which errors when the
+  selected window does not show the current buffer."
         (when (derived-mode-p 'org-mode)
           (dolist (buf (buffer-list))
-            (with-current-buffer buf
-              (when (derived-mode-p 'org-agenda-mode)
-                (run-with-idle-timer 0.5 nil
-                  (lambda (b)
-                    (when (buffer-live-p b)
-                      (with-current-buffer b
-                        (mr-x/agenda-redo-preserving-position))))
-                  buf))))))
+            (when (and (buffer-live-p buf)
+                       (with-current-buffer buf
+                         (derived-mode-p 'org-agenda-mode))
+                       (get-buffer-window buf t))
+              (run-with-idle-timer 0.5 nil
+                (lambda (b)
+                  (when (buffer-live-p b)
+                    (when-let ((win (get-buffer-window b t)))
+                      (with-selected-window win
+                        (mr-x/agenda-redo-preserving-position)))))
+                buf)))))
 
       (add-hook 'after-save-hook #'mr-x/agenda-auto-refresh)
 
@@ -364,11 +381,23 @@
                     (replace-match
                      (concat (propertize "▲" 'face `(:foreground ,(mr-x/color 'gold)))
                              " "
-                             (propertize "◆" 'face `(:foreground ,(mr-x/color 'lime)))))
+                             (propertize "◆" 'face `(:foreground ,(mr-x/color 'orange)))))
                   (put-text-property (match-beginning 0) (match-end 0)
                                      'face `(:foreground ,(mr-x/color 'gold)))))
               (forward-line 1)))))
       (add-hook 'org-agenda-finalize-hook 'mr-x/style-agenda-entries)
+
+      (defun mr-x/style-habit-entries ()
+        "Colorize ↻ icons on habit lines."
+        (save-excursion
+          (goto-char (point-min))
+          (let ((inhibit-read-only t))
+            (while (not (eobp))
+              (when (search-forward "↻" (line-end-position) t)
+                (put-text-property (match-beginning 0) (match-end 0)
+                                   'face `(:foreground ,(mr-x/color 'green))))
+              (forward-line 1)))))
+      (add-hook 'org-agenda-finalize-hook 'mr-x/style-habit-entries)
 
       (defun mr-x/style-agenda-separators ()
         "Color separator lines gray. Runs as finalize hook because
@@ -672,7 +701,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                          (org-agenda-span 'day)
                          (org-habit-show-habits t)
                          (org-agenda-skip-function '(mr-x/agenda-skip-non-habits))
-                         (org-agenda-prefix-format '((agenda . "  ▲ ")))
+                         (org-agenda-prefix-format '((agenda . "  ↻ ")))
                          (org-agenda-time-grid nil)
                          (org-agenda-format-date "")))
                 (tags-todo "+PRIORITY=\"A\"|+PRIORITY=\"B\""
@@ -739,7 +768,16 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                             (org-agenda-skip-function
                              '(org-agenda-skip-entry-if 'scheduled))
                             (org-agenda-prefix-format "  ▲ ")
-                            (org-super-agenda-groups '((:auto-map mr-x/org-get-category))))))
+                            (org-super-agenda-groups '((:auto-map mr-x/org-get-category)))))
+                (agenda ""
+                        ((org-agenda-overriding-header
+                          (mr-x/agenda-header "􀁑" "Habits"))
+                         (org-agenda-span 'day)
+                         (org-habit-show-habits t)
+                         (org-agenda-skip-function '(mr-x/agenda-skip-non-habits))
+                         (org-agenda-prefix-format '((agenda . "  ↻ ")))
+                         (org-agenda-time-grid nil)
+                         (org-agenda-format-date ""))))
                ((org-agenda-remove-tags t)
                 (org-agenda-scheduled-leaders '("" ""))
                 (org-agenda-deadline-leaders '("" "In %3d d. " "%2d d. ago "))
@@ -1009,6 +1047,23 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
 
 
   (add-hook 'org-agenda-finalize-hook #'my-highlight-lowest-goal)
+
+  ;; Auto-refresh agenda buffers every 5 minutes
+  (defvar mr-x/agenda-refresh-timer nil
+    "Timer for periodic agenda refresh.")
+
+  (defun mr-x/agenda-refresh-all ()
+    "Silently refresh all visible org-agenda buffers."
+    (dolist (buf (buffer-list))
+      (when (and (get-buffer-window buf t)
+                 (with-current-buffer buf
+                   (derived-mode-p 'org-agenda-mode)))
+        (with-current-buffer buf
+          (let ((inhibit-message t))
+            (org-agenda-redo t))))))
+
+  (setq mr-x/agenda-refresh-timer
+        (run-with-timer 300 300 #'mr-x/agenda-refresh-all))
 
   ;; toc-org for table of contents generation
   (use-package toc-org
@@ -1288,7 +1343,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
             (evil-local-set-key 'normal (kbd "q") #'quit-window)
             (evil-local-set-key 'normal (kbd "n") #'org-next-visible-heading)
             (evil-local-set-key 'normal (kbd "p") #'org-previous-visible-heading)
-            (evil-local-set-key 'normal (kbd "/") #'swiper)
+            (evil-local-set-key 'normal (kbd "/") #'consult-line)
             (evil-local-set-key 'normal (kbd "TAB") #'org-cycle)
             (evil-local-set-key 'normal (kbd "l") #'mr-x/mdox-lint))
           ;; Auto-lint after mode settles
@@ -1340,11 +1395,11 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                          (window-height . 0.45))))))
 
   (defun mr-x/search-shortcuts ()
-    "Open shortcuts file and immediately search with swiper."
+    "Open shortcuts file and immediately search with consult-line."
     (interactive)
     (find-file mr-x/shortcuts-file)
     (mr-x/mdox-reader-mode 1)
-    (swiper))
+    (consult-line))
 
   ;;; ============================================
   ;;; Mdox Format Spec & Tooling
@@ -1838,7 +1893,7 @@ Shows all warnings in the echo area."
      :ensure t
      :after evil
      :custom
-     (xwwp-follow-link-completion-system 'ivy)
+     (xwwp-follow-link-completion-system 'default)
      :config
      (evil-define-key 'normal xwidget-webkit-mode-map
        "f" 'xwwp-follow-link))
@@ -1848,9 +1903,6 @@ Shows all warnings in the echo area."
   (add-hook 'prog-mode-hook #'mr-x/general-setup)
 
 
-(use-package xwwp-follow-link-ivy
-  :ensure t
-  :after xwwp)
 
 					  ; opacity - same value for focused and unfocused (consistent transparency)
   (set-frame-parameter (selected-frame) 'alpha '(80 80))
@@ -1907,7 +1959,6 @@ Shows all warnings in the echo area."
 (use-package perspective
   :ensure t
   :bind
-  ("C-x C-b" . persp-counsel-switch-buffer)         ; or use a nicer switcher, see below
   ("C-x C-i" . persp-ibuffer)
   :custom
   (persp-mode-prefix-key (kbd "C-x M-x"))  ; keep original prefix for compatibility
@@ -1915,6 +1966,12 @@ Shows all warnings in the echo area."
   (setq persp-show-modestring nil)
   (persp-mode)
   :config
+  ;; Use consult-buffer with perspective filtering + preview
+  (defun mr-x/persp-consult-buffer ()
+    "Switch buffer restricted to current perspective, with preview."
+    (interactive)
+    (consult-buffer '(persp-consult-source)))
+  (global-set-key (kbd "C-x C-b") #'mr-x/persp-consult-buffer)
   ;; Hide the GLOBAL perspective (used internally by persp-add-buffer-to-frame-global)
   (define-advice persp-names (:filter-return (names) hide-global)
     (cl-remove persp-frame-global-perspective-name names :test #'string=))
@@ -2079,7 +2136,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
 (global-set-key (kbd "<escape>") #'mr-x/escape-quit)
 
 ;; Point Stack — cursor breadcrumbs for navigation jumps
-;; Auto-saves position before xref, imenu, isearch, counsel-rg, etc.
+;; Auto-saves position before xref, imenu, isearch, consult-ripgrep, etc.
 ;; Vendored from https://github.com/Gleek/.emacs/blob/master/packages/point-stack.el
 (use-package point-stack
   :ensure nil
@@ -2144,7 +2201,12 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
   :ensure t
   :defer t)
 
-(setq visible-bell t)
+;; Visual bell — flash an eye icon via Hammerspoon (native macOS transparency)
+(defun mr-x/visual-bell ()
+  "Flash an eye icon via Hammerspoon's hs.canvas overlay."
+  (start-process "bell-icon" nil "hs" "-c" "showBellIcon()"))
+
+(setq ring-bell-function #'mr-x/visual-bell)
 (fset 'yes-or-no-p 'y-or-n-p)
 
 ;; Auto-revert mode to automatically refresh buffers when files change on disk
@@ -2313,7 +2375,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
 
       (mr-x/leader-def
         "b" '(:ignore t :wk "buffer")
-        "b b" '(persp-counsel-switch-buffer :wk "switch buffer")
+        "b b" '(mr-x/persp-consult-buffer :wk "switch buffer")
         "b k" '(kill-current-buffer :wk "kill this buffer")
         "b K" '(kill-buffer-and-window :wk "kill buffer and window")
         "b r" '(revert-buffer :wk "revert buffer")
@@ -2406,8 +2468,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         "c 3" '(mr-x/agent-shell-allow-always :wk "Allow always")
         "c 0" '(mr-x/agent-shell-view-diff :wk "View diff")
         "c a" '(:ignore t :wk "Recall")
-        "c a s" '(agent-recall-search :wk "Search")
-        "c a S" '(agent-recall-search-live :wk "Search live")
+        "c a s" '(agent-recall-consult-search :wk "Search")
         "c a b" '(agent-recall-browse :wk "Browse")
         "c a r" '(agent-recall-resume :wk "Resume")
         "c a B" '(agent-recall-backfill :wk "Backfill")
@@ -2564,8 +2625,8 @@ TASK-ID is the ID shown when Claude runs a background command."
       ;; LSP commands under SPC ;
       (mr-x/leader-def
         ";" '(:ignore t :wk "LSP")
-        "; s" '(lsp-ivy-workspace-symbol :wk "Search symbol")
-        "; S" '(lsp-ivy-global-workspace-symbol :wk "Search symbol (global)")
+        "; s" '(consult-lsp-symbols :wk "Search symbol")
+        "; S" '(consult-lsp-symbols :wk "Search symbol (global)")
         "; d" '(lsp-find-definition :wk "Find definition")
         "; D" '(lsp-find-declaration :wk "Find declaration")
         "; r" '(lsp-find-references :wk "Find references")
@@ -2585,7 +2646,7 @@ TASK-ID is the ID shown when Claude runs a background command."
         "; q" '(lsp-disconnect :wk "Disconnect LSP")
         "; w" '(lsp-restart-workspace :wk "Restart workspace")
         "; I" '(:ignore t :wk "Imenu")
-        "; I i" '(counsel-imenu :wk "Imenu")
+        "; I i" '(consult-imenu :wk "Imenu")
         "; I I" '(lsp-ui-imenu :wk "LSP Imenu"))
 
   )
@@ -2843,10 +2904,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
           (format "Session restored: %d frames" (length frame-data))))))
 
 (use-package helpful
-  :ensure t
-  :custom
-  (counsel-describe-function-function #'helpful-callable)
-  (counsel-describe-variable-function #'helpful-variable))
+  :ensure t)
 
 (global-set-key (kbd "C-h v") #'helpful-variable)
 (global-set-key (kbd "C-h k") #'helpful-key)
@@ -2886,7 +2944,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
 
 (use-package evil-collection
     :ensure t
-    :after (evil ivy)
+    :after evil
     :config
     (evil-collection-init))
 
@@ -2999,77 +3057,68 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   (dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
     (add-hook mode (lambda () (display-line-numbers-mode 1))))
 
-;; Ivy & Counsel
+;; Vertico + Consult + Orderless + Marginalia + Embark
 
-(use-package swiper
-  :ensure t)
-
-(use-package ivy
+;; Emacs 30 ships compat v30 but these packages need v31+
+;; Must explicitly require compat-31 — the macro skips it on Emacs 30
+(use-package compat
   :ensure t
-  :bind (("C-s" . swiper)
-	     :map ivy-minibuffer-map
-	     ("TAB" . ivy-alt-done)
-	     ("C-l" . ivy-alt-done)
-	     ("C-j" . ivy-next-line)
-	     ("C-k" . ivy-previous-line)
-	     :map ivy-switch-buffer-map
-	     ("C-k" . ivy-previous-line)
-	     ("C-l" . ivy-done)
-	     ("C-d" . ivy-switch-buffer-kill)
-	     :map ivy-reverse-i-search-map
-	     ("C-k" . ivy-previous-line)
-	     ("C-d" . ivy-reverse-i-search-kill))
+  :demand t
   :config
-  (ivy-mode 1)
-  (setq ivy-use-virtual-buffers nil)
-  (setq ivy-count-format "(%d/%d) "))
+  (require 'compat-31))
 
-;; Grab symbol/word at point into swiper search (from emacswiki)
-;; C-. inserts full symbol (e.g., org-roam-directory), M-. inserts word (e.g., org)
-(with-eval-after-load 'swiper
-  (define-key swiper-map (kbd "C-.")
-    (lambda () (interactive)
-      (let ((sym (with-ivy-window (thing-at-point 'symbol))))
-        (when sym
-          (delete-minibuffer-contents)
-          (insert (format "\\<%s\\>" sym))))))
-  (define-key swiper-map (kbd "M-.")
-    (lambda () (interactive)
-      (let ((word (with-ivy-window (thing-at-point 'word))))
-        (when word
-          (delete-minibuffer-contents)
-          (insert (format "\\<%s\\>" word)))))))
-
-
-(use-package counsel
+(use-package vertico
   :ensure t
+  :init
+  (vertico-mode 1)
   :config
-  (counsel-mode 1)
+  (setq vertico-count 15)
+  (setq vertico-cycle t)
+  ;; Evil-friendly navigation in minibuffer
+  (define-key vertico-map (kbd "C-j") #'vertico-next)
+  (define-key vertico-map (kbd "C-k") #'vertico-previous)
+  (define-key vertico-map (kbd "C-l") #'vertico-insert))
 
-  ;; Auto-preview symbols in counsel-imenu as you navigate
-  (defvar my/imenu-preview-pos nil
-    "Saved position before counsel-imenu for restore on cancel.")
+(use-package orderless
+  :ensure t
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-overrides '((file (styles basic partial-completion)))))
 
-  (advice-add 'counsel-imenu :before
-    (lambda (&rest _) (setq my/imenu-preview-pos (point))))
+(use-package marginalia
+  :ensure t
+  :init
+  (marginalia-mode 1))
 
-  (ivy-configure 'counsel-imenu
-    :update-fn #'ivy-call
-    :unwind-fn (lambda ()
-                 (when my/imenu-preview-pos
-                   (goto-char my/imenu-preview-pos)))))
+(use-package consult
+  :ensure t
+  :bind (("C-s"     . consult-line)
+         ("C-x b"   . consult-buffer)
+         ("M-g g"   . consult-goto-line)
+         ("M-g M-g" . consult-goto-line)
+         ("M-s r"   . consult-ripgrep)
+         ("M-s l"   . consult-line)
+         ("M-s f"   . consult-find))
+  :config
+  ;; Use consult for xref
+  (setq xref-show-xrefs-function #'consult-xref
+        xref-show-definitions-function #'consult-xref)
+  ;; Preview on consult-line: grab symbol at point
+  (consult-customize consult-line :initial (thing-at-point 'symbol))
+  ;; Auto-preview in consult-imenu
+  (consult-customize consult-imenu :preview-key 'any))
 
-(global-set-key (kbd "M-x") 'counsel-M-x)
-(global-set-key (kbd "C-x C-f") 'counsel-find-file)
+(use-package embark
+  :ensure t
+  :bind (("C-." . embark-act)
+         ("C-;" . embark-dwim))
+  :config
+  (setq prefix-help-command #'embark-prefix-help-command))
 
-;; Fix: Swiper breaks org-mode src block highlighting after search
-;; This advice refreshes org fontification after swiper cleanup
-(defun mr-x/swiper-refresh-org-fontification (&rest _)
-  "Refresh org-mode fontification after swiper search."
-  (when (derived-mode-p 'org-mode)
-    (jit-lock-refontify)))
-
-(advice-add 'swiper--cleanup :after #'mr-x/swiper-refresh-org-fontification)
+(use-package embark-consult
+  :ensure t
+  :after (embark consult)
+  :hook (embark-collect-mode . consult-preview-at-point-mode))
 
 ;; with-editor must be configured BEFORE magit loads
   (use-package with-editor
@@ -3428,8 +3477,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     :init
     (projectile-mode +1)
     :config
-    ;; Set the completion system to ivy since you're using it
-    (setq projectile-completion-system 'ivy)
+    (setq projectile-completion-system 'default)
     ;; Configure project search paths
     (setq projectile-project-search-path '("~/roaming" "~/work"))
     ;; Set default action when switching projects (overridden below after project-dashboard loads)
@@ -3441,11 +3489,6 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     :bind (:map projectile-mode-map
                 ("C-c p" . projectile-command-map)))
 
-  (use-package counsel-projectile
-    :ensure t
-    :after (projectile counsel)
-    :config 
-    (counsel-projectile-mode 1))
 
   ;; Add dev environment keybindings to projectile-command-map
   (with-eval-after-load 'projectile
@@ -3614,7 +3657,7 @@ If the buffers already exist, kills them first."
    (org-roam-node-list)))
 
 (defun mr-x/book-format-candidate (node)
-  "Format NODE as 'Title - Author' for ivy display."
+  "Format NODE as 'Title - Author' for completion display."
   (let* ((title (org-roam-node-title node))
          (author (or (cdr (assoc "AUTHOR" (org-roam-node-properties node)))
                      "Unknown")))
@@ -3627,9 +3670,9 @@ If the buffers already exist, kills them first."
          (candidates (mapcar #'mr-x/book-format-candidate books)))
     (if (null candidates)
         (user-error "No books currently being read. Use SPC r n to add one")
-      (ivy-read "Select book: " candidates
-                :action (lambda (selection)
-                          (mr-x/book-open-pdf (cdr selection)))))))
+      (let* ((choice (completing-read "Select book: " candidates nil t))
+             (node (cdr (assoc choice candidates))))
+        (mr-x/book-open-pdf node)))))
 
 (defun mr-x/book-open-pdf (node)
   "Open the PDF for org-roam NODE at the saved page."
@@ -3649,9 +3692,9 @@ If the buffers already exist, kills them first."
          (candidates (mapcar #'mr-x/book-format-candidate books)))
     (if (null candidates)
         (user-error "No books currently being read")
-      (ivy-read "Open notes for: " candidates
-                :action (lambda (selection)
-                          (find-file (org-roam-node-file (cdr selection))))))))
+      (let* ((choice (completing-read "Open notes for: " candidates nil t))
+             (node (cdr (assoc choice candidates))))
+        (find-file (org-roam-node-file node))))))
 
 (defun mr-x/book-new ()
   "Create a new book note by selecting a PDF interactively."
@@ -3709,19 +3752,18 @@ If the buffers already exist, kills them first."
          (candidates (mapcar #'mr-x/book-format-candidate books)))
     (if (null candidates)
         (user-error "No books currently being read")
-      (ivy-read "Mark finished: " candidates
-                :action (lambda (selection)
-                          (let* ((node (cdr selection))
-                                 (file (org-roam-node-file node)))
-                            (with-current-buffer (find-file-noselect file)
-                              (goto-char (point-min))
-                              (when (re-search-forward "^#\\+filetags:.*\\breading\\b" nil t)
-                                (replace-match
-                                 (replace-regexp-in-string
-                                  "\\breading\\b" "read" (match-string 0)))
-                                (save-buffer)
-                                (message "Marked '%s' as finished!"
-                                         (org-roam-node-title node))))))))))
+      (let* ((choice (completing-read "Mark finished: " candidates nil t))
+             (node (cdr (assoc choice candidates)))
+             (file (org-roam-node-file node)))
+        (with-current-buffer (find-file-noselect file)
+          (goto-char (point-min))
+          (when (re-search-forward "^#\\+filetags:.*\\breading\\b" nil t)
+            (replace-match
+             (replace-regexp-in-string
+              "\\breading\\b" "read" (match-string 0)))
+            (save-buffer)
+            (message "Marked '%s' as finished!"
+                     (org-roam-node-title node))))))))
 
 (with-eval-after-load 'pdf-tools
   (defhydra hydra-pdf (:hint nil :color pink :foreign-keys run)
@@ -3975,8 +4017,9 @@ _q_: quit
   (setq lsp-ui-doc-position 'at-point)
   (setq lsp-ui-peek-enable t))
 
-(use-package lsp-ivy
-  :ensure t)
+(use-package consult-lsp
+  :ensure t
+  :after (lsp-mode consult))
 
 ;; Optional: Kind icon for completion candidates
 (use-package kind-icon
@@ -4520,7 +4563,7 @@ _q_: quit
            (project-shell project-shell)
            ((= (length all-shells) 1) (car all-shells))
            ((> (length all-shells) 1)
-            (get-buffer (ivy-read "Select agent-shell: " (mapcar #'buffer-name all-shells))))
+            (get-buffer (completing-read "Select agent-shell: " (mapcar #'buffer-name all-shells))))
            (t (error "No agent-shell buffers found. Start one first.")))))
 
       (defun mr-x/taskmaster-add-task ()
@@ -4528,7 +4571,7 @@ _q_: quit
         (interactive)
         (let* ((project-root (mr-x/taskmaster-get-project-root))
                (tags (mr-x/taskmaster-get-tags project-root))
-               (selected-tag (ivy-read "Select tag: " tags))
+               (selected-tag (completing-read "Select tag: " tags))
                (task-description (condition-case nil
                                      (mr-x/ask-user-popup
                                       "Task description"
@@ -5214,14 +5257,17 @@ _q_: quit
       ;; Ensure load-path is set up early so :commands autoloads can
       ;; find the file even before agent-shell triggers :after.
       (add-to-list 'load-path (expand-file-name "~/roaming/projects/agent-recall"))
-      :commands (agent-recall-search agent-recall-search-live
+      ;; consult-search lives in agent-recall-consult.el, not the main file,
+      ;; so it needs its own autoload rather than going through :commands.
+      (autoload 'agent-recall-consult-search "agent-recall-consult" nil t)
+      :commands (agent-recall-search
                  agent-recall-browse agent-recall-resume
                  agent-recall-backfill agent-recall-stats)
       :custom
       (agent-recall-search-paths '("~"))
       (agent-recall-search-function 'deadgrep)
       (agent-recall-browse-sort 'modified-desc)
-      (agent-recall-browse-preview nil)
+      (agent-recall-browse-preview t)
       :hook (agent-shell-mode . agent-recall-track-sessions))
 
     (use-package agent-shell-macext
