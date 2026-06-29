@@ -5,6 +5,7 @@
 .NOTES
   Requires either Developer Mode ON (Settings > Privacy & security > For developers)
   or running this script as Administrator, so that symlinks can be created.
+  Run from the windows/ subdirectory of the monorepo (cd windows first).
   Re-running is safe and idempotent.
 
   Dependencies (install via scoop before running; missing ones are skipped

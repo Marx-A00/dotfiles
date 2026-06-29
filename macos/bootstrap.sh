@@ -1,15 +1,17 @@
 #!/bin/bash
 
+DOTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # …/dotfiles/macos
+
 echo "Linking dotfiles..."
 
-ln -sf "$HOME/.dotfiles/yabai/yabairc" "$HOME/.yabairc"
-ln -sf "$HOME/.dotfiles/skhd/skhdrc" "$HOME/.skhdrc"
-ln -sf "$HOME/.dotfiles/sketchybar" "$HOME/.config/sketchybar"
-ln -sf "$HOME/.dotfiles/hammerspoon/init.lua" "$HOME/.hammerspoon/init.lua"
+ln -sf "$DOTDIR/yabai/yabairc" "$HOME/.yabairc"
+ln -sf "$DOTDIR/skhd/skhdrc" "$HOME/.skhdrc"
+ln -sf "$DOTDIR/sketchybar" "$HOME/.config/sketchybar"
+ln -sf "$DOTDIR/hammerspoon/init.lua" "$HOME/.hammerspoon/init.lua"
 
 # Emacs LaunchAgents
-ln -sf "$HOME/.dotfiles/emacs/com.marcosandrade.emacsdaemon.plist" "$HOME/Library/LaunchAgents/"
-ln -sf "$HOME/.dotfiles/emacs/com.marcosandrade.emacsclient.plist" "$HOME/Library/LaunchAgents/"
+ln -sf "$DOTDIR/emacs/com.marcosandrade.emacsdaemon.plist" "$HOME/Library/LaunchAgents/"
+ln -sf "$DOTDIR/emacs/com.marcosandrade.emacsclient.plist" "$HOME/Library/LaunchAgents/"
 
 echo "All symlinks created!"
 echo "To activate Emacs LaunchAgents, run:"
