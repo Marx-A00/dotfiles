@@ -109,7 +109,7 @@
     ;; not the ~/.emacs.d symlink — so VC/magit act on the repo and there's no
     ;; "follow symlink?" prompt). USERPROFILE on Windows, ~ on macOS.
     "e"   '((lambda () (interactive)
-              (find-file (expand-file-name "dotfiles/emacs/.emacs.d/init.el"
+              (find-file (expand-file-name "dotfiles/windows/emacs/.emacs.d/init.el"
                                            (or (getenv "USERPROFILE") "~"))))
             :wk "edit init.el")
     ;; buffers
@@ -436,7 +436,7 @@
                 ;; NOTE: on Windows, Emacs `~' (HOME) is %APPDATA%\Roaming, NOT
                 ;; %USERPROFILE%, so "~/dotfiles/..." points at a phantom folder.
                 ;; Anchor to USERPROFILE, where the dotfiles repo actually lives.
-                "-File" (expand-file-name "dotfiles/powershell/agent-shell-snip.ps1"
+                "-File" (expand-file-name "dotfiles/windows/powershell/agent-shell-snip.ps1"
                                           (getenv "USERPROFILE")))))
   ;; Make the Windows key act as Emacs `super', so s-<return> below mirrors the
   ;; Mac Cmd+Enter. Left at pass-to-system t so a *lone* Win press still opens the
