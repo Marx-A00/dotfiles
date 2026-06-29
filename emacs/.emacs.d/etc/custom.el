@@ -5,7 +5,9 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(custom-safe-themes
-   '("f1e8339b04aef8f145dd4782d03499d9d716fdc0361319411ac2efc603249326"
+   '("b7a09eb77a1e9b98cafba8ef1bd58871f91958538f6671b22976ea38c2580755"
+     "8c7e832be864674c220f9a9361c851917a93f921fedb7717b1b5ece47690c098"
+     "f1e8339b04aef8f145dd4782d03499d9d716fdc0361319411ac2efc603249326"
      "48042425e84cd92184837e01d0b4fe9f912d875c43021c3bcb7eeb51f1be5710"
      "0d2c5679b6d087686dcfd4d7e57ed8e8aedcccc7f1a478cd69704c02e4ee36fe"
      default))
@@ -122,12 +124,16 @@
      ("agent shell manager"
       . "~/.dotfiles/emacs/.emacs.d/elpaca/repos/agent-shell-manager/")
      ("sakura" . "~/roaming/projects/sakura/")
-     ("futura renaissance" . "~/roaming/futura-renaissance/"))))
+     ("futura renaissance" . "~/roaming/futura-renaissance/")
+     ("Marx-A00" . "~/roaming/projects/Marx-A00.github.io/")
+     ("frethead" . "~/roaming/projects/frethead/")
+     ("trakt-sync" . "~/roaming/code/trakt-sync/"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(devdocs-code-block ((t (:background "#3c3836" :extend t))))
  '(ediff-current-diff-A ((t (:background "#3b2626"))))
  '(ediff-current-diff-B ((t (:background "#2e3b2e"))))
  '(ediff-current-diff-C ((t (:background "#3b3520"))))
@@ -170,5 +176,11 @@
  '(org-level-5 ((t (:foreground "#606060"))))
  '(org-level-6 ((t (:foreground "#505050"))))
  '(org-level-7 ((t (:foreground "#404040"))))
+ '(shr-code ((t (:foreground "#fe8019" :background "#3c3836"))))
+ '(shr-h1 ((t (:foreground "#fb4934" :weight bold :height 1.4))))
+ '(shr-h2 ((t (:foreground "#fabd2f" :weight bold :height 1.2))))
+ '(shr-h3 ((t (:foreground "#b8bb26" :weight bold :height 1.1))))
+ '(shr-h4 ((t (:foreground "#8ec07c" :weight bold))))
+ '(shr-link ((t (:foreground "#83a598" :underline t))))
  '(typescript-ts-jsx-attribute-face ((t (:foreground "#fabd2f"))))
  '(typescript-ts-jsx-tag-face ((t (:foreground "#8ec07c")))))

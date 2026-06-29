@@ -9,6 +9,7 @@
   - [[#encoding][Encoding]]
   - [[#garbage-collection][Garbage Collection]]
   - [[#local-lisp-load-path][Local lisp load-path]]
+  - [[#org-mcp][org-mcp]]
 - [[#org][Org]]
   - [[#org-mode-setup][Org Mode Setup]]
   - [[#org-babel][Org Babel]]
@@ -89,6 +90,18 @@
   (use-package cond-let
     :ensure (:host github :repo "tarsius/cond-let"))
 
+  ;; compat MUST be queued before any package that depends on it (org-modern,
+  ;; org-super-agenda, vertico, magit, ...). If it's declared later, elpaca has
+  ;; already queued it as a transitive dependency and re-queuing it errors out
+  ;; ("compat previously queued as dependency of ..." -> Wrong type argument: listp)
+  ;; which aborts the rest of init in daemon mode.
+  ;; Emacs 30 ships compat v30 but newer packages need v31+, so force-require it.
+  (use-package compat
+    :ensure t
+    :demand t
+    :config
+    (require 'compat-31))
+
   ;; Load org early to avoid version conflicts
   (elpaca org)
   (elpaca-wait)
@@ -117,7 +130,6 @@
   (set-default-coding-systems 'utf-8)
   (set-terminal-coding-system 'utf-8)
   (set-keyboard-coding-system 'utf-8)
-
 
 #+end_src
 
@@ -334,7 +346,8 @@ directly into org files via emacsclient.
   		  )
   	      (move-to-column counter)
   	      ;;until end of line
-  	      (while (= (char-after (point)) org-habit-completed-glyph)
+  	      (while (and (char-after (point))
+  			  (= (char-after (point)) org-habit-completed-glyph))
   		(setq streak (+ streak 1))
   		(setq counter (- counter 1))
   		(backward-char 1))
@@ -383,6 +396,17 @@ directly into org files via emacsclient.
                 buf)))))
 
       (add-hook 'after-save-hook #'mr-x/agenda-auto-refresh)
+
+    ;; Auto-redo agenda after marking a habit done
+    ;; org-agenda-todo only does an inline update, which doesn't redraw
+    ;; the habit consistency graph — a full redo is needed.
+    (defun mr-x/agenda-redo-after-habit-done (orig-fun &rest args)
+      "After `org-agenda-todo', redo the agenda if the entry was a habit."
+      (let ((was-habit (org-get-at-bol 'org-habit-p)))
+        (apply orig-fun args)
+        (when was-habit
+          (org-agenda-redo-all))))
+    (advice-add 'org-agenda-todo :around #'mr-x/agenda-redo-after-habit-done)
 
       ;; Reset finalize hook to prevent stale functions accumulating across reloads
       (setq org-agenda-finalize-hook nil)
@@ -442,6 +466,39 @@ directly into org files via emacsclient.
                                           'org-category (plist-get props 'org-category)))))))
               (forward-line 1)))))
       (add-hook 'org-agenda-finalize-hook 'mr-x/style-routine-entries)
+
+      (defun mr-x/style-timed-todo-entries ()
+        "Reformat timed TODO entries with ▲ icon to match agenda styling.
+Turns `8:00┈┈┈┈┈Call SNAP' into `   8:00 ▲ Call SNAP'."
+        (save-excursion
+          (goto-char (point-min))
+          (let ((inhibit-read-only t))
+            (while (not (eobp))
+              (let ((todo-state (get-text-property (point) 'todo-state)))
+                (when (and todo-state
+                           (not (string= (or (get-text-property (point) 'type) "") "sexp")))
+                  (let* ((bol (line-beginning-position))
+                         (eol (line-end-position))
+                         (line (buffer-substring-no-properties bol eol))
+                         (props (text-properties-at bol)))
+                    (when (string-match "\\([0-9]\\{1,2\\}:[0-9]\\{2\\}\\)[^A-Za-z]+\\([A-Za-z].*\\)" line)
+                      (let* ((time (match-string 1 line))
+                             (desc (string-trim (match-string 2 line)))
+                             (common (list 'org-marker (plist-get props 'org-marker)
+                                           'org-hd-marker (plist-get props 'org-hd-marker)
+                                           'org-category (plist-get props 'org-category)
+                                           'todo-state todo-state
+                                           'tags (plist-get props 'tags)
+                                           'mouse-face 'highlight)))
+                        (delete-region bol eol)
+                        (insert (apply #'propertize (format "%7s " time)
+                                       'face 'org-time-grid common)
+                                (apply #'propertize "▲ "
+                                       'face `(:foreground ,(mr-x/color 'gold)) common)
+                                (apply #'propertize desc
+                                       'face `(:foreground ,(mr-x/color 'cream)) common)))))))
+              (forward-line 1)))))
+      (add-hook 'org-agenda-finalize-hook 'mr-x/style-timed-todo-entries)
 
       (defun mr-x/style-agenda-entries ()
         "Colorize ▲ icons and add ◆ to NEXT tasks in one pass."
@@ -1606,7 +1663,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
 
   (defun mr-x/set-font-faces ()
     (message "Setting faces!")
-    (set-face-attribute 'default nil :font "JuliaMono" :height 240)
+    (set-face-attribute 'default nil :font "Iosevka" :height 240)
     ;; Enable SF Symbols rendering (macOS)
     (when (eq system-type 'darwin)
       (set-fontset-font t nil "SF Pro Display" nil 'append)))
@@ -1745,6 +1802,12 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
                    (multi-vterm)
                    (current-buffer))))
         (display-buffer buf)))
+
+    (defun mr-x/vterm-in-dir ()
+      "Open a vterm in a directory chosen via prompt."
+      (interactive)
+      (let ((default-directory (read-directory-name "vterm dir: ")))
+        (multi-vterm)))
 
 
   ;; (use-package multi-vterm
@@ -2339,7 +2402,9 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
             ;; Agent shell manager
             "\\*Agent-Shell Buffers\\*"
             agent-shell-manager-mode
-            "\\*Async Shell Command\\*"))
+            "\\*Async Shell Command\\*"
+            ;; DevDocs
+            devdocs-mode))
     :config
     (setq popper-display-control t)
     (setq popper-display-function #'popper-select-popup-at-bottom)
@@ -2349,10 +2414,14 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
     ;; Give the agent-shell manager a taller popup (~40% of frame)
     (setq popper-window-height
           (lambda (win)
-            (if (string-match-p "\\*Agent-Shell Buffers\\*"
-                                (buffer-name (window-buffer win)))
-                (floor (frame-height) 2.5)
-              (popper--fit-window-height win))))
+            (let ((buf-name (buffer-name (window-buffer win)))
+                  (buf-mode (buffer-local-value 'major-mode (window-buffer win))))
+              (cond
+               ((string-match-p "\\*Agent-Shell Buffers\\*" buf-name)
+                (floor (frame-height) 2.5))
+               ((eq buf-mode 'devdocs-mode)
+                (floor (frame-height) 2.5))
+               (t (popper--fit-window-height win))))))
     (popper-mode +1)
     (popper-echo-mode +1))
 #+end_src
@@ -2420,6 +2489,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
          ((derived-mode-p 'org-mode) (hydra-org/body))
          ((derived-mode-p 'pdf-view-mode) (hydra-pdf/body))
          ((derived-mode-p 'agent-shell-mode) (hydra-agent/body))
+         ((derived-mode-p 'Info-mode) (hydra-info/body))
          ((derived-mode-p 'prog-mode) (hydra-fold/body))
          (t (message "No hydra for %s" major-mode))))
 
@@ -2449,6 +2519,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         "d h" '((lambda () (interactive) (dired "~/")) :wk "Dired home")
         "d r" '((lambda () (interactive) (dired "~/roaming")) :wk "Dired roaming")
         "d e" '((lambda () (interactive) (dired "~/.dotfiles")) :wk "Dired dotfiles")
+        "d w" '((lambda () (interactive) (dired "/ssh:vengeance:/c/Users/mnand/dotfiles/")) :wk "Dired Windows dotfiles")
         "d H" '(dired-omit-mode :wk "Dired Omit Mode")
         "d p" '(dired-preview-global-mode :wk "Toggle preview")
         "d f" '(dwim-shell-commands-macos-reveal-in-finder :wk "Reveal in Finder")
@@ -2473,10 +2544,24 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         "b e" '(eval-buffer :wk "eval buffer")
         "b g" '(mr-x/global-scratch :wk "global scratch"))
 
-      
+      (defun mr-x/copy-last-message ()
+        "Copy the last line from *Messages* to the kill ring and clipboard."
+        (interactive)
+        (with-current-buffer "*Messages*"
+          (goto-char (point-max))
+          (forward-line -1)
+          (let ((line (string-trim (thing-at-point 'line t))))
+            (kill-new line)
+            (message "Copied: %s" line))))
+
+      (mr-x/leader-def
+        "y" '(:ignore t :wk "yank")
+        "y m" '(mr-x/copy-last-message :wk "copy last message"))
+
       (mr-x/leader-def
         "v" '(:ignore t :wk "vterm")
         "v v" '(mr-x/vterm-popup :wk "vterm popup")
+        "v f" '(mr-x/vterm-in-dir :wk "vterm in dir")
         "v n" '(multi-vterm-next :wk "multi-vterm-next")
         "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
         "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
@@ -2503,6 +2588,38 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
                 (agent-shell-viewport--show-buffer :shell-buffer shell-buffer)
               (pop-to-buffer shell-buffer)))))
 
+      (defun mr-x/agent-shell-in-project ()
+        "Pick a project, then start a new agent shell there.
+Dashboard projects shown by name with path annotation; remaining
+projectile projects appended below."
+        (interactive)
+        (let* ((dashboard (when (boundp 'project-dashboard-projects)
+                            project-dashboard-projects))
+               ;; dashboard paths (expanded) so we can de-dup projectile
+               (dash-paths (mapcar (lambda (p) (expand-file-name (cdr p))) dashboard))
+               ;; projectile projects not already in dashboard
+               (extra (cl-remove-if (lambda (p) (member (expand-file-name p) dash-paths))
+                                    projectile-known-projects))
+               ;; build candidates: ((display . path) ...)
+               (candidates (append
+                            (mapcar (lambda (p) (cons (car p) (expand-file-name (cdr p))))
+                                    dashboard)
+                            (mapcar (lambda (p) (cons (abbreviate-file-name p) (expand-file-name p)))
+                                    extra)))
+               ;; annotation function shows path for dashboard entries
+               (annotate (lambda (cand)
+                           (when-let ((path (cdr (assoc cand candidates))))
+                             (concat "  " (propertize (abbreviate-file-name path)
+                                                      'face 'completions-annotations)))))
+               (choice (completing-read "Agent shell in: "
+                                        (lambda (str pred action)
+                                          (if (eq action 'metadata)
+                                              `(metadata (annotation-function . ,annotate))
+                                            (complete-with-action action candidates str pred)))))
+               (default-directory (or (cdr (assoc choice candidates))
+                                      (expand-file-name choice))))
+          (mr-x/agent-shell-new-smart)))
+
       (defun mr-x/agent-shell-roaming ()
         "Start a new agent shell in ~/roaming/claude."
         (interactive)
@@ -2514,6 +2631,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         "c c" '(agent-shell :wk "Start Agent Shell")
         "c C" '(mr-x/agent-shell-roaming :wk "Claude (roaming)")
         "c n" '(mr-x/agent-shell-new-smart :wk "New shell")
+        "c N" '(mr-x/agent-shell-in-project :wk "New shell (pick project)")
         "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
         "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
         "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
@@ -2778,8 +2896,7 @@ TASK-ID is the ID shown when Claude runs a background command."
 
   (use-package persistent-scratch
     :ensure t
-    :config
-    (persistent-scratch-setup-default))
+    :hook (elpaca-after-init . (lambda () (persistent-scratch-setup-default))))
 
 #+end_src
 
@@ -3029,6 +3146,31 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
 
 #+end_src
 
+*** DevDocs
+#+begin_src emacs-lisp
+
+  (use-package devdocs
+    :ensure t
+    :commands (devdocs-lookup devdocs-install devdocs-update-all)
+    :config
+    ;; Gruvbox styling for shr (applies to devdocs, eww, etc.)
+    (custom-set-faces
+     '(shr-h1 ((t (:foreground "#fb4934" :weight bold :height 1.4))))
+     '(shr-h2 ((t (:foreground "#fabd2f" :weight bold :height 1.2))))
+     '(shr-h3 ((t (:foreground "#b8bb26" :weight bold :height 1.1))))
+     '(shr-h4 ((t (:foreground "#8ec07c" :weight bold))))
+     '(shr-code ((t (:foreground "#fe8019" :background "#3c3836"))))
+     '(shr-link ((t (:foreground "#83a598" :underline t))))
+     '(devdocs-code-block ((t (:background "#3c3836" :extend t)))))
+    (add-hook 'devdocs-mode-hook
+              (lambda ()
+                (setq-local shr-max-width 90)
+                (setq-local shr-use-fonts nil)
+                (setq-local shr-bullet "  • ")
+                (display-line-numbers-mode 1))))
+
+#+end_src
+
 *** You need a hint
 #+begin_src emacs-lisp
 
@@ -3082,6 +3224,8 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     (use-package evil-collection
       :ensure t
       :after evil
+      :init
+      (setq evil-collection-repl-submit-state '(normal insert))
       :config
       (evil-collection-init))
 
@@ -3195,9 +3339,22 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
       :config
       (require 'dwim-shell-commands))
 
-    (setq display-line-numbers-type 'relative)
-    (dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
+    (setq display-line-numbers-type 'visual)
+    (dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook Info-mode-hook))
       (add-hook mode (lambda () (display-line-numbers-mode 1))))
+#+end_src
+
+** TRAMP
+
+#+begin_src emacs-lisp
+  (use-package tramp
+    :ensure nil
+    :defer t
+    :config
+    ;; Use pipes instead of PTYs — Windows Git Bash (MINGW) emits terminal
+    ;; escape codes on PTY allocation that prevent TRAMP from finding a prompt.
+    (setq tramp-process-connection-type nil)
+    (setq tramp-use-ssh-controlmaster-options nil))
 #+end_src
 
 ** Completion (Vertico & Consult)
@@ -3205,14 +3362,8 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
 #+begin_src emacs-lisp
 
   ;; Vertico + Consult + Orderless + Marginalia + Embark
-
-  ;; Emacs 30 ships compat v30 but these packages need v31+
-  ;; Must explicitly require compat-31 — the macro skips it on Emacs 30
-  (use-package compat
-    :ensure t
-    :demand t
-    :config
-    (require 'compat-31))
+  ;; (compat is declared early, near the elpaca bootstrap, so it's queued
+  ;; before everything that depends on it.)
 
   (use-package vertico
     :ensure t
@@ -3251,7 +3402,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     (setq xref-show-xrefs-function #'consult-xref
           xref-show-definitions-function #'consult-xref)
     ;; Preview on consult-line: grab symbol at point
-    (consult-customize consult-line :initial (thing-at-point 'symbol))
+    (consult-customize consult-line :add-history (thing-at-point 'symbol))
     ;; Auto-preview in consult-imenu
     (consult-customize consult-imenu :preview-key 'any))
 
@@ -3555,12 +3706,73 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
         (kbd "j") 'evil-next-line
         (kbd "k") 'evil-previous-line))
 
+    ;; ── Info-Mode Hydra (evil-collection cheatsheet) ─────────────
+    (defhydra hydra-info (:hint nil :color pink :foreign-keys run)
+      "
+  ╭─── Info (evil-collection) ──────────────────────────────────╮
+   Scroll                  Traverse              Go to
+   _C-u_/_C-d_: half page    _gj_/_gk_: next/prev     _d_: directory
+   _DEL_: scroll up          node               _u_: up (parent)
+   Follow                  _C-j_/_C-k_: fwd/back    _gt_: top of manual
+   _RET_/_C-]_: follow link   node               _gT_: table of contents
+   _TAB_/_S-TAB_: next/prev _C-o_/_C-t_: hist back    _gG_: goto node
+     link                  _C-i_: hist forward    _gm_/_J_: menu item
+   _gf_: follow xref                            _g1_‥_g9_: nth menu item
+                          History               Search
+                          _gL_: full history      _s_: search
+   Help                                        _S_: search (case)
+   _M-h_: Info help                              _i_/_I_: index / virtual
+   _g?_: summary                                _a_: apropos
+                                               _g,_: index next
+  ╰──────────────────────────── _q_: quit ──────────────────────╯"
+      ("C-u" evil-scroll-up)
+      ("C-d" evil-scroll-down)
+      ("DEL" Info-scroll-down)
+      ("gj" Info-next)
+      ("gk" Info-prev)
+      ("C-j" Info-forward-node)
+      ("C-k" Info-backward-node)
+      ("u" Info-up)
+      ("C-o" Info-history-back)
+      ("C-t" Info-history-back)
+      ("C-i" Info-history-forward)
+      ("RET" Info-follow-nearest-node :exit t)
+      ("C-]" Info-follow-nearest-node :exit t)
+      ("TAB" Info-next-reference)
+      ("S-TAB" Info-prev-reference)
+      ("gf" Info-follow-reference :exit t)
+      ("d" Info-directory)
+      ("gt" Info-top-node)
+      ("gT" Info-toc :exit t)
+      ("gG" Info-goto-node :exit t)
+      ("gm" Info-menu :exit t)
+      ("J" Info-menu :exit t)
+      ("gL" Info-history :exit t)
+      ("s" Info-search :exit t)
+      ("S" Info-search-case-sensitively :exit t)
+      ("i" Info-index :exit t)
+      ("I" Info-virtual-index :exit t)
+      ("a" info-apropos :exit t)
+      ("g," Info-index-next)
+      ("M-h" Info-help :exit t)
+      ("g?" Info-summary :exit t)
+      ("q" nil :exit t))
+
+    (with-eval-after-load 'evil
+      (evil-define-key 'normal Info-mode-map (kbd ",") #'hydra-info/body))
+
     ;; Wire them into leader keys after general loads
     (with-eval-after-load 'general
       (mr-x/leader-def
         "W" '(hydra-window/body :wk "Window hydra")
         "z" '(hydra-zoom/body :wk "Zoom hydra")
         "c h" '(hydra-agent/body :wk "Agent hydra"))
+      ;; Info hydra available in Info-mode via SPC ,
+      (general-define-key
+       :states '(normal visual)
+       :keymaps 'Info-mode-map
+       :prefix "SPC"
+       "," '(hydra-info/body :wk "Info hydra"))
       ;; Org hydra available in org-mode via SPC o
       (general-define-key
        :states '(normal visual)
@@ -3593,10 +3805,9 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   (use-package forge
     :ensure t
     :after magit
-    :config
-    ;; Use gh CLI for authentication (recommended)
+    :init
     (setq forge-add-default-bindings t)
-    ;; Pull topics when entering repo
+    :config
     (setq forge-pull-notifications t))
 
 #+end_src
@@ -3644,10 +3855,10 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     (setq projectile-project-search-path '("~/roaming" "~/work"))
     ;; Set default action when switching projects (overridden below after project-dashboard loads)
     (setq projectile-switch-project-action #'projectile-dired)
-    ;; Use the hybrid indexing method for better performance
-    (setq projectile-indexing-method 'hybrid)
-    ;; Enable caching for better performance
-    (setq projectile-enable-caching t)
+    ;; Use alien indexing (git ls-files, fd, etc.) for fast uncached lookups
+    (setq projectile-indexing-method 'alien)
+    ;; No caching needed with alien — new files show up immediately
+    (setq projectile-enable-caching nil)
     :bind (:map projectile-mode-map
                 ("C-c p" . projectile-command-map)))
 
@@ -3792,188 +4003,225 @@ If the buffers already exist, kills them first."
 
 ** I Want To Be A Reader
 #+begin_src emacs-lisp
-  ;; Remember last position in files (like a real bookmark)
-  (save-place-mode 1)
+    ;; Remember last position in files (like a real bookmark)
+    (save-place-mode 1)
+    (setq bookmark-set-fringe-mark nil)
 
 
-  (use-package pdf-tools
-    :ensure t
-    :mode ("\\.pdf\\'" . pdf-view-mode)
-    :config
-    (pdf-tools-install)
-    (evil-define-key 'normal pdf-view-mode-map (kbd "SPC") nil)  ;; compiles the epdfinfo server
-    ;; Auto-refresh PDF buffers when the file changes on disk (e.g. after LaTeX recompile)
-    (add-hook 'pdf-view-mode-hook #'auto-revert-mode))
+    (use-package pdf-tools
+      :ensure t
+      :mode ("\\.pdf\\'" . pdf-view-mode)
+      :config
+      (pdf-tools-install)
+      (evil-define-key 'normal pdf-view-mode-map (kbd "SPC") nil)  ;; compiles the epdfinfo server
+      ;; Auto-refresh PDF buffers when the file changes on disk (e.g. after LaTeX recompile)
+      (add-hook 'pdf-view-mode-hook #'auto-revert-mode))
 
-  ;; Extend save-place to remember PDF page positions
-  (use-package saveplace-pdf-view
-    :ensure t
-    :after pdf-tools)
+    ;; Extend save-place to remember PDF page positions
+    (use-package saveplace-pdf-view
+      :ensure t
+      :after pdf-tools)
 
-  (use-package org-noter
-    :ensure (:host github :repo "org-noter/org-noter")
-    :after pdf-tools)
+    (use-package org-noter
+      :ensure (:host github :repo "org-noter/org-noter")
+      :after pdf-tools)
 
-  ;;; Book Reading Feature
-  ;;; Quick access to currently reading books via org-roam + pdf-tools
+    ;;; Book Reading Feature
+    ;;; Quick access to currently reading books via org-roam + pdf-tools
 
-  (defvar mr-x/books-directory "~/Documents/Books/"
-    "Directory where PDF books are stored.")
+    (defvar mr-x/books-directory "~/Documents/Books/"
+      "Directory where PDF books are stored.")
 
-  (defun mr-x/org-roam-get-reading-books ()
-    "Return list of org-roam nodes tagged with 'reading'."
-    (seq-filter
-     (lambda (node)
-       (member "reading" (org-roam-node-tags node)))
-     (org-roam-node-list)))
+    (defun mr-x/org-roam-get-reading-books ()
+      "Return list of org-roam nodes tagged with 'reading'."
+      (seq-filter
+       (lambda (node)
+         (member "reading" (org-roam-node-tags node)))
+       (org-roam-node-list)))
 
-  (defun mr-x/book-format-candidate (node)
-    "Format NODE as 'Title - Author' for completion display."
-    (let* ((title (org-roam-node-title node))
-           (author (or (cdr (assoc "AUTHOR" (org-roam-node-properties node)))
-                       "Unknown")))
-      (cons (format "%s - %s" title author) node)))
+    (defun mr-x/book-format-candidate (node)
+      "Format NODE as 'Title - Author' for completion display."
+      (let* ((title (org-roam-node-title node))
+             (author (or (cdr (assoc "AUTHOR" (org-roam-node-properties node)))
+                         "Unknown")))
+        (cons (format "%s - %s" title author) node)))
 
-  (defun mr-x/select-reading-book ()
-    "Select a currently reading book and open its PDF at saved page."
-    (interactive)
-    (let* ((books (mr-x/org-roam-get-reading-books))
-           (candidates (mapcar #'mr-x/book-format-candidate books)))
-      (if (null candidates)
-          (user-error "No books currently being read. Use SPC r n to add one")
-        (let* ((choice (completing-read "Select book: " candidates nil t))
-               (node (cdr (assoc choice candidates))))
-          (mr-x/book-open-pdf node)))))
+    (defun mr-x/info-reading-bookmarks ()
+      "Return alist of (display . bookmark-name) for Info reading bookmarks."
+      (require 'bookmark)
+      (bookmark-maybe-load-default-file)
+      (mapcar
+       (lambda (bm)
+         (let* ((name (car bm))
+                (manual (string-remove-prefix "info-reading/" name))
+                (node (bookmark-prop-get name 'info-node)))
+           (cons (format "%s @ %s [Info]" manual (or node "Top")) name)))
+       (seq-filter
+        (lambda (bm) (string-prefix-p "info-reading/" (car bm)))
+        bookmark-alist)))
 
-  (defun mr-x/book-open-pdf (node)
-    "Open the PDF for org-roam NODE at the saved page."
-    (let* ((props (org-roam-node-properties node))
-           (pdf-path (cdr (assoc "PDF_PATH" props)))
-           (page (string-to-number (or (cdr (assoc "CURRENT_PAGE" props)) "1"))))
-      (if (and pdf-path (file-exists-p (expand-file-name pdf-path)))
-          (progn
-            (find-file (expand-file-name pdf-path))
-            (pdf-view-goto-page page))
-        (user-error "PDF not found: %s" pdf-path))))
+    (defun mr-x/select-reading-book ()
+      "Select a currently reading book or Info manual."
+      (interactive)
+      (let* ((books (mr-x/org-roam-get-reading-books))
+             (book-candidates (mapcar #'mr-x/book-format-candidate books))
+             (info-candidates (mr-x/info-reading-bookmarks))
+             (all-candidates (append book-candidates info-candidates)))
+        (if (null all-candidates)
+            (user-error "Nothing currently being read. Use SPC r n to add a book")
+          (let* ((choice (completing-read "Select: " all-candidates nil t))
+                 (value (cdr (assoc choice all-candidates))))
+            (cond
+             ((org-roam-node-p value) (mr-x/book-open-pdf value))
+             ((stringp value) (bookmark-jump value)))))))
 
-  (defun mr-x/book-open-notes ()
-    "Open the org-roam note for a reading book."
-    (interactive)
-    (let* ((books (mr-x/org-roam-get-reading-books))
-           (candidates (mapcar #'mr-x/book-format-candidate books)))
-      (if (null candidates)
-          (user-error "No books currently being read")
-        (let* ((choice (completing-read "Open notes for: " candidates nil t))
-               (node (cdr (assoc choice candidates))))
-          (find-file (org-roam-node-file node))))))
+    (defun mr-x/book-open-pdf (node)
+      "Open the PDF for org-roam NODE at the saved page."
+      (let* ((props (org-roam-node-properties node))
+             (pdf-path (cdr (assoc "PDF_PATH" props)))
+             (page (string-to-number (or (cdr (assoc "CURRENT_PAGE" props)) "1"))))
+        (if (and pdf-path (file-exists-p (expand-file-name pdf-path)))
+            (progn
+              (find-file (expand-file-name pdf-path))
+              (pdf-view-goto-page page))
+          (user-error "PDF not found: %s" pdf-path))))
 
-  (defun mr-x/book-new ()
-    "Create a new book note by selecting a PDF interactively."
-    (interactive)
-    (let* ((pdf (read-file-name "Select book PDF: " mr-x/books-directory nil t nil
-                                 (lambda (f) (or (directory-name-p f)
-                                                 (string-suffix-p ".pdf" f t)))))
-           (pdf-path (abbreviate-file-name pdf))
-           (default-title (file-name-sans-extension (file-name-nondirectory pdf)))
-           (title (read-string (format "Book title [%s]: " default-title) nil nil default-title))
-           (author (read-string "Author: "))
-           (total-pages (let ((n (string-trim
-                                  (shell-command-to-string
-                                   (format "mdls -name kMDItemNumberOfPages -raw %s"
-                                           (shell-quote-argument (expand-file-name pdf)))))))
-                          (if (string-match-p "^[0-9]+$" n) n
-                            (number-to-string (read-number "Total pages: "))))))
-      (org-roam-capture-
-       :node (org-roam-node-create :title title)
-       :templates
-       `(("b" "book" plain
-          "* Summary\n\n%?"
-          :if-new (file+head
-                   "${slug}.org"
-                   ,(format ":PROPERTIES:\n:AUTHOR: %s\n:PDF_PATH: %s\n:CURRENT_PAGE: 1\n:TOTAL_PAGES: %s\n:NOTER_DOCUMENT: %s\n:END:\n#+title: ${title}\n#+filetags: reading\n"
-                            author pdf-path total-pages pdf-path))
-          :unnarrowed t)))))
+    (defun mr-x/book-open-notes ()
+      "Open the org-roam note for a reading book."
+      (interactive)
+      (let* ((books (mr-x/org-roam-get-reading-books))
+             (candidates (mapcar #'mr-x/book-format-candidate books)))
+        (if (null candidates)
+            (user-error "No books currently being read")
+          (let* ((choice (completing-read "Open notes for: " candidates nil t))
+                 (node (cdr (assoc choice candidates))))
+            (find-file (org-roam-node-file node))))))
 
-  (defun mr-x/book-update-progress ()
-    "Save current PDF page as reading progress in the matching org-roam note."
-    (interactive)
-    (unless (derived-mode-p 'pdf-view-mode)
-      (user-error "Not in a PDF buffer"))
-    (let* ((current-page (pdf-view-current-page))
-           (pdf-file (expand-file-name (buffer-file-name)))
-           (books (mr-x/org-roam-get-reading-books))
-           (node (seq-find
-                  (lambda (n)
-                    (let ((p (cdr (assoc "PDF_PATH" (org-roam-node-properties n)))))
-                      (and p (string= (expand-file-name p) pdf-file))))
-                  books)))
-      (unless node
-        (user-error "No reading note found for this PDF"))
-      (let ((org-file (org-roam-node-file node)))
-        (with-current-buffer (find-file-noselect org-file)
-          (goto-char (point-min))
-          (org-entry-put (point) "CURRENT_PAGE" (number-to-string current-page))
-          (save-buffer))
-        (message "Progress saved: page %d" current-page))))
+    (defun mr-x/book-new ()
+      "Create a new book note by selecting a PDF interactively."
+      (interactive)
+      (let* ((pdf (read-file-name "Select book PDF: " mr-x/books-directory nil t nil
+                                   (lambda (f) (or (directory-name-p f)
+                                                   (string-suffix-p ".pdf" f t)))))
+             (pdf-path (abbreviate-file-name pdf))
+             (default-title (file-name-sans-extension (file-name-nondirectory pdf)))
+             (title (read-string (format "Book title [%s]: " default-title) nil nil default-title))
+             (author (read-string "Author: "))
+             (total-pages (let ((n (string-trim
+                                    (shell-command-to-string
+                                     (format "mdls -name kMDItemNumberOfPages -raw %s"
+                                             (shell-quote-argument (expand-file-name pdf)))))))
+                            (if (string-match-p "^[0-9]+$" n) n
+                              (number-to-string (read-number "Total pages: "))))))
+        (org-roam-capture-
+         :node (org-roam-node-create :title title)
+         :templates
+         `(("b" "book" plain
+            "* Summary\n\n%?"
+            :if-new (file+head
+                     "${slug}.org"
+                     ,(format ":PROPERTIES:\n:AUTHOR: %s\n:PDF_PATH: %s\n:CURRENT_PAGE: 1\n:TOTAL_PAGES: %s\n:NOTER_DOCUMENT: %s\n:END:\n#+title: ${title}\n#+filetags: reading\n"
+                              author pdf-path total-pages pdf-path))
+            :unnarrowed t)))))
 
-  (defun mr-x/book-mark-finished ()
-    "Mark a reading book as finished (tag: reading -> read)."
-    (interactive)
-    (let* ((books (mr-x/org-roam-get-reading-books))
-           (candidates (mapcar #'mr-x/book-format-candidate books)))
-      (if (null candidates)
-          (user-error "No books currently being read")
-        (let* ((choice (completing-read "Mark finished: " candidates nil t))
-               (node (cdr (assoc choice candidates)))
-               (file (org-roam-node-file node)))
-          (with-current-buffer (find-file-noselect file)
-            (goto-char (point-min))
-            (when (re-search-forward "^#\\+filetags:.*\\breading\\b" nil t)
-              (replace-match
-               (replace-regexp-in-string
-                "\\breading\\b" "read" (match-string 0)))
-              (save-buffer)
-              (message "Marked '%s' as finished!"
-                       (org-roam-node-title node))))))))
+    (defun mr-x/book-update-progress ()
+      "Save reading progress in current buffer (PDF or Info)."
+      (interactive)
+      (cond
+       ((derived-mode-p 'Info-mode)
+        (let* ((manual (file-name-sans-extension
+                        (file-name-nondirectory Info-current-file)))
+               (bm-name (format "info-reading/%s" manual)))
+          (bookmark-set bm-name)
+          (message "Saved progress: %s @ %s" manual Info-current-node)))
+       ((derived-mode-p 'pdf-view-mode)
+        (let* ((current-page (pdf-view-current-page))
+               (pdf-file (expand-file-name (buffer-file-name)))
+               (books (mr-x/org-roam-get-reading-books))
+               (node (seq-find
+                      (lambda (n)
+                        (let ((p (cdr (assoc "PDF_PATH" (org-roam-node-properties n)))))
+                          (and p (string= (expand-file-name p) pdf-file))))
+                      books)))
+          (unless node
+            (user-error "No reading note found for this PDF"))
+          (let ((org-file (org-roam-node-file node)))
+            (with-current-buffer (find-file-noselect org-file)
+              (goto-char (point-min))
+              (org-entry-put (point) "CURRENT_PAGE" (number-to-string current-page))
+              (save-buffer))
+            (message "Progress saved: page %d" current-page))))
+       (t (user-error "Not in a PDF or Info buffer"))))
 
-  (with-eval-after-load 'pdf-tools
-    (defhydra hydra-pdf (:hint nil :color pink :foreign-keys run)
-      "
-  PDF View
-  ─────────────────────────────────────────────────
-  _j_/_k_: next/prev page     _+_/_-_: zoom in/out
-  _J_/_K_: scroll down/up     _0_: reset zoom
-  _g_: goto page               _f_: fit page
-  _G_: last page               _w_: fit width
-                               _H_: fit height
+    (defun mr-x/book-mark-finished ()
+      "Mark a reading book or Info manual as finished."
+      (interactive)
+      (let* ((books (mr-x/org-roam-get-reading-books))
+             (book-candidates (mapcar #'mr-x/book-format-candidate books))
+             (info-candidates (mr-x/info-reading-bookmarks))
+             (all-candidates (append book-candidates info-candidates)))
+        (if (null all-candidates)
+            (user-error "Nothing currently being read")
+          (let* ((choice (completing-read "Mark finished: " all-candidates nil t))
+                 (value (cdr (assoc choice all-candidates))))
+            (cond
+             ((org-roam-node-p value)
+              (let ((file (org-roam-node-file value)))
+                (with-current-buffer (find-file-noselect file)
+                  (goto-char (point-min))
+                  (when (re-search-forward "^#\\+filetags:.*\\breading\\b" nil t)
+                    (replace-match
+                     (replace-regexp-in-string
+                      "\\breading\\b" "read" (match-string 0)))
+                    (save-buffer)
+                    (message "Marked '%s' as finished!"
+                             (org-roam-node-title value))))))
+             ((stringp value)
+              (bookmark-delete value)
+              (message "Removed Info bookmark: %s"
+                       (string-remove-prefix "info-reading/" value))))))))
 
-  _s_: search    _d_: dark mode     _o_: org-noter
-  _r_: revert    _a_: annotations   _c_: copy region
+    (with-eval-after-load 'pdf-tools
+      (defhydra hydra-pdf (:hint nil :color pink :foreign-keys run)
+        "
+    PDF View
+    ─────────────────────────────────────────────────
+    _j_/_k_: next/prev page     _+_/_-_: zoom in/out
+    _J_/_K_: scroll down/up     _0_: reset zoom
+    _g_: goto page               _f_: fit page
+    _G_: last page               _w_: fit width
+                                 _H_: fit height
 
-  _q_: quit
-  "
-      ("j" pdf-view-next-page)
-      ("k" pdf-view-previous-page)
-      ("J" pdf-view-scroll-up-or-next-page)
-      ("K" pdf-view-scroll-down-or-previous-page)
-      ("g" pdf-view-goto-page)
-      ("G" pdf-view-last-page)
-      ("+" pdf-view-enlarge)
-      ("-" pdf-view-shrink)
-      ("0" pdf-view-scale-reset)
-      ("f" pdf-view-fit-page-to-window)
-      ("w" pdf-view-fit-width-to-window)
-      ("H" pdf-view-fit-height-to-window)
-      ("s" isearch-forward :color blue)
-      ("d" pdf-view-midnight-minor-mode)
-      ("o" org-noter :color blue)
-      ("a" pdf-annot-list-annotations :color blue)
-      ("r" revert-buffer)
-      ("c" pdf-view-kill-ring-save :color blue)
-      ("q" nil :color blue))
+    _s_: search    _d_: dark mode     _o_: org-noter
+    _r_: revert    _a_: annotations   _c_: copy region
 
-    (evil-define-key 'normal pdf-view-mode-map (kbd ",") #'hydra-pdf/body))
+    _q_: quit
+    "
+        ("j" pdf-view-next-page)
+        ("k" pdf-view-previous-page)
+        ("J" pdf-view-scroll-up-or-next-page)
+        ("K" pdf-view-scroll-down-or-previous-page)
+        ("g" pdf-view-goto-page)
+        ("G" pdf-view-last-page)
+        ("+" pdf-view-enlarge)
+        ("-" pdf-view-shrink)
+        ("0" pdf-view-scale-reset)
+        ("f" pdf-view-fit-page-to-window)
+        ("w" pdf-view-fit-width-to-window)
+        ("H" pdf-view-fit-height-to-window)
+        ("s" isearch-forward :color blue)
+        ("d" pdf-view-midnight-minor-mode)
+        ("o" org-noter :color blue)
+        ("a" pdf-annot-list-annotations :color blue)
+        ("r" revert-buffer)
+        ("c" pdf-view-kill-ring-save :color blue)
+        ("q" nil :color blue))
 
+      (evil-define-key 'normal pdf-view-mode-map (kbd ",") #'hydra-pdf/body))
+
+
+    (use-package sicp
+      :ensure t)
 
 #+end_src
 
@@ -4142,6 +4390,29 @@ If the buffers already exist, kills them first."
     (yas-global-mode 1))
 #+end_src
 
+*** YASnippet Snippets
+Community collection of prebuilt snippets (html, css, js, web-mode, etc.).
+#+begin_src emacs-lisp
+  (use-package yasnippet-snippets
+    :ensure t
+    :after yasnippet)
+#+end_src
+
+*** Emmet Mode
+Expand =div>ul>li*3= style abbreviations into HTML/CSS. =C-j= to expand.
+#+begin_src emacs-lisp
+  (use-package emmet-mode
+    :ensure t
+    :hook ((web-mode . emmet-mode)
+           (html-mode . emmet-mode)
+           (mhtml-mode . emmet-mode)
+           (css-mode . emmet-mode)
+           (tsx-ts-mode . emmet-mode))
+    :config
+    (setq emmet-move-cursor-between-quotes t
+          emmet-expand-jsx-className? t))
+#+end_src
+
 *** LSP Mode with Corfu
 #+begin_src emacs-lisp
   ;; Corfu for in-buffer completion
@@ -4166,6 +4437,21 @@ If the buffers already exist, kills them first."
     :config
     (unless (display-graphic-p)
       (corfu-terminal-mode +1)))
+
+  ;; Cape - extra completion-at-point backends for Corfu
+  (use-package cape
+    :ensure t
+    :config
+    (require 'cape-keyword)
+    ;; (add-hook 'completion-at-point-functions #'cape-dabbrev)  ;; heavy: scans all buffers
+    (add-hook 'completion-at-point-functions #'cape-file)
+    (add-hook 'completion-at-point-functions #'cape-keyword)
+    ;; (add-hook 'completion-at-point-functions #'cape-line)    ;; heavy: scans all buffers
+    ;; (add-hook 'completion-at-point-functions #'cape-dict)    ;; heavy: reads system dictionary
+    (add-hook 'completion-at-point-functions #'cape-history)
+    (add-hook 'completion-at-point-functions #'cape-elisp-block)
+    (add-hook 'completion-at-point-functions #'cape-elisp-symbol)
+    (add-hook 'completion-at-point-functions #'cape-abbrev))
 
   ;; LSP Mode for Language Server Protocol support
   (use-package lsp-mode
@@ -4217,6 +4503,7 @@ If the buffers already exist, kills them first."
     :after corfu
     :custom
     (kind-icon-default-face 'corfu-default)
+    (kind-icon-default-style '(:padding 0 :stroke 0 :margin 0 :radius 0 :height 0.8 :scale 1.0))
     :config
     (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
 #+end_src
@@ -4310,9 +4597,12 @@ If the buffers already exist, kills them first."
     :ensure t
     :init
     (setq lsp-tailwindcss-add-on-mode t)
+    (setq lsp-tailwindcss-server-path "/opt/homebrew/lib/node_modules/@tailwindcss/language-server/bin/tailwindcss-language-server")
     :config
     (add-to-list 'lsp-tailwindcss-major-modes 'tsx-ts-mode)
     (add-to-list 'lsp-tailwindcss-major-modes 'typescript-ts-mode))
+
+
 
 
     ;; Add the tree-sitter grammar source
@@ -4467,13 +4757,6 @@ If the buffers already exist, kills them first."
         ;; CMD+Enter to submit prompt from normal mode (lazy mode)
         (evil-define-key 'normal agent-shell-mode-map (kbd "s-<return>") #'shell-maker-submit)
 
-        ;; Fix: evil-collection-comint binds insert-state RET to `newline'
-        ;; (because evil-collection-repl-submit-state defaults to 'normal).
-        ;; Override so RET submits the prompt in insert mode too.
-        (evil-define-key 'insert agent-shell-mode-map
-          (kbd "RET") #'shell-maker-submit
-          [return] #'shell-maker-submit)
-        
         ;; Smart insert/append - jump to prompt if in history area
         (defun mr-x/agent-shell-smart-insert ()
           "Enter insert mode, jumping to prompt if not already there."
@@ -4536,7 +4819,19 @@ If the buffers already exist, kills them first."
         (evil-define-key 'normal agent-shell-mode-map (kbd "3")
           (lambda () (interactive) (mr-x/agent-shell-permission-or-digit "3" #'mr-x/agent-shell-allow-always)))
         (evil-define-key 'normal agent-shell-mode-map (kbd "0")
-          (lambda () (interactive) (mr-x/agent-shell-permission-or-digit "0" #'mr-x/agent-shell-view-diff)))
+          (lambda () (interactive)
+            (cond
+             ;; Permission pending - view diff
+             ((and mr-x/pending-permissions-queue
+                   (cl-some (lambda (p) (eq (current-buffer) (plist-get p :buffer)))
+                            mr-x/pending-permissions-queue))
+              (mr-x/agent-shell-view-diff))
+             ;; Count prefix in progress (e.g. 10j) - append 0
+             (current-prefix-arg
+              (let ((last-command-event ?0))
+                (call-interactively #'digit-argument)))
+             ;; Default - beginning of line
+             (t (call-interactively #'evil-beginning-of-line)))))
 
         ;; Clear prompt with CMD+backspace
         (defun mr-x/agent-shell-clear-prompt ()
@@ -5120,12 +5415,22 @@ If the buffers already exist, kills them first."
                                                    (when (and shell-buf (buffer-live-p shell-buf))
                                                      (pop-to-buffer shell-buf))))))))
         ;; Use existing Claude CLI login
-        (setq agent-shell-anthropic-default-model-id "claude-opus-4-6")
+        ;; Value must be the config-option *id* the agent advertises under
+        ;; "Available models", NOT the underlying model string. Valid ids:
+        ;;   default      -> Opus 4.6 (1M context) · most capable  <-- this one
+        ;;   sonnet       -> Sonnet 4.6
+        ;;   sonnet[1m]   -> Sonnet 4.6 (1M context)
+        ;;   haiku        -> Haiku 4.5
+        ;; (nil also works: the agent falls back to "default" = Opus 4.6 1M.)
+        (setq agent-shell-anthropic-default-model-id "default")
         (setq agent-shell-anthropic-authentication
               (agent-shell-anthropic-make-authentication :login t))
         ;; Inherit environment (gets PATH, ANTHROPIC_API_KEY, etc.)
         (setq agent-shell-anthropic-claude-environment
               (agent-shell-make-environment-variables :inherit-env t))
+
+
+
 
 
         ;; MCP Servers - taskmaster for task management
@@ -5146,6 +5451,11 @@ If the buffers already exist, kills them first."
                 ((name . "chrome-devtools")
                  (command . "npx")
                  (args . ["-y" "chrome-devtools-mcp@latest"])
+                 (env . []))
+
+                ((name . "axiom")
+                 (command . "npx")
+                 (args . ["-y" "mcp-remote" "https://mcp.axiom.co/mcp"])
                  (env . []))))
 
 
@@ -5156,41 +5466,14 @@ If the buffers already exist, kills them first."
                :identifier 'claude-code
                :mode-line-name "Claude"
                :buffer-name "Claude"
-               :shell-prompt "λ "
-               :shell-prompt-regexp "λ "
+               :shell-prompt "𐆖 "
+               :shell-prompt-regexp "𐆖 "
                :icon-name "anthropic.png"
                :welcome-function #'agent-shell-anthropic--claude-code-welcome-message
                :client-maker (lambda (buffer)
                                (agent-shell-anthropic-make-claude-client :buffer buffer))
                :default-model-id (lambda () agent-shell-anthropic-default-model-id)))
 
-      ;; Safety net: restore prompt after interrupt if server doesn't respond.
-      ;; When agent-shell-interrupt sends a cancel notification (session branch),
-      ;; it relies on the ACP server responding to the original prompt request
-      ;; to trigger shell-maker-finish-output and restore the prompt.
-      ;; If the response never arrives, shell-maker--busy stays t and
-      ;; no prompt (λ) is inserted — the user is stuck.
-      (defvar mr-x/interrupt-fallback-timer nil
-        "Timer to restore prompt if ACP server doesn't respond after interrupt.")
-
-      (defun mr-x/agent-shell-interrupt-ensure-prompt (&rest _)
-        "After interrupt, set a fallback timer to restore the prompt."
-        (when (timerp mr-x/interrupt-fallback-timer)
-          (cancel-timer mr-x/interrupt-fallback-timer))
-        (let ((buf (current-buffer)))
-          (setq mr-x/interrupt-fallback-timer
-                (run-with-timer 3 nil
-                  (lambda ()
-                    (when (and (buffer-live-p buf)
-                               (buffer-local-value 'shell-maker--busy buf))
-                      (with-current-buffer buf
-                        (setq shell-maker--busy nil)
-                        (goto-char (point-max))
-                        (shell-maker--output-filter
-                         (shell-maker--process)
-                         (concat "\n" (shell-maker-prompt shell-maker--config))))))))))
-
-      (advice-add 'agent-shell-interrupt :after #'mr-x/agent-shell-interrupt-ensure-prompt)
 
       ;; Local slash commands for agent-shell
       (defun mr-x/agent-shell-clear-context ()

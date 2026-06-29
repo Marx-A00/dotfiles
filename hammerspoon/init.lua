@@ -51,7 +51,7 @@ function showBellIcon()
   if bellTimer then bellTimer:stop() end
   if bellCanvas then bellCanvas:delete() end
 
-  local imgPath = os.getenv("HOME") .. "/.emacs.d/etc/bell-icon.png"
+  local imgPath = os.getenv("HOME") .. "/.emacs.d/var/other-eye-transparent.png"
   local img = hs.image.imageFromPath(imgPath)
   if not img then return end
 
@@ -60,14 +60,14 @@ function showBellIcon()
   if focused then screen = focused:screen() end
   local sf = screen:frame()
 
-  local size = 160
+  local size = 190
   local x = sf.x + (sf.w - size) / 2
   local y = sf.y + (sf.h - size) / 2
 
   bellCanvas = hs.canvas.new(hs.geometry.rect(x, y, size, size))
   bellCanvas:level(hs.canvas.windowLevels.overlay)
   bellCanvas:behavior(hs.canvas.windowBehaviors.canJoinAllSpaces)
-  -- Tint the image to gruvbox fg (#ebdbb2)
+  -- Tint the image to gruvbox dark (#282828)
   img:template(true)
   bellCanvas[1] = {
     type = "image",

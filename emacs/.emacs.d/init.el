@@ -1,5 +1,7 @@
 ;;; -*- lexical-binding: t; -*-
 
+
+
 (defvar elpaca-installer-version 0.12)
 (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
 (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
@@ -47,6 +49,18 @@
 (use-package cond-let
   :ensure (:host github :repo "tarsius/cond-let"))
 
+;; compat MUST be queued before any package that depends on it (org-modern,
+;; org-super-agenda, vertico, magit, ...). If it's declared later, elpaca has
+;; already queued it as a transitive dependency and re-queuing it errors out
+;; ("compat previously queued as dependency of ..." -> Wrong type argument: listp)
+;; which aborts the rest of init in daemon mode.
+;; Emacs 30 ships compat v30 but newer packages need v31+, so force-require it.
+(use-package compat
+  :ensure t
+  :demand t
+  :config
+  (require 'compat-31))
+
 ;; Load org early to avoid version conflicts
 (elpaca org)
 (elpaca-wait)
@@ -65,10 +79,14 @@
       (with-current-buffer buffer
         (org-mode)))))
 
+
+
+
 (prefer-coding-system 'utf-8)
 (set-default-coding-systems 'utf-8)
 (set-terminal-coding-system 'utf-8)
 (set-keyboard-coding-system 'utf-8)
+
 
 (setq gc-cons-threshold (* 100 1024 1024)) ;; 100MB
 (run-with-idle-timer 5 t #'garbage-collect)
@@ -78,7 +96,9 @@
 (add-to-list 'load-path "~/roaming/projects/MCP servers/org-mcp/src/elisp")
 (require 'org-mcp)
 
-(use-package org
+
+
+      (use-package org
         :ensure nil
         :demand t
   	:hook (org-mode . mr-x/org-mode-setup)
@@ -94,7 +114,6 @@
   	(defun mr-x/org-mode-setup()
   	  (visual-line-mode 1)
   	  (auto-fill-mode 0)
-  	  (setq org-hide-leading-stars t)
   	  (setq org-agenda-include-diary nil)
   	  (setq org-fold-core-style 'overlays)
   	  (setq org-agenda-span 'day)
@@ -264,7 +283,8 @@
   		  )
   	      (move-to-column counter)
   	      ;;until end of line
-  	      (while (= (char-after (point)) org-habit-completed-glyph)
+  	      (while (and (char-after (point))
+  			  (= (char-after (point)) org-habit-completed-glyph))
   		(setq streak (+ streak 1))
   		(setq counter (- counter 1))
   		(backward-char 1))
@@ -313,6 +333,17 @@
                 buf)))))
 
       (add-hook 'after-save-hook #'mr-x/agenda-auto-refresh)
+
+    ;; Auto-redo agenda after marking a habit done
+    ;; org-agenda-todo only does an inline update, which doesn't redraw
+    ;; the habit consistency graph — a full redo is needed.
+    (defun mr-x/agenda-redo-after-habit-done (orig-fun &rest args)
+      "After `org-agenda-todo', redo the agenda if the entry was a habit."
+      (let ((was-habit (org-get-at-bol 'org-habit-p)))
+        (apply orig-fun args)
+        (when was-habit
+          (org-agenda-redo-all))))
+    (advice-add 'org-agenda-todo :around #'mr-x/agenda-redo-after-habit-done)
 
       ;; Reset finalize hook to prevent stale functions accumulating across reloads
       (setq org-agenda-finalize-hook nil)
@@ -372,6 +403,39 @@
                                           'org-category (plist-get props 'org-category)))))))
               (forward-line 1)))))
       (add-hook 'org-agenda-finalize-hook 'mr-x/style-routine-entries)
+
+      (defun mr-x/style-timed-todo-entries ()
+        "Reformat timed TODO entries with ▲ icon to match agenda styling.
+Turns `8:00┈┈┈┈┈Call SNAP' into `   8:00 ▲ Call SNAP'."
+        (save-excursion
+          (goto-char (point-min))
+          (let ((inhibit-read-only t))
+            (while (not (eobp))
+              (let ((todo-state (get-text-property (point) 'todo-state)))
+                (when (and todo-state
+                           (not (string= (or (get-text-property (point) 'type) "") "sexp")))
+                  (let* ((bol (line-beginning-position))
+                         (eol (line-end-position))
+                         (line (buffer-substring-no-properties bol eol))
+                         (props (text-properties-at bol)))
+                    (when (string-match "\\([0-9]\\{1,2\\}:[0-9]\\{2\\}\\)[^A-Za-z]+\\([A-Za-z].*\\)" line)
+                      (let* ((time (match-string 1 line))
+                             (desc (string-trim (match-string 2 line)))
+                             (common (list 'org-marker (plist-get props 'org-marker)
+                                           'org-hd-marker (plist-get props 'org-hd-marker)
+                                           'org-category (plist-get props 'org-category)
+                                           'todo-state todo-state
+                                           'tags (plist-get props 'tags)
+                                           'mouse-face 'highlight)))
+                        (delete-region bol eol)
+                        (insert (apply #'propertize (format "%7s " time)
+                                       'face 'org-time-grid common)
+                                (apply #'propertize "▲ "
+                                       'face `(:foreground ,(mr-x/color 'gold)) common)
+                                (apply #'propertize desc
+                                       'face `(:foreground ,(mr-x/color 'cream)) common)))))))
+              (forward-line 1)))))
+      (add-hook 'org-agenda-finalize-hook 'mr-x/style-timed-todo-entries)
 
       (defun mr-x/style-agenda-entries ()
         "Colorize ▲ icons and add ◆ to NEXT tasks in one pass."
@@ -1091,25 +1155,27 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
       (xwidget-webkit-browse-url (concat "file://" html-file))))
 
   ;; Org heading insertion keybindings
-  ;; s- (Cmd) = sibling, M- = child, adding S- = TODO variant
+  ;; s- (Cmd) = sibling, M- = context-aware (heading/list/etc), adding S- = TODO variant
   (with-eval-after-load 'org
     (define-key org-mode-map (kbd "s-<return>") #'org-insert-heading-respect-content)
     (define-key org-mode-map (kbd "s-S-<return>") #'org-insert-todo-heading-respect-content)
-    (define-key org-mode-map (kbd "M-<return>") #'org-insert-subheading)
+    (define-key org-mode-map (kbd "M-<return>") #'org-meta-return)
     (define-key org-mode-map (kbd "M-S-<return>") #'org-insert-todo-subheading))
   (with-eval-after-load 'evil
     (evil-define-key 'insert org-mode-map
       (kbd "s-<return>") #'org-insert-heading-respect-content
       (kbd "s-S-<return>") #'org-insert-todo-heading-respect-content
-      (kbd "M-<return>") #'org-insert-subheading
+      (kbd "M-<return>") #'org-meta-return
       (kbd "M-S-<return>") #'org-insert-todo-subheading)
     (evil-define-key 'normal org-mode-map
       (kbd "s-<return>") #'org-insert-heading-respect-content
       (kbd "s-S-<return>") #'org-insert-todo-heading-respect-content
-      (kbd "M-<return>") #'org-insert-subheading
+      (kbd "M-<return>") #'org-meta-return
       (kbd "M-S-<return>") #'org-insert-todo-subheading))
 
-(use-package ob-typescript
+
+
+  (use-package ob-typescript
     :ensure t
     (:wait t))
 
@@ -1153,7 +1219,9 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
 (setq prettify-symbols-unprettify-at-point 'right-edge)
 (add-hook 'org-mode-hook 'prettify-symbols-mode)
 
-(use-package org-roam
+
+
+   (use-package org-roam
    :ensure t
    :demand t
    :custom
@@ -1322,194 +1390,141 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
   org-roam-ui-open-on-start t))
 
 ;;; ============================================
-  ;;; Mdox Cheatsheet System
-  ;;; ============================================
+;;; Mdox Cheatsheet System
+;;; ============================================
 
-  (define-minor-mode mr-x/mdox-reader-mode
-    "Clean, distraction-free reading mode for Mdox documentation."
-    :lighter " Mdox"
-    (if mr-x/mdox-reader-mode
-        (progn
-          (read-only-mode 1)
-          (org-modern-mode 1)
-          (olivetti-mode 1)
-          (setq-local olivetti-body-width 80)
-          (display-line-numbers-mode -1)
-          (visual-line-mode 1)
-          (setq-local org-hide-emphasis-markers t)
-          (setq-local header-line-format
-                      (propertize " Mdox  [q] quit  [n/p] navigate  [/] search  [TAB] fold  [l] lint"
-                                  'face 'font-lock-comment-face))
-          ;; Evil keybindings — buffer-local so they override org-mode's
-          (when (bound-and-true-p evil-mode)
-            (evil-normal-state)
-            (evil-local-set-key 'normal (kbd "q") #'quit-window)
-            (evil-local-set-key 'normal (kbd "n") #'org-next-visible-heading)
-            (evil-local-set-key 'normal (kbd "p") #'org-previous-visible-heading)
-            (evil-local-set-key 'normal (kbd "/") #'consult-line)
-            (evil-local-set-key 'normal (kbd "TAB") #'org-cycle)
-            (evil-local-set-key 'normal (kbd "l") #'mr-x/mdox-lint))
-          ;; Auto-lint after mode settles
-          (run-with-idle-timer 0.3 nil #'mr-x/mdox-lint))
-      ;; Teardown
-      (read-only-mode -1)
-      (org-modern-mode -1)
-      (olivetti-mode -1)
-      (mr-x/mdox-lint-clear)
-      (setq-local header-line-format nil)))
-
-  (defun mr-x/mdox-view (id)
-    "Open an org-roam node by ID in a pretty popper popup."
-    (interactive)
-    (let* ((node (org-roam-node-from-id id))
-           (file (org-roam-node-file node))
-           (buf (find-file-noselect file)))
-      (with-current-buffer buf
+(define-minor-mode mr-x/mdox-reader-mode
+  "Clean, distraction-free reading mode for Mdox documentation."
+  :lighter " Mdox"
+  (if mr-x/mdox-reader-mode
+      (progn
+        (read-only-mode 1)
+        (org-modern-mode 1)
+        (olivetti-mode 1)
+        (setq-local olivetti-body-width 80)
+        (display-line-numbers-mode 1)
+        (visual-line-mode 1)
+        (setq-local org-hide-emphasis-markers t)
+        (setq-local header-line-format
+                    (propertize " Mdox  [q] quit  [n/p] navigate  [/] search  [TAB] fold"
+                                'face 'font-lock-comment-face))
+        ;; Start collapsed — see everything at a glance
+        (org-overview)
         (goto-char (point-min))
-        (mr-x/mdox-reader-mode 1))
-      (select-window
-       (display-buffer buf
-                       '((display-buffer-in-side-window)
-                         (side . bottom)
-                         (window-height . 0.45))))))
+        ;; Evil keybindings — buffer-local so they override org-mode's
+        (when (bound-and-true-p evil-mode)
+          (evil-normal-state)
+          (evil-local-set-key 'normal (kbd "q") #'quit-window)
+          (evil-local-set-key 'normal (kbd "n") #'mr-x/mdox-next-heading)
+          (evil-local-set-key 'normal (kbd "p") #'mr-x/mdox-prev-heading)
+          (evil-local-set-key 'normal (kbd "/") #'consult-line)
+          (evil-local-set-key 'normal (kbd "TAB") #'org-cycle)
+          ))
+    ;; Teardown
+    (read-only-mode -1)
+    (org-modern-mode -1)
+    (olivetti-mode -1)
+    (setq-local header-line-format nil)))
 
-  (defun mr-x/mdox-search ()
-    "Fuzzy search all Mdox nodes via org-roam-node-find."
-    (interactive)
-    (let ((org-roam-node-display-template
-           "${title:60} ${tags:20}"))
-      (org-roam-node-find nil "mdox")))
+(defun mr-x/mdox-next-heading ()
+  "Navigate to next heading and auto-expand it."
+  (interactive)
+  (org-next-visible-heading 1)
+  (org-show-entry)
+  (org-show-children))
 
-  (defvar mr-x/shortcuts-file
-    "~/roaming/notes/applications/emacs/keybindings-shortcuts-and-descriptions.org"
-    "Path to the keybindings shortcuts file.")
+(defun mr-x/mdox-prev-heading ()
+  "Navigate to previous heading and auto-expand it."
+  (interactive)
+  (org-previous-visible-heading 1)
+  (org-show-entry)
+  (org-show-children))
 
-  (defun mr-x/view-shortcuts ()
-    "Open the shortcuts file in a pretty popper popup."
-    (interactive)
-    (let ((buf (find-file-noselect mr-x/shortcuts-file)))
-      (with-current-buffer buf
-        (goto-char (point-min))
-        (mr-x/mdox-reader-mode 1))
-      (select-window
-       (display-buffer buf
-                       '((display-buffer-in-side-window)
-                         (side . bottom)
-                         (window-height . 0.45))))))
-
-  (defun mr-x/search-shortcuts ()
-    "Open shortcuts file and immediately search with consult-line."
-    (interactive)
-    (find-file mr-x/shortcuts-file)
-    (mr-x/mdox-reader-mode 1)
-    (consult-line))
-
-  ;;; ============================================
-  ;;; Mdox Format Spec & Tooling
-  ;;; ============================================
-
-  ;; --- Spec (single source of truth) ---
-  (defvar mr-x/mdox-spec
-    '(:title-suffix "--Mdox"
-      :directory "~/roaming/notes/"
-      :required-headings ("Overview" "Quick Reference" "Concepts" "Patterns" "Gotchas" "Resources")
-      :max-depth 3)
-    "Canonical specification for Mdox document format.
-  All Mdox tooling (scaffolder, linter) derives from this spec.")
-
-  ;; --- Scaffolder ---
-  (defun mr-x/mdox-new (topic)
-    "Create a new Mdox document for TOPIC using the canonical spec."
-    (interactive "sTopic: ")
-    (let* ((slug (downcase (replace-regexp-in-string "[[:space:]]+" "-" (string-trim topic))))
-           (filename (expand-file-name (concat slug "-mdox.org")
-                                       (plist-get mr-x/mdox-spec :directory)))
-           (id (org-id-uuid))
-           (title (concat topic (plist-get mr-x/mdox-spec :title-suffix)))
-           (headings (plist-get mr-x/mdox-spec :required-headings)))
-      (when (file-exists-p filename)
-        (user-error "Mdox already exists: %s" filename))
-      (find-file filename)
-      (insert ":PROPERTIES:\n"
-              ":ID:       " id "\n"
-              ":END:\n"
-              "#+title: " title "\n")
-      (dolist (h headings)
-        (insert "\n* " h "\n"))
-      (save-buffer)
+(defun mr-x/mdox-view (id)
+  "Open an org-roam node by ID in a pretty popper popup."
+  (interactive)
+  (let* ((node (org-roam-node-from-id id))
+         (file (org-roam-node-file node))
+         (buf (find-file-noselect file)))
+    (with-current-buffer buf
       (goto-char (point-min))
-      (re-search-forward "^\\* Overview$" nil t)
-      (forward-line 1)
-      (message "Created Mdox: %s" (file-name-nondirectory filename))))
+      (mr-x/mdox-reader-mode 1))
+    (select-window
+     (display-buffer buf
+                     '((display-buffer-in-side-window)
+                       (side . bottom)
+                       (window-height . 0.45))))))
 
-  ;; --- Linter ---
-  (defun mr-x/mdox-lint-clear () "No-op — kept for reader-mode teardown." nil)
+(defun mr-x/mdox-search ()
+  "Fuzzy search all Mdox nodes via org-roam-node-find."
+  (interactive)
+  (let ((org-roam-node-display-template
+         "${title:60} ${tags:20}"))
+    (org-roam-node-find nil "mdox")))
 
-  (defun mr-x/mdox-lint ()
-    "Lint the current buffer against `mr-x/mdox-spec'.
-Shows all warnings in the echo area."
-    (interactive)
-    (let* ((spec mr-x/mdox-spec)
-           (required (plist-get spec :required-headings))
-           (max-depth (plist-get spec :max-depth))
-           (suffix (plist-get spec :title-suffix))
-           (warns '())
-           found-headings)
+(defvar mr-x/shortcuts-file
+  "~/roaming/notes/mr-x-rig-mdox.org"
+  "Path to the rig reference file (shortcuts, commands, workflows).")
 
-      ;; Check title format
-      (save-excursion
-        (goto-char (point-min))
-        (if (re-search-forward "^#\\+title: \\(.*\\)$" nil t)
-            (let ((title (match-string 1)))
-              (unless (string-suffix-p suffix title)
-                (push (format "Title should end with \"%s\"" suffix) warns)))
-          (push "Missing #+title" warns)))
+(defun mr-x/view-shortcuts ()
+  "Open the shortcuts file in a pretty popper popup."
+  (interactive)
+  (let ((buf (find-file-noselect mr-x/shortcuts-file)))
+    (with-current-buffer buf
+      (goto-char (point-min))
+      (mr-x/mdox-reader-mode 1))
+    (select-window
+     (display-buffer buf
+                     '((display-buffer-in-side-window)
+                       (side . bottom)
+                       (window-height . 0.45))))))
 
-      ;; Check for org-roam ID
-      (save-excursion
-        (goto-char (point-min))
-        (unless (re-search-forward "^:ID:" nil t)
-          (push "Missing :ID: property" warns)))
+(defun mr-x/search-shortcuts ()
+  "Open shortcuts file and immediately search with consult-line."
+  (interactive)
+  (find-file mr-x/shortcuts-file)
+  (mr-x/mdox-reader-mode 1)
+  (consult-line))
 
-      ;; Collect top-level headings and check depth
-      (save-excursion
-        (goto-char (point-min))
-        (while (re-search-forward "^\\(\\*+\\) \\(.+\\)$" nil t)
-          (let ((depth (length (match-string 1)))
-                (name (string-trim (match-string 2))))
-            (when (= depth 1)
-              (push (cons name (line-beginning-position)) found-headings))
-            (when (> depth max-depth)
-              (push (format "%s too deep (%d > %d)" name depth max-depth) warns)))))
+;;; ============================================
+;;; Mdox Format Spec & Tooling
+;;; ============================================
 
-      (setq found-headings (nreverse found-headings))
+;; --- Spec (single source of truth) ---
+(defvar mr-x/mdox-spec
+  '(:title-suffix "--Mdox"
+    :directory "~/roaming/notes/"
+    :required-headings ("Overview" "Quick Reference" "Concepts" "Patterns" "Gotchas" "Resources")
+    :max-depth 3)
+  "Canonical specification for Mdox document format.
+All Mdox tooling (scaffolder, linter) derives from this spec.")
 
-      ;; Check required headings present
-      (dolist (req required)
-        (unless (assoc req found-headings)
-          (push (format "Missing: %s" req) warns)))
+;; --- Scaffolder ---
+(defun mr-x/mdox-new (topic)
+  "Create a new Mdox document for TOPIC using the canonical spec."
+  (interactive "sTopic: ")
+  (let* ((slug (downcase (replace-regexp-in-string "[[:space:]]+" "-" (string-trim topic))))
+         (filename (expand-file-name (concat slug "-mdox.org")
+                                     (plist-get mr-x/mdox-spec :directory)))
+         (id (org-id-uuid))
+         (title (concat topic (plist-get mr-x/mdox-spec :title-suffix)))
+         (headings (plist-get mr-x/mdox-spec :required-headings)))
+    (when (file-exists-p filename)
+      (user-error "Mdox already exists: %s" filename))
+    (find-file filename)
+    (insert ":PROPERTIES:\n"
+            ":ID:       " id "\n"
+            ":END:\n"
+            "#+title: " title "\n")
+    (dolist (h headings)
+      (insert "\n* " h "\n"))
+    (save-buffer)
+    (goto-char (point-min))
+    (re-search-forward "^\\* Overview$" nil t)
+    (forward-line 1)
+    (message "Created Mdox: %s" (file-name-nondirectory filename))))
 
-      ;; Check heading order
-      (let ((prev-idx -1))
-        (dolist (entry found-headings)
-          (let ((idx (seq-position required (car entry))))
-            (when (and idx (< idx prev-idx))
-              (push (format "%s out of order" (car entry)) warns))
-            (when idx (setq prev-idx idx)))))
 
-      (setq warns (nreverse warns))
-      (if (null warns)
-          (message "Mdox lint: ✓")
-        (message "Mdox lint: %s" (mapconcat #'identity warns " | ")))))
-
-  ;; --- Auto-lint on save ---
-  (defun mr-x/mdox-lint-on-save ()
-    "Run Mdox lint after saving a Mdox file."
-    (when (and buffer-file-name
-               (string-match-p "-mdox\\.org\\'" buffer-file-name))
-      (mr-x/mdox-lint)))
-
-  (add-hook 'after-save-hook #'mr-x/mdox-lint-on-save)
 
 (use-package transient
   :ensure t
@@ -1553,6 +1568,8 @@ Shows all warnings in the echo area."
       ("N" "New Mdox" mr-x/mdox-new)
       ("M" "Mdox index" (lambda () (interactive) (mr-x/mdox-view "A934531C-9903-4C97-A8D6-B47647B273B3")))]]))
 
+
+
 (pcase system-type
   ('gnu/linux "It's Linux!")
   ('windows-nt "It's Windows!")
@@ -1579,6 +1596,10 @@ Shows all warnings in the echo area."
 		    (mr-x/set-font-faces))))
   (mr-x/set-font-faces))
 
+
+
+
+
 (use-package exec-path-from-shell
   :ensure t
   :config
@@ -1586,12 +1607,17 @@ Shows all warnings in the echo area."
   (when (or (daemonp) (memq window-system '(mac ns x)))
     (exec-path-from-shell-initialize)))
 
+
+
 (use-package no-littering
   :ensure t
   :config
   (setq custom-file (no-littering-expand-etc-file-name "custom.el"))
   (load custom-file 'noerror)
   (no-littering-theme-backups))
+
+
+
 
 (use-package vterm
   :ensure t
@@ -1686,6 +1712,12 @@ Shows all warnings in the echo area."
                  (current-buffer))))
       (display-buffer buf)))
 
+  (defun mr-x/vterm-in-dir ()
+    "Open a vterm in a directory chosen via prompt."
+    (interactive)
+    (let ((default-directory (read-directory-name "vterm dir: ")))
+      (multi-vterm)))
+
 
 ;; (use-package multi-vterm
 ;; 	 :config
@@ -1698,7 +1730,11 @@ Shows all warnings in the echo area."
 
 ;; 	 (setq vterm-keymap-exceptions nil))
 
-(use-package all-the-icons
+
+
+
+
+  (use-package all-the-icons
     :ensure t
     :if (display-graphic-p))
 
@@ -1959,7 +1995,9 @@ Shows all warnings in the echo area."
             (set-frame-parameter nil 'title
               (format "Emacs #%d" mr-x/frame-counter))))
 
-(use-package perspective
+
+
+  (use-package perspective
   :ensure t
   :bind
   ("C-x C-i" . persp-ibuffer)
@@ -2100,6 +2138,8 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
           (goto-char (point-max))))
       (persp-add-buffer-to-frame-global buf)
       (switch-to-buffer buf)))
+
+
 
 (defun mr-x/org-mode-visual-fill ()
   (setq visual-fill-column-width 100
@@ -2260,7 +2300,9 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
           ;; Agent shell manager
           "\\*Agent-Shell Buffers\\*"
           agent-shell-manager-mode
-          "\\*Async Shell Command\\*"))
+          "\\*Async Shell Command\\*"
+          ;; DevDocs
+          devdocs-mode))
   :config
   (setq popper-display-control t)
   (setq popper-display-function #'popper-select-popup-at-bottom)
@@ -2270,18 +2312,25 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
   ;; Give the agent-shell manager a taller popup (~40% of frame)
   (setq popper-window-height
         (lambda (win)
-          (if (string-match-p "\\*Agent-Shell Buffers\\*"
-                              (buffer-name (window-buffer win)))
-              (floor (frame-height) 2.5)
-            (popper--fit-window-height win))))
+          (let ((buf-name (buffer-name (window-buffer win)))
+                (buf-mode (buffer-local-value 'major-mode (window-buffer win))))
+            (cond
+             ((string-match-p "\\*Agent-Shell Buffers\\*" buf-name)
+              (floor (frame-height) 2.5))
+             ((eq buf-mode 'devdocs-mode)
+              (floor (frame-height) 2.5))
+             (t (popper--fit-window-height win))))))
   (popper-mode +1)
   (popper-echo-mode +1))
+
 
 (setq initial-major-mode 'org-mode)
 (setq initial-scratch-message "\
 # Clear your mind young one.")
 
-(use-package general
+
+
+    (use-package general
       :ensure t
       :demand t
       :config
@@ -2332,6 +2381,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
          ((derived-mode-p 'org-mode) (hydra-org/body))
          ((derived-mode-p 'pdf-view-mode) (hydra-pdf/body))
          ((derived-mode-p 'agent-shell-mode) (hydra-agent/body))
+         ((derived-mode-p 'Info-mode) (hydra-info/body))
          ((derived-mode-p 'prog-mode) (hydra-fold/body))
          (t (message "No hydra for %s" major-mode))))
 
@@ -2389,6 +2439,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
       (mr-x/leader-def
         "v" '(:ignore t :wk "vterm")
         "v v" '(mr-x/vterm-popup :wk "vterm popup")
+        "v f" '(mr-x/vterm-in-dir :wk "vterm in dir")
         "v n" '(multi-vterm-next :wk "multi-vterm-next")
         "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
         "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
@@ -2622,7 +2673,7 @@ TASK-ID is the ID shown when Claude runs a background command."
 
       (mr-x/leader-def
         "t" '(mr-x/sandbox-test-env :wk "Test environment")
-        "?" '(mr-x/cheatsheet :wk "Cheatsheet")
+        "?" '(mr-x/view-shortcuts :wk "Rig reference")
         "q" '(mr-x/quick-ask :wk "Quick question (AI)"))
 
       ;; LSP commands under SPC ;
@@ -2674,14 +2725,19 @@ TASK-ID is the ID shown when Claude runs a background command."
       (interactive)
       (org-agenda nil "v"))
 
+
+
 (winner-mode 1)
+
+
 
 (use-package persistent-scratch
   :ensure t
-  :config
-  (persistent-scratch-setup-default))
+  :hook (elpaca-after-init . (lambda () (persistent-scratch-setup-default))))
 
-(defvar mr-x/session-file
+
+
+  (defvar mr-x/session-file
     (expand-file-name "session-state.el" user-emacs-directory)
     "File to store session state before daemon restart.")
 
@@ -2906,6 +2962,8 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
                     (string-join errors "; "))
           (format "Session restored: %d frames" (length frame-data))))))
 
+
+
 (use-package helpful
   :ensure t)
 
@@ -2913,8 +2971,34 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
 (global-set-key (kbd "C-h k") #'helpful-key)
 (global-set-key (kbd "C-h x") #'helpful-command)
 
+
+
+(use-package devdocs
+  :ensure t
+  :commands (devdocs-lookup devdocs-install devdocs-update-all)
+  :config
+  ;; Gruvbox styling for shr (applies to devdocs, eww, etc.)
+  (custom-set-faces
+   '(shr-h1 ((t (:foreground "#fb4934" :weight bold :height 1.4))))
+   '(shr-h2 ((t (:foreground "#fabd2f" :weight bold :height 1.2))))
+   '(shr-h3 ((t (:foreground "#b8bb26" :weight bold :height 1.1))))
+   '(shr-h4 ((t (:foreground "#8ec07c" :weight bold))))
+   '(shr-code ((t (:foreground "#fe8019" :background "#3c3836"))))
+   '(shr-link ((t (:foreground "#83a598" :underline t))))
+   '(devdocs-code-block ((t (:background "#3c3836" :extend t)))))
+  (add-hook 'devdocs-mode-hook
+            (lambda ()
+              (setq-local shr-max-width 90)
+              (setq-local shr-use-fonts nil)
+              (setq-local shr-bullet "  • ")
+              (display-line-numbers-mode 1))))
+
+
+
 (use-package link-hint
   :ensure t)
+
+
 
 (use-package which-key
   :ensure t
@@ -2928,6 +3012,8 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
 
   ;; Hide noisy digit-argument entries (0-9)
   (push '(("\\`[0-9]\\'" . "digit-argument") . t) which-key-replacement-alist))
+
+
 
 (use-package evil
   :ensure t
@@ -2945,9 +3031,14 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   (define-key evil-insert-state-map (kbd "M-<backspace>")
     (lambda () (interactive) (delete-region (point) (progn (backward-word) (point))))))
 
-(use-package evil-collection
+
+
+
+  (use-package evil-collection
     :ensure t
     :after evil
+    :init
+    (setq evil-collection-repl-submit-state '(normal insert))
     :config
     (evil-collection-init))
 
@@ -2998,7 +3089,9 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
       "m p" '(bm-previous :wk "prev bookmark")
       "m l" '(bm-show-all :wk "list all bookmarks"))))
 
-(use-package dired
+
+
+  (use-package dired
   :ensure nil  
   :commands (dired dired-jump)
   :after evil
@@ -3056,19 +3149,14 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     :config
     (require 'dwim-shell-commands))
 
-  (setq display-line-numbers-type 'relative)
-  (dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook))
+  (setq display-line-numbers-type 'visual)
+  (dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook Info-mode-hook))
     (add-hook mode (lambda () (display-line-numbers-mode 1))))
 
-;; Vertico + Consult + Orderless + Marginalia + Embark
 
-;; Emacs 30 ships compat v30 but these packages need v31+
-;; Must explicitly require compat-31 — the macro skips it on Emacs 30
-(use-package compat
-  :ensure t
-  :demand t
-  :config
-  (require 'compat-31))
+;; Vertico + Consult + Orderless + Marginalia + Embark
+;; (compat is declared early, near the elpaca bootstrap, so it's queued
+;; before everything that depends on it.)
 
 (use-package vertico
   :ensure t
@@ -3107,7 +3195,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   (setq xref-show-xrefs-function #'consult-xref
         xref-show-definitions-function #'consult-xref)
   ;; Preview on consult-line: grab symbol at point
-  (consult-customize consult-line :initial (thing-at-point 'symbol))
+  (consult-customize consult-line :add-history (thing-at-point 'symbol))
   ;; Auto-preview in consult-imenu
   (consult-customize consult-imenu :preview-key 'any))
 
@@ -3123,7 +3211,9 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   :after (embark consult)
   :hook (embark-collect-mode . consult-preview-at-point-mode))
 
-;; with-editor must be configured BEFORE magit loads
+
+
+  ;; with-editor must be configured BEFORE magit loads
   (use-package with-editor
     :ensure t
     :hook ((shell-mode . with-editor-export-editor)
@@ -3404,12 +3494,73 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
         (kbd "j") 'evil-next-line
         (kbd "k") 'evil-previous-line))
 
+    ;; ── Info-Mode Hydra (evil-collection cheatsheet) ─────────────
+    (defhydra hydra-info (:hint nil :color pink :foreign-keys run)
+      "
+  ╭─── Info (evil-collection) ──────────────────────────────────╮
+   Scroll                  Traverse              Go to
+   _C-u_/_C-d_: half page    _gj_/_gk_: next/prev     _d_: directory
+   _DEL_: scroll up          node               _u_: up (parent)
+   Follow                  _C-j_/_C-k_: fwd/back    _gt_: top of manual
+   _RET_/_C-]_: follow link   node               _gT_: table of contents
+   _TAB_/_S-TAB_: next/prev _C-o_/_C-t_: hist back    _gG_: goto node
+     link                  _C-i_: hist forward    _gm_/_J_: menu item
+   _gf_: follow xref                            _g1_‥_g9_: nth menu item
+                          History               Search
+                          _gL_: full history      _s_: search
+   Help                                        _S_: search (case)
+   _M-h_: Info help                              _i_/_I_: index / virtual
+   _g?_: summary                                _a_: apropos
+                                               _g,_: index next
+  ╰──────────────────────────── _q_: quit ──────────────────────╯"
+      ("C-u" evil-scroll-up)
+      ("C-d" evil-scroll-down)
+      ("DEL" Info-scroll-down)
+      ("gj" Info-next)
+      ("gk" Info-prev)
+      ("C-j" Info-forward-node)
+      ("C-k" Info-backward-node)
+      ("u" Info-up)
+      ("C-o" Info-history-back)
+      ("C-t" Info-history-back)
+      ("C-i" Info-history-forward)
+      ("RET" Info-follow-nearest-node :exit t)
+      ("C-]" Info-follow-nearest-node :exit t)
+      ("TAB" Info-next-reference)
+      ("S-TAB" Info-prev-reference)
+      ("gf" Info-follow-reference :exit t)
+      ("d" Info-directory)
+      ("gt" Info-top-node)
+      ("gT" Info-toc :exit t)
+      ("gG" Info-goto-node :exit t)
+      ("gm" Info-menu :exit t)
+      ("J" Info-menu :exit t)
+      ("gL" Info-history :exit t)
+      ("s" Info-search :exit t)
+      ("S" Info-search-case-sensitively :exit t)
+      ("i" Info-index :exit t)
+      ("I" Info-virtual-index :exit t)
+      ("a" info-apropos :exit t)
+      ("g," Info-index-next)
+      ("M-h" Info-help :exit t)
+      ("g?" Info-summary :exit t)
+      ("q" nil :exit t))
+
+    (with-eval-after-load 'evil
+      (evil-define-key 'normal Info-mode-map (kbd ",") #'hydra-info/body))
+
     ;; Wire them into leader keys after general loads
     (with-eval-after-load 'general
       (mr-x/leader-def
         "W" '(hydra-window/body :wk "Window hydra")
         "z" '(hydra-zoom/body :wk "Zoom hydra")
         "c h" '(hydra-agent/body :wk "Agent hydra"))
+      ;; Info hydra available in Info-mode via SPC ,
+      (general-define-key
+       :states '(normal visual)
+       :keymaps 'Info-mode-map
+       :prefix "SPC"
+       "," '(hydra-info/body :wk "Info hydra"))
       ;; Org hydra available in org-mode via SPC o
       (general-define-key
        :states '(normal visual)
@@ -3442,11 +3593,12 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   (use-package forge
     :ensure t
     :after magit
-    :config
-    ;; Use gh CLI for authentication (recommended)
+    :init
     (setq forge-add-default-bindings t)
-    ;; Pull topics when entering repo
+    :config
     (setq forge-pull-notifications t))
+
+
 
 (setq ediff-split-window-function 'split-window-horizontally)
 (setq ediff-window-setup-function 'ediff-setup-windows-plain)
@@ -3471,7 +3623,8 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   ;; Optional: extra delta args for side-by-side
   (setq diff-ansi-tool-delta-args '("--side-by-side" "--width" "180")))
 
-;; Load project-dashboard from lisp directory
+
+  ;; Load project-dashboard from lisp directory
   (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
   (add-to-list 'load-path (expand-file-name "lisp/project-dashboard" user-emacs-directory))
 
@@ -3485,10 +3638,10 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     (setq projectile-project-search-path '("~/roaming" "~/work"))
     ;; Set default action when switching projects (overridden below after project-dashboard loads)
     (setq projectile-switch-project-action #'projectile-dired)
-    ;; Use the hybrid indexing method for better performance
-    (setq projectile-indexing-method 'hybrid)
-    ;; Enable caching for better performance
-    (setq projectile-enable-caching t)
+    ;; Use alien indexing (git ls-files, fd, etc.) for fast uncached lookups
+    (setq projectile-indexing-method 'alien)
+    ;; No caching needed with alien — new files show up immediately
+    (setq projectile-enable-caching nil)
     :bind (:map projectile-mode-map
                 ("C-c p" . projectile-command-map)))
 
@@ -3617,6 +3770,7 @@ If the buffers already exist, kills them first."
             queue-buf)))
       (message "Clearing and restarting rec dev environment")))
 
+
 (use-package ox-hugo
   :ensure t
   :after (ox))
@@ -3624,8 +3778,11 @@ If the buffers already exist, kills them first."
 (use-package simple-httpd
   :ensure t)
 
+
+
 ;; Remember last position in files (like a real bookmark)
 (save-place-mode 1)
+(setq bookmark-set-fringe-mark nil)
 
 
 (use-package pdf-tools
@@ -3666,16 +3823,34 @@ If the buffers already exist, kills them first."
                      "Unknown")))
     (cons (format "%s - %s" title author) node)))
 
+(defun mr-x/info-reading-bookmarks ()
+  "Return alist of (display . bookmark-name) for Info reading bookmarks."
+  (require 'bookmark)
+  (bookmark-maybe-load-default-file)
+  (mapcar
+   (lambda (bm)
+     (let* ((name (car bm))
+            (manual (string-remove-prefix "info-reading/" name))
+            (node (bookmark-prop-get name 'info-node)))
+       (cons (format "%s @ %s [Info]" manual (or node "Top")) name)))
+   (seq-filter
+    (lambda (bm) (string-prefix-p "info-reading/" (car bm)))
+    bookmark-alist)))
+
 (defun mr-x/select-reading-book ()
-  "Select a currently reading book and open its PDF at saved page."
+  "Select a currently reading book or Info manual."
   (interactive)
   (let* ((books (mr-x/org-roam-get-reading-books))
-         (candidates (mapcar #'mr-x/book-format-candidate books)))
-    (if (null candidates)
-        (user-error "No books currently being read. Use SPC r n to add one")
-      (let* ((choice (completing-read "Select book: " candidates nil t))
-             (node (cdr (assoc choice candidates))))
-        (mr-x/book-open-pdf node)))))
+         (book-candidates (mapcar #'mr-x/book-format-candidate books))
+         (info-candidates (mr-x/info-reading-bookmarks))
+         (all-candidates (append book-candidates info-candidates)))
+    (if (null all-candidates)
+        (user-error "Nothing currently being read. Use SPC r n to add a book")
+      (let* ((choice (completing-read "Select: " all-candidates nil t))
+             (value (cdr (assoc choice all-candidates))))
+        (cond
+         ((org-roam-node-p value) (mr-x/book-open-pdf value))
+         ((stringp value) (bookmark-jump value)))))))
 
 (defun mr-x/book-open-pdf (node)
   "Open the PDF for org-roam NODE at the saved page."
@@ -3727,46 +3902,61 @@ If the buffers already exist, kills them first."
         :unnarrowed t)))))
 
 (defun mr-x/book-update-progress ()
-  "Save current PDF page as reading progress in the matching org-roam note."
+  "Save reading progress in current buffer (PDF or Info)."
   (interactive)
-  (unless (derived-mode-p 'pdf-view-mode)
-    (user-error "Not in a PDF buffer"))
-  (let* ((current-page (pdf-view-current-page))
-         (pdf-file (expand-file-name (buffer-file-name)))
-         (books (mr-x/org-roam-get-reading-books))
-         (node (seq-find
-                (lambda (n)
-                  (let ((p (cdr (assoc "PDF_PATH" (org-roam-node-properties n)))))
-                    (and p (string= (expand-file-name p) pdf-file))))
-                books)))
-    (unless node
-      (user-error "No reading note found for this PDF"))
-    (let ((org-file (org-roam-node-file node)))
-      (with-current-buffer (find-file-noselect org-file)
-        (goto-char (point-min))
-        (org-entry-put (point) "CURRENT_PAGE" (number-to-string current-page))
-        (save-buffer))
-      (message "Progress saved: page %d" current-page))))
+  (cond
+   ((derived-mode-p 'Info-mode)
+    (let* ((manual (file-name-sans-extension
+                    (file-name-nondirectory Info-current-file)))
+           (bm-name (format "info-reading/%s" manual)))
+      (bookmark-set bm-name)
+      (message "Saved progress: %s @ %s" manual Info-current-node)))
+   ((derived-mode-p 'pdf-view-mode)
+    (let* ((current-page (pdf-view-current-page))
+           (pdf-file (expand-file-name (buffer-file-name)))
+           (books (mr-x/org-roam-get-reading-books))
+           (node (seq-find
+                  (lambda (n)
+                    (let ((p (cdr (assoc "PDF_PATH" (org-roam-node-properties n)))))
+                      (and p (string= (expand-file-name p) pdf-file))))
+                  books)))
+      (unless node
+        (user-error "No reading note found for this PDF"))
+      (let ((org-file (org-roam-node-file node)))
+        (with-current-buffer (find-file-noselect org-file)
+          (goto-char (point-min))
+          (org-entry-put (point) "CURRENT_PAGE" (number-to-string current-page))
+          (save-buffer))
+        (message "Progress saved: page %d" current-page))))
+   (t (user-error "Not in a PDF or Info buffer"))))
 
 (defun mr-x/book-mark-finished ()
-  "Mark a reading book as finished (tag: reading -> read)."
+  "Mark a reading book or Info manual as finished."
   (interactive)
   (let* ((books (mr-x/org-roam-get-reading-books))
-         (candidates (mapcar #'mr-x/book-format-candidate books)))
-    (if (null candidates)
-        (user-error "No books currently being read")
-      (let* ((choice (completing-read "Mark finished: " candidates nil t))
-             (node (cdr (assoc choice candidates)))
-             (file (org-roam-node-file node)))
-        (with-current-buffer (find-file-noselect file)
-          (goto-char (point-min))
-          (when (re-search-forward "^#\\+filetags:.*\\breading\\b" nil t)
-            (replace-match
-             (replace-regexp-in-string
-              "\\breading\\b" "read" (match-string 0)))
-            (save-buffer)
-            (message "Marked '%s' as finished!"
-                     (org-roam-node-title node))))))))
+         (book-candidates (mapcar #'mr-x/book-format-candidate books))
+         (info-candidates (mr-x/info-reading-bookmarks))
+         (all-candidates (append book-candidates info-candidates)))
+    (if (null all-candidates)
+        (user-error "Nothing currently being read")
+      (let* ((choice (completing-read "Mark finished: " all-candidates nil t))
+             (value (cdr (assoc choice all-candidates))))
+        (cond
+         ((org-roam-node-p value)
+          (let ((file (org-roam-node-file value)))
+            (with-current-buffer (find-file-noselect file)
+              (goto-char (point-min))
+              (when (re-search-forward "^#\\+filetags:.*\\breading\\b" nil t)
+                (replace-match
+                 (replace-regexp-in-string
+                  "\\breading\\b" "read" (match-string 0)))
+                (save-buffer)
+                (message "Marked '%s' as finished!"
+                         (org-roam-node-title value))))))
+         ((stringp value)
+          (bookmark-delete value)
+          (message "Removed Info bookmark: %s"
+                   (string-remove-prefix "info-reading/" value))))))))
 
 (with-eval-after-load 'pdf-tools
   (defhydra hydra-pdf (:hint nil :color pink :foreign-keys run)
@@ -3805,6 +3995,11 @@ _q_: quit
     ("q" nil :color blue))
 
   (evil-define-key 'normal pdf-view-mode-map (kbd ",") #'hydra-pdf/body))
+
+
+(use-package sicp
+  :ensure t)
+
 
 (use-package markdown-mode
   :ensure t
@@ -3930,6 +4125,9 @@ _q_: quit
       (shell-command (format "%s %s %s" script (shell-quote-argument input) (shell-quote-argument output)))
       (message "Exported: %s" output)))
 
+
+
+
 ;; Cache treesit-auto's remap alist — without this, the expensive
 ;; treesit-language-available-p gets called for all 53 languages on
 ;; EVERY file open (~0.7s each), destroying org-agenda perf (87 files).
@@ -3957,6 +4155,21 @@ _q_: quit
   (define-key yas-minor-mode-map (kbd "TAB") yas-maybe-expand)
   (yas-global-mode 1))
 
+(use-package yasnippet-snippets
+  :ensure t
+  :after yasnippet)
+
+(use-package emmet-mode
+  :ensure t
+  :hook ((web-mode . emmet-mode)
+         (html-mode . emmet-mode)
+         (mhtml-mode . emmet-mode)
+         (css-mode . emmet-mode)
+         (tsx-ts-mode . emmet-mode))
+  :config
+  (setq emmet-move-cursor-between-quotes t
+        emmet-expand-jsx-className? t))
+
 ;; Corfu for in-buffer completion
 (use-package corfu
   :ensure t
@@ -3979,6 +4192,21 @@ _q_: quit
   :config
   (unless (display-graphic-p)
     (corfu-terminal-mode +1)))
+
+;; Cape - extra completion-at-point backends for Corfu
+(use-package cape
+  :ensure t
+  :config
+  (require 'cape-keyword)
+  ;; (add-hook 'completion-at-point-functions #'cape-dabbrev)  ;; heavy: scans all buffers
+  (add-hook 'completion-at-point-functions #'cape-file)
+  (add-hook 'completion-at-point-functions #'cape-keyword)
+  ;; (add-hook 'completion-at-point-functions #'cape-line)    ;; heavy: scans all buffers
+  ;; (add-hook 'completion-at-point-functions #'cape-dict)    ;; heavy: reads system dictionary
+  (add-hook 'completion-at-point-functions #'cape-history)
+  (add-hook 'completion-at-point-functions #'cape-elisp-block)
+  (add-hook 'completion-at-point-functions #'cape-elisp-symbol)
+  (add-hook 'completion-at-point-functions #'cape-abbrev))
 
 ;; LSP Mode for Language Server Protocol support
 (use-package lsp-mode
@@ -4030,8 +4258,10 @@ _q_: quit
   :after corfu
   :custom
   (kind-icon-default-face 'corfu-default)
+  (kind-icon-default-style '(:padding 0 :stroke 0 :margin 0 :radius 0 :height 0.8 :scale 1.0))
   :config
   (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
+
 
 (use-package rainbow-delimiters
   :ensure t
@@ -4049,6 +4279,7 @@ _q_: quit
   :config
   (setq flycheck-indication-mode 'right-fringe)
   (setq flycheck-emacs-lisp-load-path 'inherit))
+
 
 ;; Modern TypeScript setup with tree-sitter and LSP
 
@@ -4113,9 +4344,12 @@ _q_: quit
   :ensure t
   :init
   (setq lsp-tailwindcss-add-on-mode t)
+  (setq lsp-tailwindcss-server-path "/opt/homebrew/lib/node_modules/@tailwindcss/language-server/bin/tailwindcss-language-server")
   :config
   (add-to-list 'lsp-tailwindcss-major-modes 'tsx-ts-mode)
   (add-to-list 'lsp-tailwindcss-major-modes 'typescript-ts-mode))
+
+
 
 
   ;; Add the tree-sitter grammar source
@@ -4135,9 +4369,16 @@ _q_: quit
   :ensure (:host github :repo "nverno/prisma-ts-mode")
   :mode "\\.prisma\\'")
 
+
+
+
+
+
+
 (use-package dotenv-mode
   :ensure t
   :mode ("\\.env\\..*\\'" . dotenv-mode))
+
 
 (use-package auctex
   :ensure (auctex :pre-build (("./autogen.sh")
@@ -4176,7 +4417,9 @@ _q_: quit
             (lambda ()
               (add-hook 'after-save-hook #'mr-x/latex-compile-on-save nil t))))
 
-(use-package monet
+
+
+    (use-package monet
       :ensure (:host github :repo "https://github.com/stevemolitor/monet")
       :config
       ;; Use ediff as the diff tool
@@ -4252,7 +4495,7 @@ _q_: quit
       
       ;; CMD+Enter to submit prompt from normal mode (lazy mode)
       (evil-define-key 'normal agent-shell-mode-map (kbd "s-<return>") #'shell-maker-submit)
-      
+
       ;; Smart insert/append - jump to prompt if in history area
       (defun mr-x/agent-shell-smart-insert ()
         "Enter insert mode, jumping to prompt if not already there."
@@ -4315,7 +4558,19 @@ _q_: quit
       (evil-define-key 'normal agent-shell-mode-map (kbd "3")
         (lambda () (interactive) (mr-x/agent-shell-permission-or-digit "3" #'mr-x/agent-shell-allow-always)))
       (evil-define-key 'normal agent-shell-mode-map (kbd "0")
-        (lambda () (interactive) (mr-x/agent-shell-permission-or-digit "0" #'mr-x/agent-shell-view-diff)))
+        (lambda () (interactive)
+          (cond
+           ;; Permission pending - view diff
+           ((and mr-x/pending-permissions-queue
+                 (cl-some (lambda (p) (eq (current-buffer) (plist-get p :buffer)))
+                          mr-x/pending-permissions-queue))
+            (mr-x/agent-shell-view-diff))
+           ;; Count prefix in progress (e.g. 10j) - append 0
+           (current-prefix-arg
+            (let ((last-command-event ?0))
+              (call-interactively #'digit-argument)))
+           ;; Default - beginning of line
+           (t (call-interactively #'evil-beginning-of-line)))))
 
       ;; Clear prompt with CMD+backspace
       (defun mr-x/agent-shell-clear-prompt ()
@@ -4899,12 +5154,22 @@ _q_: quit
                                                  (when (and shell-buf (buffer-live-p shell-buf))
                                                    (pop-to-buffer shell-buf))))))))
       ;; Use existing Claude CLI login
-      (setq agent-shell-anthropic-default-model-id "claude-opus-4-6")
+      ;; Value must be the config-option *id* the agent advertises under
+      ;; "Available models", NOT the underlying model string. Valid ids:
+      ;;   default      -> Opus 4.6 (1M context) · most capable  <-- this one
+      ;;   sonnet       -> Sonnet 4.6
+      ;;   sonnet[1m]   -> Sonnet 4.6 (1M context)
+      ;;   haiku        -> Haiku 4.5
+      ;; (nil also works: the agent falls back to "default" = Opus 4.6 1M.)
+      (setq agent-shell-anthropic-default-model-id "default")
       (setq agent-shell-anthropic-authentication
             (agent-shell-anthropic-make-authentication :login t))
       ;; Inherit environment (gets PATH, ANTHROPIC_API_KEY, etc.)
       (setq agent-shell-anthropic-claude-environment
             (agent-shell-make-environment-variables :inherit-env t))
+
+
+
 
 
       ;; MCP Servers - taskmaster for task management
@@ -4925,6 +5190,11 @@ _q_: quit
               ((name . "chrome-devtools")
                (command . "npx")
                (args . ["-y" "chrome-devtools-mcp@latest"])
+               (env . []))
+
+              ((name . "axiom")
+               (command . "npx")
+               (args . ["-y" "mcp-remote" "https://mcp.axiom.co/mcp"])
                (env . []))))
 
 
@@ -4943,33 +5213,6 @@ _q_: quit
                              (agent-shell-anthropic-make-claude-client :buffer buffer))
              :default-model-id (lambda () agent-shell-anthropic-default-model-id)))
 
-    ;; Safety net: restore prompt after interrupt if server doesn't respond.
-    ;; When agent-shell-interrupt sends a cancel notification (session branch),
-    ;; it relies on the ACP server responding to the original prompt request
-    ;; to trigger shell-maker-finish-output and restore the prompt.
-    ;; If the response never arrives, shell-maker--busy stays t and
-    ;; no prompt (λ) is inserted — the user is stuck.
-    (defvar mr-x/interrupt-fallback-timer nil
-      "Timer to restore prompt if ACP server doesn't respond after interrupt.")
-
-    (defun mr-x/agent-shell-interrupt-ensure-prompt (&rest _)
-      "After interrupt, set a fallback timer to restore the prompt."
-      (when (timerp mr-x/interrupt-fallback-timer)
-        (cancel-timer mr-x/interrupt-fallback-timer))
-      (let ((buf (current-buffer)))
-        (setq mr-x/interrupt-fallback-timer
-              (run-with-timer 3 nil
-                (lambda ()
-                  (when (and (buffer-live-p buf)
-                             (buffer-local-value 'shell-maker--busy buf))
-                    (with-current-buffer buf
-                      (setq shell-maker--busy nil)
-                      (goto-char (point-max))
-                      (shell-maker--output-filter
-                       (shell-maker--process)
-                       (concat "\n" (shell-maker-prompt shell-maker--config))))))))))
-
-    (advice-add 'agent-shell-interrupt :after #'mr-x/agent-shell-interrupt-ensure-prompt)
 
     ;; Local slash commands for agent-shell
     (defun mr-x/agent-shell-clear-context ()
@@ -6094,7 +6337,9 @@ Strip everything up to and including the thinking block."
             (when (fboundp 'evil-insert-state)
               (evil-insert-state))))))
 
-(use-package ledger-mode
+
+
+  (use-package ledger-mode
     :ensure t
     :mode ("\\.dat\\'"
 	   "\\.ledger\\'")
@@ -6232,6 +6477,7 @@ Appends to the current year's transaction file."
       "Show net worth (Assets + Liabilities)."
       (interactive)
       (my/ledger-report-run "Net Worth" "balance Assets Liabilities")))
+
 
 (use-package page-break-lines
   :ensure t)

@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: unordered list (map)
+# key: ulmap
+# --
+<ul>
+  {${1:items}.map((${2:item}) => (
+    <li key={${2:$(yas-field-value 2)}.${3:id}}>${4:$2.$3}</li>
+  ))}
+</ul>$0
