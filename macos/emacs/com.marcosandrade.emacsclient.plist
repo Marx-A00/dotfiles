@@ -6,7 +6,7 @@
     <string>com.marcosandrade.emacsclient</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/marcosandrade/.dotfiles/scripts/emacsclient-frame.sh</string>
+        <string>/Users/marcosandrade/.dotfiles/macos/scripts/emacsclient-frame.sh</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

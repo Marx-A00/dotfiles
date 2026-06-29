@@ -128,7 +128,7 @@ sketchybar --add item emacs_agenda left \
              background.border_color=0x40FFFFFF \
              background.padding_left=18 \
              blur_radius=2 \
-             click_script='~/.dotfiles/scripts/org-agenda-frame.sh'
+             click_script='~/.dotfiles/macos/scripts/org-agenda-frame.sh'
 
 # update defaults
 sketchybar --default                                                \
@@ -167,6 +167,7 @@ sketchybar --subscribe title title_change
 
 # ~~ right items ~~
 # yabai layout - dynamically created for each connected display
+sketchybar --add event layout_change
 bash ./plugins/yabai-layout-setup.sh
 
 # # time

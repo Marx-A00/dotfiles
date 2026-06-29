@@ -1201,7 +1201,7 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
    ;; Automatically tangle our Emacs.org config file when we save it
    (defun mr-x/org-babel-tangle-config ()
      (when (string-equal (buffer-file-name)
-			    (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))
+			    (expand-file-name "~/.dotfiles/macos/emacs/.emacs.d/emacs.org"))
 	 ;; Dynamic scoping to the rescue
 	 (let ((org-confirm-babel-evaluate nil))
 	    (org-babel-tangle))))
@@ -2368,7 +2368,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         ;; "s" 'mr-x/toggle-shortcuts
         ;; "S" 'mr-x/scratch
         ;; "v" 'multi-vterm
-        "e" '((lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/emacs/.emacs.d/emacs.org"))) :wk "emacs.org")
+        "e" '((lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/macos/emacs/.emacs.d/emacs.org"))) :wk "emacs.org")
         "t" '(mr-x/test-environment :wk "Test environment")
         "u" '(universal-argument :wk "universal arg")
         "," '(mr-x/mode-hydra :wk "mode hydra"))
@@ -6417,7 +6417,7 @@ Appends to the current year's transaction file."
       (interactive)
       (unless (y-or-n-p "Pull transactions from SimpleFIN? ")
         (user-error "Sync cancelled"))
-      (let* ((script (expand-file-name "~/.dotfiles/scripts/simplefin-sync.py"))
+      (let* ((script (expand-file-name "~/.dotfiles/macos/scripts/simplefin-sync.py"))
              (buf (get-buffer-create "*simplefin-sync*")))
         (with-current-buffer buf
           (erase-buffer)

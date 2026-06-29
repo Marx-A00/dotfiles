@@ -122,7 +122,7 @@
      ("emacs-dashboard" . "~/roaming/projects/emacs-dashboard/")
      ("agent recall" . "~/roaming/projects/agent-recall/")
      ("agent shell manager"
-      . "~/.dotfiles/emacs/.emacs.d/elpaca/repos/agent-shell-manager/")
+      . "~/.dotfiles/macos/emacs/.emacs.d/elpaca/repos/agent-shell-manager/")
      ("sakura" . "~/roaming/projects/sakura/")
      ("futura renaissance" . "~/roaming/futura-renaissance/")
      ("Marx-A00" . "~/roaming/projects/Marx-A00.github.io/")
