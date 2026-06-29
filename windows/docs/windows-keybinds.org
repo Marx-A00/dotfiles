@@ -1,0 +1,161 @@
+#+TITLE: Windows Rig — Keybindings & Input Setup
+#+AUTHOR: Marcos Andrade
+#+STARTUP: showall
+
+Reference for the input stack on the Windows box (VENGEANCE): home row mods,
+tiling window manager, and global hotkeys. Living doc — update when configs change.
+
+* Stack overview
+
+| Tool       | Role                  | Config (in this repo) | Autostart (login shortcut)    |
+|------------+-----------------------+-----------------------+-------------------------------|
+| kanata     | Home row mods         | =kanata/kanata.kbd=     | =kanata --cfg <file>=           |
+| GlazeWM    | Tiling window manager | =glazewm/config.yaml=   | =glazewm start --config <file>= |
+| AutoHotkey | Emacs global hotkeys  | =autohotkey/emacs.ahk=  | runs the .ahk on login        |
+
+All three are wired by =bootstrap.ps1=. Configs are *not* symlinked (Developer Mode
+is off → symlinks need admin); instead each tool is launched pointing straight at
+its repo file via a flag, so edits never go stale. Installed via scoop:
+
+#+begin_src powershell
+scoop install kanata vcredist2022 glazewm autohotkey
+#+end_src
+
+* Home row mods (kanata)
+
+Each home-row key is its *letter when tapped*, a *modifier when held*. Layout is
+=CASG= (pinky → index), mirroring the programmable keyboard.
+
+| Keys    | Hold = | Finger |
+|---------+--------+--------|
+| =a= =;= | Ctrl   | pinky  |
+| =s= =l= | Alt    | ring   |
+| =d= =k= | Super  | middle |
+| =f= =j= | Shift  | index  |
+
+- "Super" = the *Windows key* on Windows (= Cmd on the Mac board).
+- Built on kanata's =home-row-mod-advanced= sample: *bilateral combinations* — a
+  same-hand key after a held mod fires the *letter* (so "sad", "flask" type fine),
+  an opposite-hand key fires the *modifier* (so Super+H etc. work).
+- A short typing burst drops to a no-mods layer until idle, to avoid misfires.
+
+** Tuning
+Edit =defvar= in =kanata/kanata.kbd=:
+- =tap-time= (200) — raise it if letters accidentally become modifiers while typing.
+- =hold-time= (150) — lower it for snappier mods, raise it if mods trigger too eagerly.
+
+** Commands
+#+begin_src powershell
+# validate config without taking over the keyboard
+kanata --cfg "C:\Users\mnand\dotfiles\kanata\kanata.kbd" --check
+# start (hidden) — normally done by the login shortcut
+Start-Process kanata -ArgumentList '--cfg','"C:\Users\mnand\dotfiles\kanata\kanata.kbd"' -WindowStyle Hidden
+# stop / kill switch
+Get-Process kanata | Stop-Process -Force
+#+end_src
+
+* Window manager (GlazeWM)
+
+Modifier is *Super* (the Windows key) = home-row =d= / =k=. Every action is bound on
+*both* =lwin= and =rwin= (GlazeWM has no generic =win= token), so =d= or =k= works.
+Compound actions live in *binding modes* so no binding ever needs two same-hand mods.
+
+** Focus & workspaces
+| Keys          | Action                          |
+|---------------+---------------------------------|
+| =Super+h/j/k/l= | Focus window left/down/up/right |
+| =Super+1..5=    | Focus workspace 1–5             |
+
+NOTE: =Super+l= (focus right) = OS =Win+L= (lock) and can't be overridden by default.
+See [[*Caveats & gotchas]].
+
+** Window manipulation
+| Keys      | Action            |
+|-----------+-------------------|
+| =Super+t= | Toggle floating   |
+| =Super+f= | Toggle fullscreen |
+| =Super+n= | Minimize          |
+| =Super+q= | Close window      |
+
+** Layout & control
+| Keys         | Action                          |
+|--------------+---------------------------------|
+| =Ctrl+Space= | Toggle split direction (Ctrl = home-row a/;) |
+| =Super+o=    | Reload GlazeWM config           |
+| =Super+p=    | Pause / unpause GlazeWM         |
+
+** Move mode  (enter: =Super+m=)
+| Keys       | Action                                  |
+|------------+-----------------------------------------|
+| =h/j/k/l=  | Move window (stays in mode — nudge repeatedly) |
+| =1..5=     | Send window to workspace + follow, then exit |
+| =Esc= / =Enter= | Exit move mode                     |
+
+** Resize mode  (enter: =Super+r=)
+| Keys       | Action                  |
+|------------+-------------------------|
+| =h/l=      | Width  −/+ 2%           |
+| =k/j=      | Height +/− 2%           |
+| =Esc= / =Enter= | Exit resize mode   |
+
+** Useful GlazeWM CLI
+#+begin_src powershell
+glazewm query workspaces            # live state
+glazewm query windows
+glazewm command toggle-fullscreen   # invoke any command by name
+glazewm command wm-reload-config
+#+end_src
+
+* Emacs global hotkeys (AutoHotkey)
+
+From =autohotkey/emacs.ahk= (Windows port of the macOS skhd cmd+shift binds):
+
+| Keys          | Action                                            |
+|---------------+---------------------------------------------------|
+| =Win+Shift+E= | Open an Emacs frame (auto-starts the daemon)       |
+| =Win+Shift+R= | Restart the daemon, then open a fresh frame        |
+
+With home row mods, press these as opposite-hand combos (e.g. =d= Super + =j= Shift
++ =e=) or just use the physical Win/Shift keys (kanata leaves them untouched).
+
+* Caveats & gotchas
+
+- *Two same-hand home-row mods can't chord.* Holding =d= (Super) then pressing =f=
+  (Shift) makes =f= fire as the letter, not Shift. That's why every GlazeWM binding
+  needs at most one mod, with move/resize in binding modes. For multi-mod combos use
+  opposite hands (e.g. Super on =d=, Shift on =j=).
+- *=Win+L= (lock) was OS-reserved* and stole =Super+l= (focus right). RESOLVED by
+  disabling lock-workstation: =HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System\DisableLockWorkstation = 1=
+  (DWORD). It's a per-user policy but the Policies key is ACL-locked, so it needs a
+  one-time admin write (=bootstrap.ps1= does it). Trade-off: the machine can no longer
+  be locked (Win+L / Ctrl-Alt-Del Lock / programmatic) — sleep or sign out instead.
+  Reverse by setting the value to 0.
+- *kanata only remaps non-elevated windows* unless kanata itself runs elevated. The
+  login shortcut runs unelevated (fine for normal use; mods won't apply inside UAC
+  /admin windows).
+- *Super as a home-row mod can pop the Start menu* if held and released with no other
+  key pressed; bilateral combos handle the common typing case.
+
+* Wiring / autostart
+
+=bootstrap.ps1= creates login shortcuts in the Startup folder:
+- =kanata.lnk=   → =kanata --cfg <repo>\kanata\kanata.kbd=
+- =GlazeWM.lnk=  → =glazewm start --config <repo>\glazewm\config.yaml=
+- =Emacs Hotkeys.lnk= → AutoHotkey running =autohotkey\emacs.ahk=
+
+Re-running =bootstrap.ps1= is safe/idempotent and also cleans up the old komorebi
+wiring if present.
+
+* Quick reference — restart everything
+
+#+begin_src powershell
+Get-Process kanata,glazewm -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Process kanata  -ArgumentList '--cfg','"C:\Users\mnand\dotfiles\kanata\kanata.kbd"' -WindowStyle Hidden
+Start-Process glazewm -ArgumentList 'start','--config','"C:\Users\mnand\dotfiles\glazewm\config.yaml"' -WindowStyle Hidden
+#+end_src
+
+* Background
+
+GlazeWM replaced komorebi because komorebi's AF_UNIX IPC fails on this machine
+(=komorebic= → =os error 10022= / WSAEINVAL on Win11 25H2), killing every hotkey.
+GlazeWM uses a localhost TCP/WebSocket IPC, sidestepping that. See README.md.

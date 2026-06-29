@@ -1,25 +1,32 @@
-emacs/.emacs.d/elpaca/
-emacs/.emacs.d/.org-generic-id-locations
-emacs/.emacs.d/.tutor/
-emacs/.emacs.d/bookmarks
-emacs/.emacs.d/oauth2-auto.plist
-emacs/.emacs.d/org-persist/
-emacs/.emacs.d/recentf
-emacs/.emacs.d/transient/
-emacs/.emacs.d/auto-save-list/
-emacs/.emacs.d/eln-cache/
-emacs/.emacs.d/elpa/
-emacs/.emacs.d/tree-sitter/
-emacs/.emacs.d/var/
-emacs/.emacs.d/etc/
-emacs/.emacs.d/docs/
+# macOS Emacs
+macos/emacs/.emacs.d/elpaca/
+macos/emacs/.emacs.d/.org-generic-id-locations
+macos/emacs/.emacs.d/.tutor/
+macos/emacs/.emacs.d/bookmarks
+macos/emacs/.emacs.d/oauth2-auto.plist
+macos/emacs/.emacs.d/org-persist/
+macos/emacs/.emacs.d/recentf
+macos/emacs/.emacs.d/transient/
+macos/emacs/.emacs.d/auto-save-list/
+macos/emacs/.emacs.d/eln-cache/
+macos/emacs/.emacs.d/elpa/
+macos/emacs/.emacs.d/tree-sitter/
+macos/emacs/.emacs.d/var/
+macos/emacs/.emacs.d/etc/
+macos/emacs/.emacs.d/docs/
+macos/emacs/.emacs.d/bm-repository
+macos/emacs/.emacs.d/agent/history
+
+# macOS other
+macos/sketchybar/sketchybar-app-font/
+macos/sketchybar/plugins/weather.env.sh
+macos/scripts/simplefin-sync.py
+
+# Shared
 .claude/
-sketchybar/sketchybar-app-font/
-ebak/
-sketchybar/plugins/weather.env.sh
 .agent-shell/
+ebak/
 random.org
-docs/
 
 # Logs
 logs
@@ -44,11 +51,6 @@ node_modules/
 .DS_Store
 
 # Task files
-# tasks.json
-# tasks/ 
 .taskmaster/
 
 .mcp.json
-/emacs/.emacs.d/bm-repository
-emacs/.emacs.d/agent/history
-/scripts/simplefin-sync.py

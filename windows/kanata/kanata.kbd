@@ -1,0 +1,84 @@
+;; Home row mods for Windows, via kanata.
+;;
+;; Mirrors Marcos's programmable-keyboard layout (CASG order, pinky -> index):
+;;   a , ;  -> Ctrl     (pinky)
+;;   s , l  -> Alt      (ring)
+;;   d , k  -> Super    (Windows key  == Cmd on the Mac board)   (middle)
+;;   f , j  -> Shift    (index)
+;; Each key is its letter when TAPPED, the modifier when HELD.
+;;
+;; Adapted from kanata's official cfg_samples/home-row-mod-advanced.kbd:
+;;   - bilateral combinations: a same-hand key after a held mod fires the TAP
+;;     (so "sad", "fad" etc. type letters), an opposite-hand key fires the HOLD
+;;     (so Super+H, Alt+J etc. work). This is also what keeps a held Super (d/k)
+;;     from popping the Start menu while typing.
+;;   - while typing fast, the mods are disabled until a brief idle.
+;;
+;; Super (d/k) is GlazeWM's modifier -> hold d or k + h/j/k/l to drive the WM.
+;; Not symlinked; bootstrap.ps1 launches `kanata --cfg <this file>` on login.
+
+(defcfg
+  process-unmapped-keys yes
+)
+
+(defsrc
+  a   s   d   f   j   k   l   ;
+)
+
+(defvar
+  ;; Tune these if you get misfires: raise tap-time / lower hold-time for snappier
+  ;; mods, the reverse if letters turn into modifiers while typing fast.
+  tap-time 200
+  hold-time 150
+
+  left-hand-keys (
+    q w e r t
+    a s d f g
+    z x c v b
+  )
+  right-hand-keys (
+    y u i o p
+    h j k l ;
+    n m , . /
+  )
+)
+
+(deflayer base
+  @a  @s  @d  @f  @j  @k  @l  @;
+)
+
+(deflayer nomods
+  a   s   d   f   j   k   l   ;
+)
+
+(deffakekeys
+  to-base (layer-switch base)
+)
+
+(defalias
+  ;; When a tap fires, drop to the no-mods layer and rapidly return on idle, so a
+  ;; burst of typing never turns home-row keys into modifiers mid-word.
+  tap (multi
+    (layer-switch nomods)
+    (on-idle-fakekey to-base tap 20)
+  )
+
+  ;; Windows pops the Start menu whenever a *lone* Win key is pressed and
+  ;; released. Holding our Super home-row mod (d/k) past the hold-time and
+  ;; letting go without a chord does exactly that. Fire a throwaway F18 tap the
+  ;; instant Super engages: Windows then sees "another key went down while Win
+  ;; was held" and keeps Start closed. F18 is otherwise unbound (incl. GlazeWM),
+  ;; so Super+h/j/k/l (WM) and Super+Enter (Emacs) behave exactly as before.
+  smet-l (multi lmet (macro f18))
+  smet-r (multi rmet (macro f18))
+
+  ;; CASG: Ctrl / Alt / Super / Shift  (left), mirrored on the right.
+  a (tap-hold-release-keys $tap-time $hold-time (multi a @tap) lctl $left-hand-keys)
+  s (tap-hold-release-keys $tap-time $hold-time (multi s @tap) lalt $left-hand-keys)
+  d (tap-hold-release-keys $tap-time $hold-time (multi d @tap) @smet-l $left-hand-keys)
+  f (tap-hold-release-keys $tap-time $hold-time (multi f @tap) lsft $left-hand-keys)
+  j (tap-hold-release-keys $tap-time $hold-time (multi j @tap) rsft $right-hand-keys)
+  k (tap-hold-release-keys $tap-time $hold-time (multi k @tap) @smet-r $right-hand-keys)
+  l (tap-hold-release-keys $tap-time $hold-time (multi l @tap) ralt $right-hand-keys)
+  ; (tap-hold-release-keys $tap-time $hold-time (multi ; @tap) rctl $right-hand-keys)
+)

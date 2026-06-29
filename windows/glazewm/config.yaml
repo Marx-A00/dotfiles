@@ -1,0 +1,195 @@
+# GlazeWM config — Windows port of the macOS yabai/skhd setup.
+#
+# Why GlazeWM and not komorebi: komorebi's IPC is an AF_UNIX socket, and on this
+# machine (Win11 25H2) komorebic's connect() fails with os error 10022 (WSAEINVAL),
+# so every hotkey is dead. GlazeWM's IPC is a localhost WebSocket/TCP server, which
+# sidesteps that whole class of Windows AF_UNIX breakage. See the dotfiles memory.
+#
+# This file is NOT symlinked into ~/.glzr (Developer Mode is off → symlinks need
+# admin). bootstrap.ps1 instead launches `glazewm start --config <this file>`, so
+# GlazeWM reads straight from the repo — no admin, never goes stale on save.
+#
+# Modifier convention mirrors yabai/skhd:
+#   alt            -> focus / workspaces
+#   alt + shift    -> move (warp) windows
+#   ctrl + alt     -> resize
+# Emacs global hotkeys (Win+Shift+E/R) live in autohotkey\emacs.ahk, NOT here.
+
+general:
+  # Commands run once when the WM starts.
+  startup_commands: []
+  # Commands run once when the WM shuts down.
+  shutdown_commands: []
+  # Commands run when the config is reloaded.
+  config_reload_commands: []
+
+  # yabai mouse_follows_focus: true -> warp the cursor to the focused window.
+  focus_follows_cursor: false
+  cursor_jump:
+    enabled: true
+    trigger: 'window_focus'
+
+  # Don't switch back to the previous workspace when focusing the current one.
+  toggle_workspace_on_refocus: false
+
+  # Match komorebi's Cloak hiding behaviour.
+  hide_method: 'cloak'
+  show_all_in_taskbar: false
+
+gaps:
+  scale_with_dpi: true
+  # komorebi used default_container_padding: 10 / default_workspace_padding: 10.
+  inner_gap: '10px'
+  outer_gap:
+    top: '10px'
+    right: '10px'
+    bottom: '10px'
+    left: '10px'
+
+window_effects:
+  # gruvbox: gold accent on the focused window, dark grey on the rest.
+  focused_window:
+    border:
+      enabled: true
+      color: '#fabd2f'
+  other_windows:
+    border:
+      enabled: true
+      color: '#3c3836'
+
+window_behavior:
+  initial_state: 'tiling'
+  state_defaults:
+    floating:
+      centered: true
+      shown_on_top: false
+    fullscreen:
+      maximized: false
+      shown_on_top: false
+
+workspaces:
+  - name: '1'
+  - name: '2'
+  - name: '3'
+  - name: '4'
+  - name: '5'
+
+window_rules:
+  # Re-apply the initial window state on title change (fixes some Electron apps
+  # that briefly report the wrong size on launch).
+  - commands: ['set-floating']
+    match:
+      # Picture-in-picture players should float, not tile.
+      - window_title: { regex: '[Pp]icture.in.[Pp]icture' }
+      - window_process: { equals: 'mpv' }
+
+  # Apps that misbehave when tiled — let Windows manage them.
+  - commands: ['ignore']
+    match:
+      - window_process: { equals: 'PowerToys.PowerLauncher' }
+      - window_process: { equals: 'PowerToys.ColorPickerUI' }
+      - window_process: { equals: 'PowerToys.Peek.UI' }
+      - window_process: { equals: 'PowerToys.AdvancedPaste' }
+      - window_process: { equals: 'PowerToys.CropAndLock' }
+      - window_process: { equals: 'zebar' }
+      - window_process: { equals: '1Password' }
+      # Windows Snipping Tool / screenshot overlay.
+      - window_process: { equals: 'SnippingTool' }
+
+keybindings:
+  # Modifier is Super (the Windows key) = home-row d / k via kanata. Each Super
+  # action is bound on BOTH lwin and rwin (GlazeWM has no generic `win`), so
+  # either d (lwin) or k (rwin) triggers it. Two same-hand home-row mods can't
+  # chord, so every binding here needs at most ONE mod — compound actions (move,
+  # resize) live in the binding modes below, each entered with one Super combo.
+
+  # --- Focus windows (Super + hjkl) ---
+  - commands: ['focus --direction left']
+    bindings: ['lwin+h', 'rwin+h']
+  - commands: ['focus --direction down']
+    bindings: ['lwin+j', 'rwin+j']
+  - commands: ['focus --direction up']
+    bindings: ['lwin+k', 'rwin+k']
+  - commands: ['focus --direction right']
+    # Win+L is the OS lock shortcut; bootstrap.ps1 sets DisableLockWorkstation=1
+    # so GlazeWM can grab it for focus-right (the machine no longer locks).
+    bindings: ['lwin+l', 'rwin+l']
+
+  # --- Focus workspace (Super + 1..5) ---
+  - commands: ['focus --workspace 1']
+    bindings: ['lwin+1', 'rwin+1']
+  - commands: ['focus --workspace 2']
+    bindings: ['lwin+2', 'rwin+2']
+  - commands: ['focus --workspace 3']
+    bindings: ['lwin+3', 'rwin+3']
+  - commands: ['focus --workspace 4']
+    bindings: ['lwin+4', 'rwin+4']
+  - commands: ['focus --workspace 5']
+    bindings: ['lwin+5', 'rwin+5']
+
+  # --- Window manipulation (single mod) ---
+  - commands: ['toggle-floating --centered']
+    bindings: ['lwin+t', 'rwin+t']
+  - commands: ['toggle-fullscreen']
+    bindings: ['lwin+f', 'rwin+f']
+  - commands: ['toggle-minimized']
+    bindings: ['lwin+n', 'rwin+n']
+  - commands: ['close']
+    bindings: ['lwin+q', 'rwin+q']
+
+  # --- Layout: toggle split direction ---
+  # On ctrl+space (Ctrl = home-row a/;), so it needs no Super-hand mod.
+  - commands: ['toggle-tiling-direction']
+    bindings: ['ctrl+space']
+
+  # --- Binding modes: single-mod entry, then bare hjkl ---
+  - commands: ['wm-enable-binding-mode --name move']
+    bindings: ['lwin+m', 'rwin+m']
+  - commands: ['wm-enable-binding-mode --name resize']
+    bindings: ['lwin+r', 'rwin+r']
+
+  # --- WM control ---
+  - commands: ['wm-reload-config']
+    bindings: ['lwin+o', 'rwin+o']
+  - commands: ['wm-toggle-pause']
+    bindings: ['lwin+p', 'rwin+p']
+
+binding_modes:
+  # Move mode (Super+m): hjkl/arrows move the window and stay in mode so you can
+  # nudge repeatedly; 1-5 send it to a workspace and follow (then exit); esc/enter exit.
+  - name: 'move'
+    keybindings:
+      - commands: ['move --direction left']
+        bindings: ['h', 'left']
+      - commands: ['move --direction down']
+        bindings: ['j', 'down']
+      - commands: ['move --direction up']
+        bindings: ['k', 'up']
+      - commands: ['move --direction right']
+        bindings: ['l', 'right']
+      - commands: ['move --workspace 1', 'focus --workspace 1', 'wm-disable-binding-mode --name move']
+        bindings: ['1']
+      - commands: ['move --workspace 2', 'focus --workspace 2', 'wm-disable-binding-mode --name move']
+        bindings: ['2']
+      - commands: ['move --workspace 3', 'focus --workspace 3', 'wm-disable-binding-mode --name move']
+        bindings: ['3']
+      - commands: ['move --workspace 4', 'focus --workspace 4', 'wm-disable-binding-mode --name move']
+        bindings: ['4']
+      - commands: ['move --workspace 5', 'focus --workspace 5', 'wm-disable-binding-mode --name move']
+        bindings: ['5']
+      - commands: ['wm-disable-binding-mode --name move']
+        bindings: ['escape', 'enter']
+
+  # Resize mode (Super+r): hjkl/arrows resize; esc/enter exit.
+  - name: 'resize'
+    keybindings:
+      - commands: ['resize --width -2%']
+        bindings: ['h', 'left']
+      - commands: ['resize --width +2%']
+        bindings: ['l', 'right']
+      - commands: ['resize --height +2%']
+        bindings: ['k', 'up']
+      - commands: ['resize --height -2%']
+        bindings: ['j', 'down']
+      - commands: ['wm-disable-binding-mode --name resize']
+        bindings: ['escape', 'enter']
