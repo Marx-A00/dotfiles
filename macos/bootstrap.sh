@@ -17,7 +17,7 @@ fi
 
 # ── 2. Brew Bundle ───────────────────────────────────────
 step "Installing packages from Brewfile..."
-brew bundle --file="$DOTDIR/Brewfile" --no-lock
+brew bundle --file="$DOTDIR/Brewfile"
 
 # ── 3. Symlinks ──────────────────────────────────────────
 step "Creating symlinks..."
@@ -26,6 +26,7 @@ mkdir -p "$HOME/.config"
 mkdir -p "$HOME/.hammerspoon"
 mkdir -p "$HOME/Library/LaunchAgents"
 
+ln -sf "$DOTDIR/.zshrc" "$HOME/.zshrc"
 ln -sf "$DOTDIR/yabai/yabairc" "$HOME/.yabairc"
 ln -sf "$DOTDIR/skhd/skhdrc" "$HOME/.skhdrc"
 ln -sf "$DOTDIR/sketchybar" "$HOME/.config/sketchybar"
