@@ -294,6 +294,8 @@ directly into org files via emacsclient.
   	(org-modern-table nil)
   	(org-modern-todo-faces mr-x/todo-faces))
 
+      (add-hook 'org-mode-hook #'org-indent-mode)
+
       (use-package org-tidy
   	:ensure t
   	:hook (org-mode . org-tidy-mode))
@@ -2474,7 +2476,7 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
         "h" 'winner-undo
         "l" 'winner-redo
         ;; "s" 'mr-x/toggle-shortcuts
-        ;; "S" 'mr-x/scratch
+        "S" '(mr-x/new-scratch :wk "new scratch")
         ;; "v" 'multi-vterm
         "e" '((lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/macos/emacs/.emacs.d/emacs.org"))) :wk "emacs.org")
         "t" '(mr-x/test-environment :wk "Test environment")
