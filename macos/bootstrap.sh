@@ -16,6 +16,15 @@ else
 fi
 
 # ── 2. Brew Bundle ───────────────────────────────────────
+# Newer Homebrew refuses to load formulae from third-party taps until
+# they're explicitly trusted, so trust the ones our Brewfile uses first.
+step "Trusting third-party taps..."
+for tap in d12frosted/emacs-plus felixkratz/formulae \
+           shaunsingh/sfmono-nerd-font-ligaturized oven-sh/bun; do
+    brew tap "$tap" 2>/dev/null || true
+    brew trust "$tap" 2>/dev/null || true
+done
+
 step "Installing packages from Brewfile..."
 brew bundle --file="$DOTDIR/Brewfile"
 
