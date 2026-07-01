@@ -28,7 +28,31 @@ done
 step "Installing packages from Brewfile..."
 brew bundle --file="$DOTDIR/Brewfile"
 
-# ── 3. Symlinks ──────────────────────────────────────────
+# ── 3. Node (via nvm) ────────────────────────────────────
+# The Brewfile installs the nvm formula, but nvm is only a version
+# manager — it ships no node. Lay down a default LTS so node/npm work
+# out of the box (per-project versions still switch via .nvmrc).
+step "Installing Node LTS via nvm..."
+export NVM_DIR="$HOME/.nvm"
+mkdir -p "$NVM_DIR"
+if [ -s "$(brew --prefix nvm)/nvm.sh" ]; then
+    source "$(brew --prefix nvm)/nvm.sh"
+    nvm install --lts || echo "nvm install failed, skipping (install node manually later)"
+else
+    echo "nvm.sh not found, skipping node install"
+fi
+
+# ── 4. Claude Code ───────────────────────────────────────
+# Not a brew package — ships as a standalone installer that bundles its
+# own runtime, so it doesn't depend on node and survives nvm switching.
+step "Installing Claude Code..."
+if ! command -v claude &>/dev/null; then
+    curl -fsSL https://claude.ai/install.sh | bash || echo "Claude Code install failed, skipping"
+else
+    echo "Claude Code already installed"
+fi
+
+# ── 5. Symlinks ──────────────────────────────────────────
 step "Creating symlinks..."
 
 mkdir -p "$HOME/.config"
@@ -45,7 +69,7 @@ ln -sf "$DOTDIR/hammerspoon/init.lua" "$HOME/.hammerspoon/init.lua"
 ln -sf "$DOTDIR/emacs/com.marcosandrade.emacsdaemon.plist" "$HOME/Library/LaunchAgents/"
 ln -sf "$DOTDIR/emacs/com.marcosandrade.emacsclient.plist" "$HOME/Library/LaunchAgents/"
 
-# ── 4. Emacs ─────────────────────────────────────────────
+# ── 6. Emacs ─────────────────────────────────────────────
 step "Setting up Emacs..."
 if [ ! -d "$HOME/.emacs.d" ]; then
     ln -sf "$DOTDIR/emacs/.emacs.d" "$HOME/.emacs.d"
@@ -54,7 +78,7 @@ else
     echo "~/.emacs.d already exists, skipping (check it points to dotfiles)"
 fi
 
-# ── 5. Services ──────────────────────────────────────────
+# ── 7. Services ──────────────────────────────────────────
 step "Starting services..."
 
 if command -v sketchybar &>/dev/null; then
@@ -67,7 +91,7 @@ if command -v syncthing &>/dev/null; then
     echo "syncthing started"
 fi
 
-# ── 6. Emacs daemon ──────────────────────────────────────
+# ── 8. Emacs daemon ──────────────────────────────────────
 step "Loading Emacs LaunchAgents..."
 launchctl load "$HOME/Library/LaunchAgents/com.marcosandrade.emacsdaemon.plist" 2>/dev/null || true
 launchctl load "$HOME/Library/LaunchAgents/com.marcosandrade.emacsclient.plist" 2>/dev/null || true
