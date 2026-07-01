@@ -1,11 +1,11 @@
 autoload -U colors && colors
 colors
-PATH=~/.console-ninja/.bin:$PATH
+# PATH=~/.console-ninja/.bin:$PATH
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 # Terminal Config
 
-export PATH="/opt/homebrew/Cellar/node/21.7.0/bin/node:$PATH"
+# node is managed by nvm
 
 # nvm
 export NVM_DIR="$HOME/.nvm"
@@ -216,7 +216,7 @@ alias etest='emacs --batch -l ~/.emacs.d/init.el -l ~/.emacs.d/tests/config-test
 export LIBRARY_PATH="/opt/homebrew/opt/libgccjit/lib/gcc/current:/opt/homebrew/Cellar/gcc/15.1.0/lib/gcc/current/gcc/aarch64-apple-darwin24/15:$LIBRARY_PATH"
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
-export PATH="/Users/marcosandrade/.bun/bin:$PATH"
+export PATH="$HOME/.bun/bin:$PATH"
 
 # Yazi - cd to directory on quit
 function y() {
