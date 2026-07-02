@@ -4609,7 +4609,10 @@ Expand =div>ul>li*3= style abbreviations into HTML/CSS. =C-j= to expand.
     :ensure (:host github :repo "merrickluo/lsp-tailwindcss")
     :init
     (setq lsp-tailwindcss-add-on-mode t)
-    (setq lsp-tailwindcss-server-path "/opt/homebrew/lib/node_modules/@tailwindcss/language-server/bin/tailwindcss-language-server")
+    ;; resolve the server on PATH (nvm on some machines, brew on others) rather
+    ;; than hardcoding a brew path — exec-path-from-shell makes it findable.
+    (when-let ((server (executable-find "tailwindcss-language-server")))
+      (setq lsp-tailwindcss-server-path server))
     :config
     (add-to-list 'lsp-tailwindcss-major-modes 'tsx-ts-mode)
     (add-to-list 'lsp-tailwindcss-major-modes 'typescript-ts-mode))

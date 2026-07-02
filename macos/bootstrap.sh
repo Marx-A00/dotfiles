@@ -38,6 +38,11 @@ mkdir -p "$NVM_DIR"
 if [ -s "$(brew --prefix nvm)/nvm.sh" ]; then
     source "$(brew --prefix nvm)/nvm.sh"
     nvm install --lts || echo "nvm install failed, skipping (install node manually later)"
+    # Global CLI tools that Emacs LSPs expect on PATH. Installed under the
+    # current node version; re-run after an `nvm install` of a newer node.
+    if command -v npm &>/dev/null; then
+        npm i -g @tailwindcss/language-server || echo "tailwind LSP install failed, skipping"
+    fi
 else
     echo "nvm.sh not found, skipping node install"
 fi
