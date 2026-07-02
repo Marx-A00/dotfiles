@@ -4350,7 +4350,8 @@ _q_: quit
 
 ;; Optional: Tailwind CSS LSP support
 (use-package lsp-tailwindcss
-  :ensure t
+  ;; not on MELPA (:ensure t can't resolve it) — pin the upstream repo
+  :ensure (:host github :repo "merrickluo/lsp-tailwindcss")
   :init
   (setq lsp-tailwindcss-add-on-mode t)
   (setq lsp-tailwindcss-server-path "/opt/homebrew/lib/node_modules/@tailwindcss/language-server/bin/tailwindcss-language-server")
