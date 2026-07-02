@@ -72,6 +72,9 @@ brew "clang-format"
 # --- Fonts ---
 cask "font-fira-code-nerd-font"
 cask "font-hack-nerd-font"
+cask "font-iosevka-nerd-font"
+cask "font-iosevka-term-nerd-font"        # terminal-tuned sans cut
+cask "font-iosevka-term-slab-nerd-font"   # terminal-tuned slab-serif cut — Ghostty default
 cask "font-jetbrains-mono-nerd-font"
 cask "font-juliamono"
 cask "font-sf-mono-nerd-font-ligaturized"
@@ -83,6 +86,7 @@ cask "hammerspoon"
 cask "localsend"
 cask "alt-tab"
 cask "linearmouse"
+cask "raycast"
 cask "tailscale-app"
 cask "zed"
 cask "gimp"

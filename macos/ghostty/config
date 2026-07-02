@@ -1,0 +1,14 @@
+# Primary font — MUST be a font actually installed on the system (verify with
+# `fc-list : family`). An unresolvable name here silently demotes to the next
+# entry, which will make Big Caslon your primary and serif-ify the whole terminal.
+font-family = IosevkaTermSlab Nerd Font
+# Swap the line above for any of these (all installed, exact names verified):
+#   font-family = IosevkaTerm Nerd Font    # sans cut, terminal-tuned
+#   font-family = Iosevka Nerd Font        # narrower, standard Iosevka
+#   font-family = FiraCode Nerd Font       # Fira Code
+#   font-family = JetBrainsMono Nerd Font  # JetBrains Mono
+
+# Fallback, used ONLY for glyphs the primary lacks — e.g. the ROMAN DENARIUS
+# SIGN (U+10196) in the shell prompt. Big Caslon is one of the few macOS fonts
+# that actually has it.
+font-family = Big Caslon
