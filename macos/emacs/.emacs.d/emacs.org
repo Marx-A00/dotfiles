@@ -2359,8 +2359,13 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
 
   ;; Visual bell — flash an eye icon via Hammerspoon (native macOS transparency)
   (defun mr-x/visual-bell ()
-    "Flash an eye icon via Hammerspoon's hs.canvas overlay."
-    (start-process "bell-icon" nil "hs" "-c" "showBellIcon()"))
+    "Flash an eye icon via Hammerspoon's hs.canvas overlay.
+Guarded by a `pgrep' check: the hs CLI pops a blocking \"Hammerspoon is
+not running — Launch?\" dialog whenever it can't reach Hammerspoon (e.g.
+the login race before Hammerspoon has started), and the bell fires
+constantly, so only invoke it when Hammerspoon is actually running."
+    (start-process "bell-icon" nil "sh" "-c"
+                   "pgrep -xq Hammerspoon && exec hs -c 'showBellIcon()'"))
 
   (setq ring-bell-function #'mr-x/visual-bell)
   (fset 'yes-or-no-p 'y-or-n-p)
