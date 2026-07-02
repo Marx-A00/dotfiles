@@ -91,15 +91,18 @@ if command -v syncthing &>/dev/null; then
     echo "syncthing started"
 fi
 
-# yabai basic tiling works immediately; the scripting addition (needs SIP
-# partially disabled) unlocks the extras — see Next steps below.
+# yabai/skhd don't ship brew-services plists — they install their own
+# LaunchAgents via `--start-service`. Basic tiling works immediately; the
+# scripting addition (needs SIP partially disabled) unlocks the extras,
+# and both need Accessibility permission granted on first launch (a system
+# prompt appears) — see Next steps below.
 if command -v skhd &>/dev/null; then
-    brew services start skhd 2>/dev/null || true
+    skhd --start-service 2>/dev/null || true
     echo "skhd started"
 fi
 
 if command -v yabai &>/dev/null; then
-    brew services start yabai 2>/dev/null || true
+    yabai --start-service 2>/dev/null || true
     echo "yabai started"
 fi
 
@@ -113,5 +116,9 @@ step "Done!"
 echo ""
 echo "Next steps:"
 echo "  - Launch Emacs once to let Elpaca bootstrap all packages"
-echo "  - If using yabai, partially disable SIP and start the service"
+echo "  - Grant Accessibility to yabai AND skhd (System Settings > Privacy &"
+echo "    Security > Accessibility), then: yabai --restart-service; skhd --restart-service"
+echo "    They abort on launch until this is granted."
+echo "  - For yabai's scripting addition (extra features): partially disable SIP,"
+echo "    then run: sudo yabai --install-sa && sudo yabai --load-sa"
 echo "  - Review commented-out items in Brewfile for extras you might want"
