@@ -75,6 +75,7 @@ cask "font-hack-nerd-font"
 cask "font-jetbrains-mono-nerd-font"
 cask "font-juliamono"
 cask "font-sf-mono-nerd-font-ligaturized"
+cask "font-symbols-only-nerd-font"   # "Symbols Nerd Font Mono" — used by nerd-icons/doom-modeline
 
 # --- GUI Apps ---
 cask "ghostty"

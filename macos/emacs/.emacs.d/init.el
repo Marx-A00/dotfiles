@@ -1740,7 +1740,12 @@ All Mdox tooling (scaffolder, linter) derives from this spec.")
 
   (use-package all-the-icons
     :ensure t
-    :if (display-graphic-p))
+    :if (display-graphic-p)
+    :config
+    ;; all-the-icons ships its own fonts (not the Nerd fonts); auto-install
+    ;; them on a fresh machine so icons render instead of tofu boxes.
+    (unless (find-font (font-spec :family "all-the-icons"))
+      (all-the-icons-install-fonts t)))
 
   (use-package doom-themes
     :ensure t
