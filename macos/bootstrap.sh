@@ -59,6 +59,15 @@ mkdir -p "$HOME/.config"
 mkdir -p "$HOME/.hammerspoon"
 mkdir -p "$HOME/Library/LaunchAgents"
 
+# Canonical repo location: skhdrc/yabairc/plists all reference ~/.dotfiles.
+# If the repo lives elsewhere (e.g. ~/dotfiles), symlink it so those paths
+# resolve. If it already IS ~/.dotfiles, leave it alone (don't self-nest).
+REPO_ROOT="$(cd "$DOTDIR/.." && pwd)"
+if [ "$REPO_ROOT" != "$HOME/.dotfiles" ]; then
+    ln -sfn "$REPO_ROOT" "$HOME/.dotfiles"
+    echo "Linked ~/.dotfiles -> $REPO_ROOT"
+fi
+
 ln -sf "$DOTDIR/.zshrc" "$HOME/.zshrc"
 ln -sf "$DOTDIR/yabai/yabairc" "$HOME/.yabairc"
 ln -sf "$DOTDIR/skhd/skhdrc" "$HOME/.skhdrc"
@@ -66,9 +75,12 @@ ln -sf "$DOTDIR/sketchybar" "$HOME/.config/sketchybar"
 ln -sf "$DOTDIR/borders" "$HOME/.config/borders"
 ln -sf "$DOTDIR/hammerspoon/init.lua" "$HOME/.hammerspoon/init.lua"
 
-# Emacs LaunchAgents
-ln -sf "$DOTDIR/emacs/com.marcosandrade.emacsdaemon.plist" "$HOME/Library/LaunchAgents/"
-ln -sf "$DOTDIR/emacs/com.marcosandrade.emacsclient.plist" "$HOME/Library/LaunchAgents/"
+# Emacs LaunchAgents — generated from templates, not symlinked: launchd can't
+# expand ~ or env vars in ProgramArguments, so bake this machine's $HOME into
+# the __HOME__ placeholder at install time.
+for pl in com.marcosandrade.emacsdaemon.plist com.marcosandrade.emacsclient.plist; do
+    sed "s|__HOME__|$HOME|g" "$DOTDIR/emacs/$pl" > "$HOME/Library/LaunchAgents/$pl"
+done
 
 # ── 6. Emacs ─────────────────────────────────────────────
 step "Setting up Emacs..."

@@ -150,8 +150,12 @@ Add ~lisp/~ to ~load-path~ early so packages like ~org-habit-flex~ can be
 MCP server helpers for logging milestones, ideas, and notes from Claude Code
 directly into org files via emacsclient.
 #+begin_src emacs-lisp
-  (add-to-list 'load-path "~/roaming/projects/MCP servers/org-mcp/src/elisp")
-  (require 'org-mcp)
+  ;; org-mcp is a local project under ~/roaming (synced via Syncthing); load it
+  ;; only when present so a machine without ~/roaming yet doesn't abort all of init.
+  (let ((org-mcp-dir "~/roaming/projects/MCP servers/org-mcp/src/elisp"))
+    (when (file-directory-p org-mcp-dir)
+      (add-to-list 'load-path org-mcp-dir)
+      (require 'org-mcp nil t)))
 #+end_src
 
 
@@ -4726,8 +4730,12 @@ Expand =div>ul>li*3= style abbreviations into HTML/CSS. =C-j= to expand.
       ;; otherwise they pass through to evil's digit-argument for motion counts (e.g., 13j).
 
 
-    (load-file "~/roaming/projects/MCP servers/ask-user-mcp/emacs/ask-user.el")
-    (load-file "~/roaming/projects/MCP servers/ask-user-mcp/emacs/ask-user-popup.el")
+    ;; ask-user-mcp lives under ~/roaming (Syncthing); load only when present so
+    ;; a machine without ~/roaming yet doesn't abort all of init.
+    (let ((ask-user-dir "~/roaming/projects/MCP servers/ask-user-mcp/emacs"))
+      (when (file-directory-p ask-user-dir)
+        (load-file (expand-file-name "ask-user.el" ask-user-dir))
+        (load-file (expand-file-name "ask-user-popup.el" ask-user-dir))))
 
       (use-package acp
         :ensure (:host github :repo "xenodium/acp.el"))
@@ -5760,6 +5768,8 @@ Expand =div>ul>li*3= style abbreviations into HTML/CSS. =C-j= to expand.
 
       (use-package agent-recall
         :ensure nil
+        ;; local project under ~/roaming (Syncthing) — skip entirely when absent
+        :if (file-directory-p "~/roaming/projects/agent-recall")
         :load-path "~/roaming/projects/agent-recall"
         :after agent-shell
         :init
