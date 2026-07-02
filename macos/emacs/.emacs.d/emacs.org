@@ -1830,6 +1830,17 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
 
 
 #+end_src
+** Quick Commands
+#+begin_src emacs-lisp
+
+  (defun mr-x/ports ()
+    "Show listening TCP ports."
+    (interactive)
+    (async-shell-command "lsof -iTCP -sTCP:LISTEN -P -n" "*Ports*")
+    (with-current-buffer "*Ports*"
+      (setq-local truncate-lines t)))
+
+#+end_src
 ** UI
 
 #+begin_src emacs-lisp
@@ -2613,8 +2624,9 @@ projectile projects appended below."
                             project-dashboard-projects))
                ;; dashboard paths (expanded) so we can de-dup projectile
                (dash-paths (mapcar (lambda (p) (expand-file-name (cdr p))) dashboard))
-               ;; projectile projects not already in dashboard
-               (extra (cl-remove-if (lambda (p) (member (expand-file-name p) dash-paths))
+               ;; projectile projects not already in dashboard (skip remote/TRAMP)
+               (extra (cl-remove-if (lambda (p) (or (file-remote-p p)
+                                                    (member (expand-file-name p) dash-paths)))
                                     projectile-known-projects))
                ;; build candidates: ((display . path) ...)
                (candidates (append
@@ -2912,6 +2924,11 @@ TASK-ID is the ID shown when Claude runs a background command."
 
   (use-package persistent-scratch
     :ensure t
+    :config
+    (setq persistent-scratch-scratch-buffer-p-function
+          (lambda ()
+            (string-match-p "\\*\\(scratch\\|global-scratch\\)\\(<[0-9]+>\\)?\\*"
+                            (buffer-name))))
     :hook (elpaca-after-init . (lambda () (persistent-scratch-setup-default))))
 
 #+end_src
@@ -4284,7 +4301,11 @@ If the buffers already exist, kills them first."
   (use-package poly-markdown
     :ensure t
     :after (polymode markdown-mode)
-    :mode ("\\.md\\'" . poly-markdown-mode))
+    :mode ("\\.md\\'" . poly-markdown-mode)
+    :config
+    ;; Suppress org-element parser errors in polymode indirect buffers
+    ;; (org-mode chokes on markdown ** syntax in ```org code blocks)
+    (add-to-list 'warning-suppress-types '(org-element)))
 
   (use-package markdown-xwidget
     :ensure (:host github
