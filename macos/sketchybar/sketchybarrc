@@ -3,7 +3,9 @@
 
 source "$HOME/.config/sketchybar/icon_map.sh"
 
-source ./plugins/weather.env.sh
+# Machine-local secrets (WEATHER_URL, weather API KEY/CITY); not committed.
+# Copy plugins/weather.env.sh.example -> plugins/weather.env.sh to enable weather.
+[ -f ./plugins/weather.env.sh ] && source ./plugins/weather.env.sh
 
 # Then use __icon_map "${APP}" to get icons
 # __icon_map "${app_name}"
@@ -54,9 +56,10 @@ do
                               label.drawing=off \
                               script='./plugins/space.sh' \
                               click_script="yabai -m space --focus $sid"
+  # Subscribe each space individually; `--subscribe space.*` is not a wildcard
+  # and silently fails, leaving deselected spaces stuck highlighted.
+  sketchybar --subscribe space.$sid space_change
 done
-
-sketchybar --subscribe space.* space_change
 
 # create new space button
 sketchybar --add item new_space left                        \
@@ -102,8 +105,6 @@ sketchybar --add bracket spaces '/space\..*/' new_space                \
 #                              click_script="yabai -m space --focus $sid"
 #done
 # COMMENT_OUT_SPACE_EX_LOOP
-
-sketchybar --set space_ex.1 padding_left=-999999
 
 # emacs perspective indicator - dynamically created for each display
 sketchybar --add event emacs_persp_update

@@ -100,6 +100,23 @@ else
     echo "~/.emacs.d already exists, skipping (check it points to dotfiles)"
 fi
 
+# ── 6b. Fonts ────────────────────────────────────────────
+# sketchybar's title item renders app icons from sketchybar-app-font.
+# The nerd font (glyphs for date/battery/weather/etc.) comes via the
+# Brewfile tap, but this one isn't on Homebrew — fetch it directly.
+step "Installing sketchybar-app-font..."
+APP_FONT="$HOME/Library/Fonts/sketchybar-app-font.ttf"
+if [ -f "$APP_FONT" ]; then
+    echo "sketchybar-app-font already installed"
+else
+    if curl -fL --retry 3 -o "$APP_FONT" \
+        "https://github.com/kvndrsslr/sketchybar-app-font/releases/latest/download/sketchybar-app-font.ttf"; then
+        echo "Installed sketchybar-app-font"
+    else
+        echo "Failed to fetch sketchybar-app-font (app icons will be blank); install it manually later"
+    fi
+fi
+
 # ── 7. Services ──────────────────────────────────────────
 step "Starting services..."
 

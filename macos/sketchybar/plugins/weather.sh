@@ -107,7 +107,11 @@ fi
 }
 
 API="https://api.weatherapi.com/v1/current.json"
-# get KEY and CITY from the config file
+# get KEY and CITY from the machine-local config file (not committed)
+if [ ! -f ./plugins/weather.env.sh ]; then
+    echo "[WARNING] weather.env.sh missing; skipping weather update" >&2
+    exit 0
+fi
 source ./plugins/weather.env.sh
 
 for i in {1..4}; do
