@@ -34,7 +34,9 @@ brew "automake"
 brew "hugo"
 
 # --- Emacs ---
-brew "d12frosted/emacs-plus/emacs-plus@30", args: ["with-native-comp"]
+# native-comp is built by default in emacs-plus@30 (no --with-native-comp flag);
+# these are the exact args the main Mac was built with.
+brew "d12frosted/emacs-plus/emacs-plus@30", args: ["with-xwidgets", "with-imagemagick", "with-mailutils"]
 brew "hunspell"
 brew "mu"
 brew "isync"
