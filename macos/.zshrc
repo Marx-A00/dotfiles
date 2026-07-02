@@ -49,7 +49,10 @@ export LSCOLORS="gxfxcxdxbxegedabagacad"
 alias ls='ls -G'
 
 
-PS1='%F{#50FA7B}Marx%f %F{#8BE9FD}%1~%f %F{#FF79C6}𐆖%f '
+# Per-machine prompt name: override in ~/.zshrc.local (see .zshrc.local.example)
+PROMPT_NAME="${PROMPT_NAME:-MrX2}"
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local
+PS1="%F{#50FA7B}${PROMPT_NAME}%f %F{#8BE9FD}%1~%f %F{#FF79C6}𐆖%f "
 
 # Custom Jawns
 alias mrxpath='printf "%s\n" $path'

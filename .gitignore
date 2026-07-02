@@ -22,6 +22,9 @@ macos/sketchybar/sketchybar-app-font/
 macos/sketchybar/plugins/weather.env.sh
 macos/scripts/simplefin-sync.py
 
+# Per-machine shell overrides
+.zshrc.local
+
 # Shared
 .claude/
 .agent-shell/

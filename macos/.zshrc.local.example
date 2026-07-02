@@ -1,0 +1,5 @@
+# Per-machine shell overrides. Copy to ~/.zshrc.local (not tracked by git).
+# Sourced near the top of .zshrc, after PROMPT_NAME's default is set.
+
+# Name shown at the front of the prompt on this machine.
+PROMPT_NAME="Air"
