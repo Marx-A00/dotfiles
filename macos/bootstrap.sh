@@ -38,10 +38,13 @@ mkdir -p "$NVM_DIR"
 if [ -s "$(brew --prefix nvm)/nvm.sh" ]; then
     source "$(brew --prefix nvm)/nvm.sh"
     nvm install --lts || echo "nvm install failed, skipping (install node manually later)"
-    # Global CLI tools that Emacs LSPs expect on PATH. Installed under the
-    # current node version; re-run after an `nvm install` of a newer node.
+    # Global CLI tools Emacs expects on PATH (Tailwind LSP, and the ACP bridge
+    # agent-shell uses to talk to Claude). Installed under the current node
+    # version; re-run after an `nvm install` of a newer node.
     if command -v npm &>/dev/null; then
-        npm i -g @tailwindcss/language-server || echo "tailwind LSP install failed, skipping"
+        for pkg in @tailwindcss/language-server @agentclientprotocol/claude-agent-acp; do
+            npm i -g "$pkg" || echo "npm i -g $pkg failed, skipping"
+        done
     fi
 else
     echo "nvm.sh not found, skipping node install"
