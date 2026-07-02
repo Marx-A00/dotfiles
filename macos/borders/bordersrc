@@ -1,0 +1,11 @@
+#!/bin/bash
+# JankyBorders config — draws window borders that yabai dropped in v6+.
+# Colors/width migrated from the old yabairc window_border settings.
+options=(
+    style=round
+    width=3.0
+    hidpi=off
+    active_color=0xff775759
+    inactive_color=0xff444444
+)
+borders "${options[@]}"

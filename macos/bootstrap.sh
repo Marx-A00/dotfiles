@@ -63,6 +63,7 @@ ln -sf "$DOTDIR/.zshrc" "$HOME/.zshrc"
 ln -sf "$DOTDIR/yabai/yabairc" "$HOME/.yabairc"
 ln -sf "$DOTDIR/skhd/skhdrc" "$HOME/.skhdrc"
 ln -sf "$DOTDIR/sketchybar" "$HOME/.config/sketchybar"
+ln -sf "$DOTDIR/borders" "$HOME/.config/borders"
 ln -sf "$DOTDIR/hammerspoon/init.lua" "$HOME/.hammerspoon/init.lua"
 
 # Emacs LaunchAgents
@@ -84,6 +85,11 @@ step "Starting services..."
 if command -v sketchybar &>/dev/null; then
     brew services start sketchybar 2>/dev/null || true
     echo "sketchybar started"
+fi
+
+if command -v borders &>/dev/null; then
+    brew services start borders 2>/dev/null || true
+    echo "borders started"
 fi
 
 if command -v syncthing &>/dev/null; then

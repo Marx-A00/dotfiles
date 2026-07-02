@@ -49,11 +49,8 @@ yabai -m config window_opacity off
 yabai -m config active_window_opacity 1.0
 yabai -m config normal_window_opacity 1.0
 
-# borders
-yabai -m config window_border on
-yabai -m config window_border_width 3
-yabai -m config active_window_border_color 0xff775759
-yabai -m config normal_window_border_color 0xff444444
+# borders are drawn by JankyBorders (felixkratz/formulae/borders), not yabai —
+# yabai removed built-in window borders in v6. See borders/bordersrc for colors.
 yabai -m config insert_feedback_color 0xffd75f5f
 
 # rules (example: make System Preferences float)
