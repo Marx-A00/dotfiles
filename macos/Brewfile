@@ -1,6 +1,7 @@
 # Taps
 tap "d12frosted/emacs-plus"
 tap "felixkratz/formulae"
+tap "koekeishiya/formulae"
 tap "shaunsingh/sfmono-nerd-font-ligaturized"
 tap "oven-sh/bun"
 
@@ -51,6 +52,8 @@ brew "pinentry-mac"
 
 # --- macOS Window Management ---
 brew "felixkratz/formulae/sketchybar"
+brew "koekeishiya/formulae/yabai"
+brew "koekeishiya/formulae/skhd"
 
 # --- Media / Utils ---
 brew "mpv"

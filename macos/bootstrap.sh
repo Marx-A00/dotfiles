@@ -19,7 +19,7 @@ fi
 # Newer Homebrew refuses to load formulae from third-party taps until
 # they're explicitly trusted, so trust the ones our Brewfile uses first.
 step "Trusting third-party taps..."
-for tap in d12frosted/emacs-plus felixkratz/formulae \
+for tap in d12frosted/emacs-plus felixkratz/formulae koekeishiya/formulae \
            shaunsingh/sfmono-nerd-font-ligaturized oven-sh/bun; do
     brew tap "$tap" 2>/dev/null || true
     brew trust "$tap" 2>/dev/null || true
@@ -89,6 +89,18 @@ fi
 if command -v syncthing &>/dev/null; then
     brew services start syncthing 2>/dev/null || true
     echo "syncthing started"
+fi
+
+# yabai basic tiling works immediately; the scripting addition (needs SIP
+# partially disabled) unlocks the extras — see Next steps below.
+if command -v skhd &>/dev/null; then
+    brew services start skhd 2>/dev/null || true
+    echo "skhd started"
+fi
+
+if command -v yabai &>/dev/null; then
+    brew services start yabai 2>/dev/null || true
+    echo "yabai started"
 fi
 
 # ── 8. Emacs daemon ──────────────────────────────────────
