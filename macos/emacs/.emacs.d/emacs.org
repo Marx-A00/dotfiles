@@ -2515,6 +2515,7 @@ constantly, so only invoke it when Hammerspoon is actually running."
          ((derived-mode-p 'org-agenda-mode) (hydra-org-agenda/body))
          ((derived-mode-p 'org-mode) (hydra-org/body))
          ((derived-mode-p 'pdf-view-mode) (hydra-pdf/body))
+         ((derived-mode-p 'agent-shell-manager-mode) (hydra-agent/body))
          ((derived-mode-p 'agent-shell-mode) (hydra-agent/body))
          ((derived-mode-p 'Info-mode) (hydra-info/body))
          ((derived-mode-p 'prog-mode) (hydra-fold/body))
