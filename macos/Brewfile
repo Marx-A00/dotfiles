@@ -82,6 +82,7 @@ cask "font-symbols-only-nerd-font"   # "Symbols Nerd Font Mono" — used by nerd
 
 # --- GUI Apps ---
 cask "ghostty"
+cask "google-chrome"
 cask "hammerspoon"
 cask "localsend"
 cask "alt-tab"
