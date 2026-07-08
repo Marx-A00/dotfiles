@@ -52,7 +52,7 @@ alias ls='ls -G'
 # Per-machine prompt name: override in ~/.zshrc.local (see .zshrc.local.example)
 PROMPT_NAME="${PROMPT_NAME:-MrX2}"
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
-PS1="%F{#50FA7B}${PROMPT_NAME}%f %F{#8BE9FD}%1~%f %F{#FF79C6}𐆖%f "
+PS1="%F{84}${PROMPT_NAME}%f %F{117}%1~%f %F{212}𐆖%f "
 
 # Custom Jawns
 alias mrxpath='printf "%s\n" $path'
@@ -102,66 +102,66 @@ typeset -gA ZSH_HIGHLIGHT_STYLES
 ### Markup
 ## Classes
 ## Comments
-ZSH_HIGHLIGHT_STYLES[comment]='fg=#6272A4'
+ZSH_HIGHLIGHT_STYLES[comment]='fg=61'
 ## Constants
 ## Entitites
 ## Functions/methods
-ZSH_HIGHLIGHT_STYLES[alias]='fg=#50FA7B'
-ZSH_HIGHLIGHT_STYLES[suffix-alias]='fg=#50FA7B'
-ZSH_HIGHLIGHT_STYLES[global-alias]='fg=#50FA7B'
-ZSH_HIGHLIGHT_STYLES[function]='fg=#50FA7B'
-ZSH_HIGHLIGHT_STYLES[command]='fg=#50FA7B'
-ZSH_HIGHLIGHT_STYLES[precommand]='fg=#50FA7B,italic'
-ZSH_HIGHLIGHT_STYLES[autodirectory]='fg=#FFB86C,italic'
-ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=#FFB86C'
-ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=#FFB86C'
-ZSH_HIGHLIGHT_STYLES[back-quoted-argument]='fg=#BD93F9'
+ZSH_HIGHLIGHT_STYLES[alias]='fg=84'
+ZSH_HIGHLIGHT_STYLES[suffix-alias]='fg=84'
+ZSH_HIGHLIGHT_STYLES[global-alias]='fg=84'
+ZSH_HIGHLIGHT_STYLES[function]='fg=84'
+ZSH_HIGHLIGHT_STYLES[command]='fg=84'
+ZSH_HIGHLIGHT_STYLES[precommand]='fg=84,italic'
+ZSH_HIGHLIGHT_STYLES[autodirectory]='fg=215,italic'
+ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=215'
+ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=215'
+ZSH_HIGHLIGHT_STYLES[back-quoted-argument]='fg=141'
 ## Keywords
 ## Built ins
-ZSH_HIGHLIGHT_STYLES[builtin]='fg=#8BE9FD'
-ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=#8BE9FD'
-ZSH_HIGHLIGHT_STYLES[hashed-command]='fg=#8BE9FD'
+ZSH_HIGHLIGHT_STYLES[builtin]='fg=117'
+ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=117'
+ZSH_HIGHLIGHT_STYLES[hashed-command]='fg=117'
 ## Punctuation
-ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=#FF79C6'
-ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter-unquoted]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[process-substitution-delimiter]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[back-quoted-argument-delimiter]='fg=#FF79C6'
-ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]='fg=#FF79C6'
-ZSH_HIGHLIGHT_STYLES[back-dollar-quoted-argument]='fg=#FF79C6'
+ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=212'
+ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter]='fg=255'
+ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter-unquoted]='fg=255'
+ZSH_HIGHLIGHT_STYLES[process-substitution-delimiter]='fg=255'
+ZSH_HIGHLIGHT_STYLES[back-quoted-argument-delimiter]='fg=212'
+ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]='fg=212'
+ZSH_HIGHLIGHT_STYLES[back-dollar-quoted-argument]='fg=212'
 ## Serializable / Configuration Languages
 ## Storage
 ## Strings
-ZSH_HIGHLIGHT_STYLES[command-substitution-quoted]='fg=#F1FA8C'
-ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter-quoted]='fg=#F1FA8C'
-ZSH_HIGHLIGHT_STYLES[single-quoted-argument]='fg=#F1FA8C'
-ZSH_HIGHLIGHT_STYLES[single-quoted-argument-unclosed]='fg=#FF5555'
-ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=#F1FA8C'
-ZSH_HIGHLIGHT_STYLES[double-quoted-argument-unclosed]='fg=#FF5555'
-ZSH_HIGHLIGHT_STYLES[rc-quote]='fg=#F1FA8C'
+ZSH_HIGHLIGHT_STYLES[command-substitution-quoted]='fg=228'
+ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter-quoted]='fg=228'
+ZSH_HIGHLIGHT_STYLES[single-quoted-argument]='fg=228'
+ZSH_HIGHLIGHT_STYLES[single-quoted-argument-unclosed]='fg=203'
+ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=228'
+ZSH_HIGHLIGHT_STYLES[double-quoted-argument-unclosed]='fg=203'
+ZSH_HIGHLIGHT_STYLES[rc-quote]='fg=228'
 ## Variables
-ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument-unclosed]='fg=#FF5555'
-ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[assign]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[named-fd]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[numeric-fd]='fg=#F8F8F2'
+ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument]='fg=255'
+ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument-unclosed]='fg=203'
+ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]='fg=255'
+ZSH_HIGHLIGHT_STYLES[assign]='fg=255'
+ZSH_HIGHLIGHT_STYLES[named-fd]='fg=255'
+ZSH_HIGHLIGHT_STYLES[numeric-fd]='fg=255'
 ## No category relevant in spec
-ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=#FF5555'
-ZSH_HIGHLIGHT_STYLES[path]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[path_pathseparator]='fg=#FF79C6'
-ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[path_prefix_pathseparator]='fg=#FF79C6'
-ZSH_HIGHLIGHT_STYLES[globbing]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[history-expansion]='fg=#BD93F9'
+ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=203'
+ZSH_HIGHLIGHT_STYLES[path]='fg=255'
+ZSH_HIGHLIGHT_STYLES[path_pathseparator]='fg=212'
+ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=255'
+ZSH_HIGHLIGHT_STYLES[path_prefix_pathseparator]='fg=212'
+ZSH_HIGHLIGHT_STYLES[globbing]='fg=255'
+ZSH_HIGHLIGHT_STYLES[history-expansion]='fg=141'
 #ZSH_HIGHLIGHT_STYLES[command-substitution]='fg=?'
 #ZSH_HIGHLIGHT_STYLES[command-substitution-unquoted]='fg=?'
 #ZSH_HIGHLIGHT_STYLES[process-substitution]='fg=?'
 #ZSH_HIGHLIGHT_STYLES[arithmetic-expansion]='fg=?'
-ZSH_HIGHLIGHT_STYLES[back-quoted-argument-unclosed]='fg=#FF5555'
-ZSH_HIGHLIGHT_STYLES[redirection]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[arg0]='fg=#F8F8F2'
-ZSH_HIGHLIGHT_STYLES[default]='fg=#F8F8F2'
+ZSH_HIGHLIGHT_STYLES[back-quoted-argument-unclosed]='fg=203'
+ZSH_HIGHLIGHT_STYLES[redirection]='fg=255'
+ZSH_HIGHLIGHT_STYLES[arg0]='fg=255'
+ZSH_HIGHLIGHT_STYLES[default]='fg=255'
 ZSH_HIGHLIGHT_STYLES[cursor]='standout'
 
 # Dracula theme main colors
