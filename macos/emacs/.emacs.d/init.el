@@ -1586,7 +1586,7 @@ All Mdox tooling (scaffolder, linter) derives from this spec.")
 
 (defun mr-x/set-font-faces ()
   (message "Setting faces!")
-  (set-face-attribute 'default nil :font "Iosevka" :height 240)
+  (set-face-attribute 'default nil :font "Iosevka Nerd Font" :height 240)
   ;; Enable SF Symbols rendering (macOS)
   (when (eq system-type 'darwin)
     (set-fontset-font t nil "SF Pro Display" nil 'append)))
