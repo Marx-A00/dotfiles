@@ -213,6 +213,9 @@ alias ecn='emacsclient -nc'         # New frame, no wait
 alias ecd='emacs --daemon'          # Start daemon
 alias eck='emacsclient -e "(kill-emacs)"'  # Kill daemon
 alias etest='emacs --batch -l ~/.emacs.d/init.el -l ~/.emacs.d/tests/config-tests.el -f ert-run-tests-batch-and-exit'
+alias ports='lsof -iTCP -sTCP:LISTEN -P -n'
+alias ipleak='~/.dotfiles/macos/scripts/ipleak-check.sh'
+alias reload='source ~/.zshrc'
 
 
 # Fix for Emacs native compilation with libgccjit
@@ -234,3 +237,7 @@ function y() {
 
 # Claude Code deferred MCP loading (added by Taskmaster)
 export ENABLE_EXPERIMENTAL_MCP_CLI='true'
+
+# Home lab media upload aliases
+alias upmovie="upload-media"
+alias upshow="upload-media \$1 shows"

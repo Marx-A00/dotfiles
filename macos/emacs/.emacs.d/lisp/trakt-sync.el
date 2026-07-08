@@ -9,6 +9,8 @@
 (require 'json)
 (require 'url)
 (require 'cl-lib)
+(require 'transient)
+(require 'mr-x-popup)
 
 (defcustom trakt-sync-script-dir
   (expand-file-name "~/roaming/code/trakt-sync/")
@@ -19,6 +21,12 @@
 (defcustom trakt-sync-org-file
   (expand-file-name "~/roaming/notes/movies-watched.org")
   "Path to movies-watched.org."
+  :type 'file
+  :group 'applications)
+
+(defcustom trakt-sync-watchlist-org-file
+  (expand-file-name "~/roaming/notes/movies-to-watch.org")
+  "Path to movies-to-watch.org."
   :type 'file
   :group 'applications)
 
@@ -43,6 +51,7 @@
 (defvar trakt-sync--skipped 0 "Count of skipped entries.")
 (defvar trakt-sync--poster-cache (make-hash-table :test 'equal))
 (defvar trakt-sync--continuation nil "What to do after current pick.")
+(defvar trakt-sync--mode 'history "Current mode: `history' or `watchlist'.")
 
 ;;; --- Faces ---
 
@@ -98,6 +107,7 @@
     (define-key map (kbd "RET") #'trakt-sync-confirm)
     (define-key map (kbd "<return>") #'trakt-sync-confirm)
     (define-key map (kbd "s") #'trakt-sync-search-again)
+    (define-key map (kbd "l") #'trakt-sync-lookup)
     (define-key map (kbd "x") #'trakt-sync-skip)
     (define-key map (kbd "C") #'trakt-sync-commit)
     (define-key map (kbd "q") #'trakt-sync-quit)
@@ -123,6 +133,7 @@
     (kbd "RET") #'trakt-sync-confirm
     (kbd "<return>") #'trakt-sync-confirm
     (kbd "s") #'trakt-sync-search-again
+    (kbd "l") #'trakt-sync-lookup
     (kbd "x") #'trakt-sync-skip
     (kbd "C") #'trakt-sync-commit
     (kbd "q") #'trakt-sync-quit
@@ -262,7 +273,11 @@
 
       ;; Header
       (insert "\n ")
-      (insert (propertize "TRAKT SYNC" 'face 'trakt-sync-header))
+      (insert (propertize (pcase trakt-sync--mode
+                            ('watchlist "TRAKT WATCHLIST")
+                            ('log-watched "LOG WATCHED")
+                            (_ "TRAKT SYNC"))
+                          'face 'trakt-sync-header))
       (when (and current-num total-unmatched)
         (insert (propertize (format "  %d/%d" current-num total-unmatched)
                             'face 'trakt-sync-progress)))
@@ -317,6 +332,7 @@
               (propertize "j/k" 'face 'trakt-sync-keyhint) " navigate  "
               (propertize "RET" 'face 'trakt-sync-keyhint) " confirm  "
               (propertize "s" 'face 'trakt-sync-keyhint) " search  "
+              (propertize "l" 'face 'trakt-sync-keyhint) " lookup  "
               (propertize "x" 'face 'trakt-sync-keyhint) " skip  "
               (propertize "C" 'face 'trakt-sync-keyhint) " commit  "
               (propertize "q" 'face 'trakt-sync-keyhint) " quit"
@@ -365,14 +381,16 @@
          (candidates (alist-get 'candidates entry))
          (choice (nth trakt-sync--selected candidates)))
     (when choice
-      (let ((org-title (alist-get 'org_title entry)))
-        (trakt-sync--save-mapping org-title choice)
-        (setq trakt-sync--resolved (1+ trakt-sync--resolved))
-        (message "Mapped \"%s\" -> %s (%s)"
-                 org-title
-                 (alist-get 'title choice)
-                 (alist-get 'year choice))
-        (trakt-sync--advance)))))
+      (if (eq trakt-sync--mode 'log-watched)
+          (trakt-sync--log-watched-finish choice)
+        (let ((org-title (alist-get 'org_title entry)))
+          (trakt-sync--save-mapping org-title choice)
+          (setq trakt-sync--resolved (1+ trakt-sync--resolved))
+          (message "Mapped \"%s\" -> %s (%s)"
+                   org-title
+                   (alist-get 'title choice)
+                   (alist-get 'year choice))
+          (trakt-sync--advance))))))
 
 (defun trakt-sync-skip ()
   "Skip the current entry."
@@ -396,10 +414,26 @@
                           (1+ (- (length trakt-sync--unmatched)
                                  (length (memq entry trakt-sync--unmatched))))))))
 
+(defun trakt-sync-lookup ()
+  "Look up a movie by Trakt URL or slug."
+  (interactive)
+  (let* ((entry (or trakt-sync--current (car trakt-sync--unmatched)))
+         (input (read-string "Trakt URL or slug: "))
+         (results (trakt-sync--run-python "lookup" (shell-quote-argument input))))
+    (if (or (null results) (= (length results) 0))
+        (message "Not found: %s" input)
+      (setf (alist-get 'candidates entry) results)
+      (setq trakt-sync--selected 0)
+      (trakt-sync--render entry results
+                          (length trakt-sync--unmatched)
+                          (1+ (- (length trakt-sync--unmatched)
+                                 (length (memq entry trakt-sync--unmatched))))))))
+
 (defun trakt-sync-quit ()
   "Quit trakt-sync and restore window layout."
   (interactive)
-  (when (y-or-n-p "Quit trakt-sync? Mappings so far are saved. ")
+  (when (or (eq trakt-sync--mode 'log-watched)
+            (y-or-n-p "Quit trakt-sync? Mappings so far are saved. "))
     (kill-buffer "*trakt-sync*")
     (when trakt-sync--window-config
       (set-window-configuration trakt-sync--window-config)
@@ -451,21 +485,26 @@
 
 (defun trakt-sync--save-mapping (org-title candidate)
   "Save mapping from ORG-TITLE to CANDIDATE."
-  (trakt-sync--run-python "save-mapping"
-                          (shell-quote-argument org-title)
-                          (shell-quote-argument (json-encode candidate))))
+  (let ((cmd (if (eq trakt-sync--mode 'watchlist) "watchlist-save" "save-mapping")))
+    (trakt-sync--run-python cmd
+                            (shell-quote-argument org-title)
+                            (shell-quote-argument (json-encode candidate)))))
 
 (defun trakt-sync-commit ()
   "Commit all mapped entries to Trakt."
   (interactive)
-  (when (y-or-n-p "Sync all mapped movies to Trakt? ")
-    (message "Syncing to Trakt...")
-    (let ((result (trakt-sync--run-python
-                   "commit"
-                   (shell-quote-argument trakt-sync-org-file))))
-      (if result
-          (message "trakt-sync: %s" (or (alist-get 'message result) "Done!"))
-        (message "trakt-sync: commit failed — check *Messages*")))))
+  (let* ((watchlist-p (eq trakt-sync--mode 'watchlist))
+         (prompt (if watchlist-p
+                     "Add all mapped movies to Trakt watchlist? "
+                   "Sync all mapped movies to Trakt history? "))
+         (cmd (if watchlist-p "watchlist-commit" "commit"))
+         (org-file (if watchlist-p trakt-sync-watchlist-org-file trakt-sync-org-file)))
+    (when (y-or-n-p prompt)
+      (message "Syncing to Trakt...")
+      (let ((result (trakt-sync--run-python cmd (shell-quote-argument org-file))))
+        (if result
+            (message "trakt-sync: %s" (or (alist-get 'message result) "Done!"))
+          (message "trakt-sync: commit failed — check *Messages*"))))))
 
 ;;; --- Mock / Test ---
 
@@ -504,12 +543,122 @@
                         (alist-get 'candidates mock-entry)
                         12 5)))
 
+;;; --- Log watched ---
+
+(defun trakt-sync--append-to-file (filepath line)
+  "Append LINE as a new line at the end of FILEPATH."
+  (let* ((existing-buf (find-buffer-visiting filepath))
+         (buf (or existing-buf (find-file-noselect filepath))))
+    (with-current-buffer buf
+      (save-excursion
+        (goto-char (point-max))
+        (unless (bolp) (insert "\n"))
+        (insert line "\n"))
+      (save-buffer))
+    (unless existing-buf
+      (kill-buffer buf))))
+
+(defun trakt-sync--remove-from-watchlist-org (movie-title)
+  "Remove MOVIE-TITLE from movies-to-watch.org if present.
+Returns t if a line was removed."
+  (let* ((filepath trakt-sync-watchlist-org-file)
+         (existing-buf (find-buffer-visiting filepath))
+         (buf (or existing-buf (find-file-noselect filepath)))
+         (title-down (downcase movie-title))
+         (removed nil))
+    (with-current-buffer buf
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^\\* \\(.+\\)$" nil t)
+          (let* ((raw (string-trim (match-string 1)))
+                 (clean (string-trim
+                         (replace-regexp-in-string "\\s-*(\\([0-9]\\{4\\}\\))\\s-*$" "" raw))))
+            (when (string= (downcase clean) title-down)
+              (delete-region (line-beginning-position)
+                             (min (1+ (line-end-position)) (point-max)))
+              (setq removed t)))))
+      (when removed (save-buffer)))
+    (unless existing-buf
+      (kill-buffer buf))
+    removed))
+
+(defun trakt-sync--log-watched-finish (movie)
+  "Complete the log-watched flow: prompt for date, update org files, sync Trakt."
+  (let* ((title (alist-get 'title movie))
+         (year (alist-get 'year movie))
+         (today (format-time-string "%m/%d/%y"))
+         (date (read-string (format "Date watched (default %s): " today) nil nil today))
+         (org-line (format "* %s - %s" title date)))
+    ;; Append to movies-watched.org
+    (trakt-sync--append-to-file trakt-sync-org-file org-line)
+    ;; Remove from movies-to-watch.org if present
+    (let ((removed (trakt-sync--remove-from-watchlist-org title)))
+      ;; Sync to Trakt
+      (message "Syncing to Trakt...")
+      (let ((result (trakt-sync--run-python
+                     "log-watched"
+                     (shell-quote-argument (json-encode movie))
+                     (shell-quote-argument date))))
+        ;; Close picker and restore windows
+        (kill-buffer "*trakt-sync*")
+        (when trakt-sync--window-config
+          (set-window-configuration trakt-sync--window-config)
+          (setq trakt-sync--window-config nil))
+        ;; Report
+        (message "Logged: %s%s — %s%s"
+                 title
+                 (if year (format " (%s)" year) "")
+                 date
+                 (if removed " (removed from watchlist)" ""))))))
+
+;;;###autoload
+(defun trakt-sync--watchlist-titles ()
+  "Return list of titles from movies-to-watch.org."
+  (let ((filepath trakt-sync-watchlist-org-file)
+        titles)
+    (with-temp-buffer
+      (insert-file-contents filepath)
+      (goto-char (point-min))
+      (while (re-search-forward "^\\* \\(.+\\)$" nil t)
+        (push (string-trim (match-string 1)) titles)))
+    (nreverse titles)))
+
+;;;###autoload
+(defun log-watched ()
+  "Log a movie as watched.
+Searches Trakt, shows the picker, prompts for date, then:
+- Appends to movies-watched.org
+- Removes from movies-to-watch.org (if present)
+- Syncs to Trakt history
+- Removes from Trakt watchlist (if present)"
+  (interactive)
+  (let ((query (mr-x/popup-prompt "What did you watch?"
+                                  "Pick from your watchlist or type a title"
+                                  (trakt-sync--watchlist-titles)
+                                  :header "LOG WATCHED")))
+    (unless query (user-error "Cancelled"))
+    (message "Searching Trakt...")
+    (let ((results (trakt-sync--run-python "search" (shell-quote-argument query))))
+      (unless results
+        (user-error "No results found for \"%s\"" query))
+      (setq trakt-sync--mode 'log-watched
+            trakt-sync--resolved 0
+            trakt-sync--skipped 0
+            trakt-sync--selected 0)
+      (let ((entry `((org_title . ,query)
+                     (watched_date . nil)
+                     (candidates . ,results))))
+        (setq trakt-sync--current entry
+              trakt-sync--unmatched (list entry))
+        (trakt-sync--render entry results 1 1)))))
+
 ;;; --- Entry point ---
 
 ;;;###autoload
 (defun trakt-sync ()
   "Sync movies-watched.org to Trakt interactively."
   (interactive)
+  (setq trakt-sync--mode 'history)
   (message "Fetching candidates from Trakt...")
   (let ((data (trakt-sync--run-python
                "candidates"
@@ -536,6 +685,103 @@
             (trakt-sync--render entry (alist-get 'candidates entry)
                                 (length unmatched) 1))
         (trakt-sync--show-done)))))
+
+;;;###autoload
+(defun trakt-sync-watchlist ()
+  "Sync movies-to-watch.org to Trakt watchlist interactively."
+  (interactive)
+  (setq trakt-sync--mode 'watchlist)
+  (message "Fetching watchlist candidates from Trakt...")
+  (let ((data (trakt-sync--run-python
+               "watchlist-candidates"
+               (shell-quote-argument trakt-sync-watchlist-org-file))))
+    (unless data
+      (setq trakt-sync--mode 'history)
+      (user-error "Failed to get candidates — check *Messages*"))
+    (setq trakt-sync--entries data
+          trakt-sync--resolved 0
+          trakt-sync--skipped 0
+          trakt-sync--selected 0)
+
+    (let ((auto (seq-filter (lambda (e) (equal (alist-get 'status e) "auto")) data))
+          (synced (seq-filter (lambda (e) (equal (alist-get 'status e) "synced")) data))
+          (mapped (seq-filter (lambda (e) (equal (alist-get 'status e) "mapped")) data))
+          (unmatched (seq-filter (lambda (e) (equal (alist-get 'status e) "unmatched")) data)))
+
+      (message "%d auto-matched, %d mapped, %d synced, %d need review"
+               (length auto) (length mapped) (length synced) (length unmatched))
+
+      (setq trakt-sync--unmatched unmatched)
+      (if unmatched
+          (let ((entry (car unmatched)))
+            (setq trakt-sync--current entry)
+            (trakt-sync--render entry (alist-get 'candidates entry)
+                                (length unmatched) 1))
+        (trakt-sync--show-done)))))
+
+;;; --- View commands ---
+
+(defun trakt-sync-view-watchlist ()
+  "Open movies-to-watch.org."
+  (interactive)
+  (find-file trakt-sync-watchlist-org-file))
+
+(defun trakt-sync-view-history ()
+  "Open movies-watched.org."
+  (interactive)
+  (find-file trakt-sync-org-file))
+
+;;; --- Unmapped commands ---
+
+(defun trakt-sync-show-unmapped (type)
+  "Show unmapped titles for TYPE (`watchlist' or `history')."
+  (let* ((cmd (if (eq type 'watchlist) "watchlist-unmapped" "history-unmapped"))
+         (label (if (eq type 'watchlist) "Watchlist" "History"))
+         (titles (trakt-sync--run-python cmd)))
+    (if (or (null titles) (= (length titles) 0))
+        (message "%s: all titles are mapped!" label)
+      (with-current-buffer (get-buffer-create "*trakt-unmapped*")
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (insert (propertize (format " %s — Unmapped Titles (%d)\n" label (length titles))
+                              'face 'trakt-sync-header))
+          (insert " " (propertize (make-string 50 ?─) 'face 'trakt-sync-separator) "\n\n")
+          (dolist (title titles)
+            (insert "  • " (if (stringp title) title "?") "\n"))
+          (insert "\n")
+          (special-mode)
+          (goto-char (point-min)))
+        (pop-to-buffer "*trakt-unmapped*")))))
+
+(defun trakt-sync-unmapped-watchlist ()
+  "Show watchlist titles with no mapping."
+  (interactive)
+  (trakt-sync-show-unmapped 'watchlist))
+
+(defun trakt-sync-unmapped-history ()
+  "Show history titles with no mapping."
+  (interactive)
+  (trakt-sync-show-unmapped 'history))
+
+;;; --- Transient menu ---
+
+;;;###autoload
+(transient-define-prefix movies ()
+  "Movies — Trakt sync menu."
+  ["Log"
+   ("l"   "Log watched"     log-watched)]
+  ["Sync"
+   ("s w" "Sync watchlist"  trakt-sync-watchlist)
+   ("s h" "Sync history"    trakt-sync)]
+  ["View"
+   ("v w" "View watchlist"  trakt-sync-view-watchlist)
+   ("v h" "View history"    trakt-sync-view-history)]
+  ["Unmapped"
+   ("u w" "Unmapped watchlist" trakt-sync-unmapped-watchlist)
+   ("u h" "Unmapped history"   trakt-sync-unmapped-history)]
+  ["Other"
+   ("C"   "Commit mapped"   trakt-sync-commit)
+   ("t"   "Test UI"         trakt-sync-test-ui)])
 
 (provide 'trakt-sync)
 ;;; trakt-sync.el ends here

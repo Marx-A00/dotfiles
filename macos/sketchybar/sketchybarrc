@@ -19,17 +19,18 @@ GREEN=0xFF638989
 GRUVBOX_GREEN=0xFFb8bb26
 
 # main bar & defaults
-sketchybar --bar height=54        \
-                 margin=12        \
+sketchybar --bar height=40        \
+                 margin=0         \
                  y_offset=0       \
+                 corner_radius=5  \
                  padding_left=0   \
                  padding_right=0  \
                  color=0x00000000
 
 sketchybar --default updates=when_shown                             \
-                     icon.font="Liga SFMono Nerd Font:Normal:14.0"  \
+                     icon.font="Hack Nerd Font:Propo:14.0"          \
                      icon.color=0xFFFFFFFF                          \
-                     label.font="Liga SFMono Nerd Font:Normal:14.0" \
+                     label.font="Hack Nerd Font:Propo:14.0"         \
                      background.color=0x00000000                    \
                      y_offset=0
 
@@ -50,9 +51,12 @@ do
                               icon.highlight_color=0xFFFFFFFF \
                               icon.align=center \
                               icon.width=30 \
-                              icon.background.height=24 \
-                              icon.background.corner_radius=12 \
-                              icon.background.color=0x00000000 \
+                              icon.padding_left=5 \
+                              icon.padding_right=5 \
+                              background.color=0xffffffff \
+                              background.height=2 \
+                              background.y_offset=-12 \
+                              background.drawing=off \
                               label.drawing=off \
                               script='./plugins/space.sh' \
                               click_script="yabai -m space --focus $sid"
@@ -70,13 +74,13 @@ sketchybar --add item new_space left                        \
                                 icon=+                      \
                                 click_script='plugins/new_space.sh'
 
-# consolidate space numbers and add a background
+# consolidate space numbers (transparent — no pill)
 sketchybar --add bracket spaces '/space\..*/' new_space                \
-           --set         spaces background.color=0x801e1e2e             \
-                                background.corner_radius=15            \
-                                background.border_width=1              \
-                                blur_radius=2                          \
-                                background.height=30                    
+           --set         spaces background.color=0x00000000            \
+                                background.corner_radius=0             \
+                                background.border_width=0              \
+                                blur_radius=0                          \
+                                background.height=0
 
 # Old floating dot approach - commented out in favor of icon.highlight
 # sketchybar --add item highlight_space left                      \
@@ -118,31 +122,28 @@ bash ./plugins/emacs-clock-setup.sh
 sketchybar --add item emacs_agenda left \
            --set emacs_agenda \
              icon=󰃭 \
-             icon.color=0xFFb8bb26 \
+             icon.color=0xFFFFFFFF \
              icon.padding_left=10 \
              icon.padding_right=10 \
              label.drawing=off \
-             background.color=0x801e1e2e \
-             background.corner_radius=15 \
-             background.height=30 \
-             background.border_width=1 \
-             background.border_color=0x40FFFFFF \
-             background.padding_left=18 \
-             blur_radius=2 \
+             background.color=0x00000000 \
+             background.corner_radius=0 \
+             background.height=0 \
+             background.border_width=0 \
              click_script='~/.dotfiles/macos/scripts/org-agenda-frame.sh'
 
-# update defaults
+# update defaults (flat/transparent style)
 sketchybar --default                                                \
-                     background.color=0x801e1e2e                    \
-                     blur_radius=2                                  \
-                     background.corner_radius=15                    \
-                     background.height=30                           \
-                     icon.padding_left=12                           \
+                     background.color=0x00000000                    \
+                     blur_radius=0                                  \
+                     background.corner_radius=0                     \
+                     background.height=0                            \
+                     icon.padding_left=6                            \
                      icon.padding_right=4                           \
                      label.padding_left=4                           \
-                     label.padding_right=12                         \
-                     background.padding_left=18                     \
-                     background.border_width=1
+                     label.padding_right=10                         \
+                     background.padding_left=0                      \
+                     background.border_width=0
 
 
 # ~~ center items ~~
@@ -157,11 +158,9 @@ sketchybar --add item title center                                  \
                             icon.padding_left=10                     \
                             icon.padding_right=0                    \
                             script='./plugins/title.sh'             \
-                            background.border_color=0xFFD3CDC5      \
+                            background.border_color=0x00000000      \
                             update_freq=1                           \
-                            label.max_chars=54                      # \
-                            # scroll_texts=on                         \
-                            # label.scroll_duration=200
+                            label.max_chars=54
 
 sketchybar --subscribe title title_change
 
@@ -184,28 +183,36 @@ bash ./plugins/yabai-layout-setup.sh
 # date
 sketchybar --add item date right                                    \
            --set      date icon=󱨰                                   \
-                           icon.color=$BLUE                       \
-                           background.color=0x801e1e2e              \
-                           background.corner_radius=15              \
-                           blur_radius=20                            \
+                           icon.color=0xFFFFFFFF                  \
                            label="$(date '+%a %b %d')"              \
                            script='./plugins/date.sh'               \
-                           update_freq=10                           \
+                           update_freq=10
 
 # weather
 sketchybar --add item weather right                                 \
            --set      weather icon=A                                \
-                              icon.color=$ORANGE                    \
+                              icon.color=0xFFFFFFFF                  \
                               label="--°F"                          \
                               script='./plugins/weather.sh'         \
                               update_freq=60                        \
 			      click_script="open $WEATHER_URL"
-			  
+
+
+# network (wifi/ethernet/vpn)
+sketchybar --add item network right                                  \
+           --set      network icon=󰤨                                 \
+                              icon.color=0xFFFFFFFF                   \
+                              icon.font="Hack Nerd Font:Propo:18.0"   \
+                              label.font="Hack Nerd Font:Propo:18.0"  \
+                              label.drawing=off                       \
+                              script='./plugins/network.sh'           \
+                              update_freq=10
+sketchybar --subscribe network wifi_change
 
 # battery
 sketchybar --add item battery right                                 \
            --set      battery icon=                                \
-                              icon.color=$RED                   \
+                              icon.color=0xFFFFFFFF                  \
                               label="--%"                           \
                               script='./plugins/battery.sh'         \
                               update_freq=20
@@ -214,9 +221,8 @@ sketchybar --add item battery right                                 \
 # imessage unread count
 sketchybar --add item imessage right                                 \
            --set      imessage icon=󰍡                                \
-                               icon.color=$GRUVBOX_GREEN             \
+                               icon.color=0xFFFFFFFF                  \
                                label.color=0xFFFFFFFF                 \
-                               background.border_color=$GRUVBOX_GREEN \
                                script='./plugins/imessage.sh'        \
                                update_freq=5                         \
                                updates=on                            \
@@ -226,9 +232,8 @@ sketchybar --add item imessage right                                 \
 # whatsapp unread count
 sketchybar --add item whatsapp right                                 \
            --set      whatsapp icon=󰖣                                \
-                               icon.color=$GREEN                     \
+                               icon.color=0xFFFFFFFF                  \
                                label.color=0xFFFFFFFF                 \
-                               background.border_color=$GREEN         \
                                script='./plugins/whatsapp.sh'        \
                                update_freq=5                         \
                                updates=on                            \
@@ -240,6 +245,11 @@ sketchybar --add item title_proxy right                             \
            --set      title_proxy y_offset=100                      \
                                   label="Title"
 
+# bracket groups (semi-transparent dark backgrounds)
+sketchybar --add bracket right_group date weather network battery     \
+           --set right_group background.color=0xbf000000             \
+                             background.corner_radius=10             \
+                             background.height=25
 
 # finish config
 sketchybar --hotload on

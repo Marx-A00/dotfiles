@@ -3,13 +3,13 @@
 # Define the gruvbox green color
 GRUVBOX_GREEN=0xFFb8bb26
 
-# Update function to set icon highlight based on selection
+# Update function — white underline for selected space
 update() {
   if [ "$SELECTED" = "true" ]; then
-    sketchybar --animate tanh 20 --set $NAME icon.background.color=$GRUVBOX_GREEN \
-                                            icon.color=0xFF1d2021
+    sketchybar --set $NAME background.drawing=on \
+                          icon.color=0xFFFFFFFF
   else
-    sketchybar --set $NAME icon.background.color=0x00000000 \
+    sketchybar --set $NAME background.drawing=off \
                           icon.color=0xFFFFFFFF
   fi
 }

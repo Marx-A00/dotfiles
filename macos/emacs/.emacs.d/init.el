@@ -101,7 +101,6 @@
     (require 'org-mcp nil t)))
 
 
-
       (use-package org
         :ensure nil
         :demand t
@@ -234,6 +233,8 @@
   	(org-modern-hide-stars nil)
   	(org-modern-table nil)
   	(org-modern-todo-faces mr-x/todo-faces))
+
+      (add-hook 'org-mode-hook #'org-indent-mode)
 
       (use-package org-tidy
   	:ensure t
@@ -1585,7 +1586,7 @@ All Mdox tooling (scaffolder, linter) derives from this spec.")
 
 (defun mr-x/set-font-faces ()
   (message "Setting faces!")
-  (set-face-attribute 'default nil :font "JuliaMono" :height 240)
+  (set-face-attribute 'default nil :font "Iosevka" :height 240)
   ;; Enable SF Symbols rendering (macOS)
   (when (eq system-type 'darwin)
     (set-fontset-font t nil "SF Pro Display" nil 'append)))
@@ -1623,118 +1624,156 @@ All Mdox tooling (scaffolder, linter) derives from this spec.")
 
 
 
-(use-package vterm
-  :ensure t
-  :config
-  ;; Prevent evil-collection from messing with vterm keys
+  (use-package vterm
+    :ensure t
+    :config
+    ;; Prevent evil-collection from messing with vterm keys
 
 
-  (setq vterm-scroll-to-bottom-on-output nil)
-  (with-eval-after-load 'evil-collection
-    (setq evil-collection-vterm-bind-escape-in-insert nil)
-    (delete 'vterm evil-collection-mode-list)))
+    (setq vterm-scroll-to-bottom-on-output nil)
+    (with-eval-after-load 'evil-collection
+      (setq evil-collection-vterm-bind-escape-in-insert nil)
+      (delete 'vterm evil-collection-mode-list)))
 
-(use-package multi-vterm
-  :ensure t
-  :after (evil vterm)
-  :config
-  ;; Set buffer name prefix to "vterm"
-  (setq multi-vterm-buffer-name "vterm")
-  ;; Set dedicated terminal height
-  (setq multi-vterm-dedicated-window-height-percent 40)
-  
-  ;; Setup vterm with evil properly
-  (add-hook 'vterm-mode-hook
-            (lambda ()
-              (setq-local evil-insert-state-cursor 'box)
-              (evil-insert-state)))
-  
-  ;; Basic vterm configuration
-  (setq vterm-keymap-exceptions nil)
-  
-  ;; Define keys after vterm-mode-map exists
-  (with-eval-after-load 'vterm
-    (define-key vterm-mode-map [return] #'vterm-send-return)
+  (use-package multi-vterm
+    :ensure t
+    :after (evil vterm)
+    :config
+    ;; Set buffer name prefix to "vterm"
+    (setq multi-vterm-buffer-name "vterm")
+    ;; Set dedicated terminal height
+    (setq multi-vterm-dedicated-window-height-percent 40)
     
-    ;; Pass through common terminal keys in insert mode
-    (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
-    (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
+    ;; Setup vterm with evil properly
+    (add-hook 'vterm-mode-hook
+              (lambda ()
+                (setq-local evil-insert-state-cursor 'box)
+                (evil-insert-state)))
     
-    ;; CMD+Backspace to clear line (send C-u to terminal)
-    (evil-define-key 'insert vterm-mode-map (kbd "s-<backspace>") 
-      (lambda () (interactive) (vterm-send-key "u" nil nil t)))
+    ;; Basic vterm configuration
+    (setq vterm-keymap-exceptions nil)
     
-    ;; Option+Backspace to delete word (send M-DEL to terminal)  
-    (evil-define-key 'insert vterm-mode-map (kbd "M-<backspace>")
-      (lambda () (interactive) (vterm-send-key "<backspace>" nil t nil)))
+    ;; Define keys after vterm-mode-map exists
+    (with-eval-after-load 'vterm
+      (define-key vterm-mode-map [return] #'vterm-send-return)
+      
+      ;; Pass through common terminal keys in insert mode
+      (evil-define-key 'insert vterm-mode-map (kbd "C-e")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-f")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-a")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-v")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-b")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-w")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-u")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-d")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-n")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-m")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-p")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-j")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-k")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-r")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-t")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-g")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-c")      #'vterm--self-insert)
+      (evil-define-key 'insert vterm-mode-map (kbd "C-SPC")    #'vterm--self-insert)
+      
+      ;; CMD+Backspace to clear line (send C-u to terminal)
+      (evil-define-key 'insert vterm-mode-map (kbd "s-<backspace>") 
+        (lambda () (interactive) (vterm-send-key "u" nil nil t)))
+      
+      ;; Option+Backspace to delete word (send M-DEL to terminal)  
+      (evil-define-key 'insert vterm-mode-map (kbd "M-<backspace>")
+        (lambda () (interactive) (vterm-send-key "<backspace>" nil t nil)))
+      
+      ;; Normal mode keys
+      (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
+      (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
+      (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
+      (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
+      (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
+      (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)
+      
+      ;; Paste in normal mode - send clipboard to vterm
+      (evil-define-key 'normal vterm-mode-map (kbd "p")
+        (lambda () (interactive)
+          (vterm-send-string (current-kill 0))))
+      
+      ;; CMD+Enter to send/execute in both modes
+      (evil-define-key 'normal vterm-mode-map (kbd "s-<return>") #'vterm-send-return)
+      (evil-define-key 'insert vterm-mode-map (kbd "s-<return>") #'vterm-send-return)))
+
+
+
+
+    ;; Optional: set the shell explicitly if needed
+    ;; (setq vterm-shell "/bin/zsh")
     
-    ;; Normal mode keys
-    (evil-define-key 'normal vterm-mode-map (kbd ",c")       #'multi-vterm)
-    (evil-define-key 'normal vterm-mode-map (kbd ",n")       #'multi-vterm-next)
-    (evil-define-key 'normal vterm-mode-map (kbd ",p")       #'multi-vterm-prev)
-    (evil-define-key 'normal vterm-mode-map (kbd "i")        #'evil-insert-resume)
-    (evil-define-key 'normal vterm-mode-map (kbd "o")        #'evil-insert-resume)
-    (evil-define-key 'normal vterm-mode-map (kbd "<return>") #'evil-insert-resume)
-    
-    ;; Paste in normal mode - send clipboard to vterm
-    (evil-define-key 'normal vterm-mode-map (kbd "p")
-      (lambda () (interactive)
-        (vterm-send-string (current-kill 0))))
-    
-    ;; CMD+Enter to send/execute in both modes
-    (evil-define-key 'normal vterm-mode-map (kbd "s-<return>") #'vterm-send-return)
-    (evil-define-key 'insert vterm-mode-map (kbd "s-<return>") #'vterm-send-return)))
+    ;; Wrapper to open vterm in popper's popup position from the start
+    (defun mr-x/vterm-popup ()
+      "Open multi-vterm in popper's popup position."
+      (interactive)
+      (let ((buf (save-window-excursion
+                   (multi-vterm)
+                   (current-buffer))))
+        (display-buffer buf)))
+
+    (defun mr-x/vterm-in-dir ()
+      "Open a vterm in a directory chosen via prompt."
+      (interactive)
+      (let ((default-directory (read-directory-name "vterm dir: ")))
+        (multi-vterm)))
+
+    (defun mr-x/vterm-buffer ()
+      "Open multi-vterm in current window, bypassing popper."
+      (interactive)
+      (let ((buf (save-window-excursion
+                   (multi-vterm)
+                   (current-buffer))))
+        (switch-to-buffer buf)))
+
+    (defun mr-x/vterm-frame ()
+      "Open multi-vterm in a new dedicated frame, free from popper."
+      (interactive)
+      (let ((buf (save-window-excursion
+                   (multi-vterm)
+                   (current-buffer)))
+            (frame (make-frame `((name . ,(format "Terminal: %s" default-directory))
+                                 (unsplittable . t)))))
+        (select-frame-set-input-focus frame)
+        (delete-other-windows)
+        (switch-to-buffer buf)
+        (set-window-dedicated-p (selected-window) t)
+        ;; Tell popper this buffer is "raised" — removes POP status
+        ;; and prevents popper from re-classifying it
+        (setq-local popper-popup-status 'raised)))
+
+
+  ;; (use-package multi-vterm
+  ;; 	 :config
+  ;; 	 (add-hook 'vterm-mode-hook
+  ;; 			 (lambda ()
+  ;; 			 (setq-local evil-insert-state-cursor 'box)
+  ;; 			 (evil-insert-state)))
+
+  ;; 	 (define-key vterm-mode-map [return]                      #'vterm-send-return)
+
+  ;; 	 (setq vterm-keymap-exceptions nil))
+
+(use-package ghostel
+  :ensure (:host github :repo "dakra/ghostel"
+		 :files ("lisp/*.el" "build.zig" "build.zig.zon" "symbols.map"
+			 "src" "vendor" "etc")))
 
 
 
 
-  ;; Optional: set the shell explicitly if needed
-  ;; (setq vterm-shell "/bin/zsh")
-  
-  ;; Wrapper to open vterm in popper's popup position from the start
-  (defun mr-x/vterm-popup ()
-    "Open multi-vterm in popper's popup position."
-    (interactive)
-    (let ((buf (save-window-excursion
-                 (multi-vterm)
-                 (current-buffer))))
-      (display-buffer buf)))
 
-  (defun mr-x/vterm-in-dir ()
-    "Open a vterm in a directory chosen via prompt."
-    (interactive)
-    (let ((default-directory (read-directory-name "vterm dir: ")))
-      (multi-vterm)))
-
-
-;; (use-package multi-vterm
-;; 	 :config
-;; 	 (add-hook 'vterm-mode-hook
-;; 			 (lambda ()
-;; 			 (setq-local evil-insert-state-cursor 'box)
-;; 			 (evil-insert-state)))
-
-;; 	 (define-key vterm-mode-map [return]                      #'vterm-send-return)
-
-;; 	 (setq vterm-keymap-exceptions nil))
-
-
+(defun mr-x/ports ()
+  "Show listening TCP ports."
+  (interactive)
+  (async-shell-command "lsof -iTCP -sTCP:LISTEN -P -n" "*Ports*")
+  (with-current-buffer "*Ports*"
+    (setq-local truncate-lines t)))
 
 
 
@@ -2380,7 +2419,7 @@ constantly, so only invoke it when Hammerspoon is actually running."
         "h" 'winner-undo
         "l" 'winner-redo
         ;; "s" 'mr-x/toggle-shortcuts
-        ;; "S" 'mr-x/scratch
+        "S" '(mr-x/new-scratch :wk "new scratch")
         ;; "v" 'multi-vterm
         "e" '((lambda () (interactive) (find-file (expand-file-name "~/.dotfiles/macos/emacs/.emacs.d/emacs.org"))) :wk "emacs.org")
         "t" '(mr-x/test-environment :wk "Test environment")
@@ -2394,7 +2433,9 @@ constantly, so only invoke it when Hammerspoon is actually running."
          ((derived-mode-p 'org-agenda-mode) (hydra-org-agenda/body))
          ((derived-mode-p 'org-mode) (hydra-org/body))
          ((derived-mode-p 'pdf-view-mode) (hydra-pdf/body))
+         ((derived-mode-p 'agent-shell-manager-mode) (hydra-agent/body))
          ((derived-mode-p 'agent-shell-mode) (hydra-agent/body))
+         ((derived-mode-p 'dired-mode) (hydra-dired/body))
          ((derived-mode-p 'Info-mode) (hydra-info/body))
          ((derived-mode-p 'prog-mode) (hydra-fold/body))
          (t (message "No hydra for %s" major-mode))))
@@ -2425,6 +2466,7 @@ constantly, so only invoke it when Hammerspoon is actually running."
         "d h" '((lambda () (interactive) (dired "~/")) :wk "Dired home")
         "d r" '((lambda () (interactive) (dired "~/roaming")) :wk "Dired roaming")
         "d e" '((lambda () (interactive) (dired "~/.dotfiles")) :wk "Dired dotfiles")
+        "d w" '((lambda () (interactive) (dired "/ssh:vengeance:/c/Users/mnand/dotfiles/")) :wk "Dired Windows dotfiles")
         "d H" '(dired-omit-mode :wk "Dired Omit Mode")
         "d p" '(dired-preview-global-mode :wk "Toggle preview")
         "d f" '(dwim-shell-commands-macos-reveal-in-finder :wk "Reveal in Finder")
@@ -2449,15 +2491,34 @@ constantly, so only invoke it when Hammerspoon is actually running."
         "b e" '(eval-buffer :wk "eval buffer")
         "b g" '(mr-x/global-scratch :wk "global scratch"))
 
-      
+      (defun mr-x/copy-last-message ()
+        "Copy the last line from *Messages* to the kill ring and clipboard."
+        (interactive)
+        (with-current-buffer "*Messages*"
+          (goto-char (point-max))
+          (forward-line -1)
+          (let ((line (string-trim (thing-at-point 'line t))))
+            (kill-new line)
+            (message "Copied: %s" line))))
+
+      (mr-x/leader-def
+        "y" '(:ignore t :wk "yank")
+        "y m" '(mr-x/copy-last-message :wk "copy last message"))
+
       (mr-x/leader-def
         "v" '(:ignore t :wk "vterm")
         "v v" '(mr-x/vterm-popup :wk "vterm popup")
+        "v b" '(mr-x/vterm-buffer :wk "vterm buffer")
+        "v s" '(mr-x/vterm-frame :wk "vterm frame")
         "v f" '(mr-x/vterm-in-dir :wk "vterm in dir")
         "v n" '(multi-vterm-next :wk "multi-vterm-next")
         "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
         "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
         "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame"))
+
+      (mr-x/leader-def
+        "s" '(:ignore t :wk "streaming")
+        "s y" '(ytr :wk "YouTube radio"))
 
       ;; Smart new shell: replace window when already in agent-shell
       (defun mr-x/agent-shell-new-smart ()
@@ -2480,6 +2541,39 @@ constantly, so only invoke it when Hammerspoon is actually running."
                 (agent-shell-viewport--show-buffer :shell-buffer shell-buffer)
               (pop-to-buffer shell-buffer)))))
 
+      (defun mr-x/agent-shell-in-project ()
+        "Pick a project, then start a new agent shell there.
+Dashboard projects shown by name with path annotation; remaining
+projectile projects appended below."
+        (interactive)
+        (let* ((dashboard (when (boundp 'project-dashboard-projects)
+                            project-dashboard-projects))
+               ;; dashboard paths (expanded) so we can de-dup projectile
+               (dash-paths (mapcar (lambda (p) (expand-file-name (cdr p))) dashboard))
+               ;; projectile projects not already in dashboard (skip remote/TRAMP)
+               (extra (cl-remove-if (lambda (p) (or (file-remote-p p)
+                                                    (member (expand-file-name p) dash-paths)))
+                                    projectile-known-projects))
+               ;; build candidates: ((display . path) ...)
+               (candidates (append
+                            (mapcar (lambda (p) (cons (car p) (expand-file-name (cdr p))))
+                                    dashboard)
+                            (mapcar (lambda (p) (cons (abbreviate-file-name p) (expand-file-name p)))
+                                    extra)))
+               ;; annotation function shows path for dashboard entries
+               (annotate (lambda (cand)
+                           (when-let ((path (cdr (assoc cand candidates))))
+                             (concat "  " (propertize (abbreviate-file-name path)
+                                                      'face 'completions-annotations)))))
+               (choice (completing-read "Agent shell in: "
+                                        (lambda (str pred action)
+                                          (if (eq action 'metadata)
+                                              `(metadata (annotation-function . ,annotate))
+                                            (complete-with-action action candidates str pred)))))
+               (default-directory (or (cdr (assoc choice candidates))
+                                      (expand-file-name choice))))
+          (mr-x/agent-shell-new-smart)))
+
       (defun mr-x/agent-shell-roaming ()
         "Start a new agent shell in ~/roaming/claude."
         (interactive)
@@ -2491,6 +2585,7 @@ constantly, so only invoke it when Hammerspoon is actually running."
         "c c" '(agent-shell :wk "Start Agent Shell")
         "c C" '(mr-x/agent-shell-roaming :wk "Claude (roaming)")
         "c n" '(mr-x/agent-shell-new-smart :wk "New shell")
+        "c N" '(mr-x/agent-shell-in-project :wk "New shell (pick project)")
         "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
         "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
         "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
@@ -2536,7 +2631,9 @@ constantly, so only invoke it when Hammerspoon is actually running."
         "c 3" '(mr-x/agent-shell-allow-always :wk "Allow always")
         "c 0" '(mr-x/agent-shell-view-diff :wk "View diff")
         "c a" '(:ignore t :wk "Recall")
-        "c a s" '(agent-recall-consult-search :wk "Search")
+        "c a s" '(:ignore t :wk "Search")
+        "c a s c" '(agent-recall-consult-search :wk "Consult")
+        "c a s d" '(agent-recall-search :wk "Deadgrep")
         "c a b" '(agent-recall-browse :wk "Browse")
         "c a r" '(agent-recall-resume :wk "Resume")
         "c a B" '(agent-recall-backfill :wk "Backfill")
@@ -2747,6 +2844,11 @@ TASK-ID is the ID shown when Claude runs a background command."
 
 (use-package persistent-scratch
   :ensure t
+  :config
+  (setq persistent-scratch-scratch-buffer-p-function
+        (lambda ()
+          (string-match-p "\\*\\(scratch\\|global-scratch\\)\\(<[0-9]+>\\)?\\*"
+                          (buffer-name))))
   :hook (elpaca-after-init . (lambda () (persistent-scratch-setup-default))))
 
 
@@ -3081,12 +3183,12 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   :ensure t
   :demand t
   :init
+  (setq bm-repository-file (expand-file-name "bm-repository" user-emacs-directory))
+  (setq bm-buffer-persistence t)
   (setq bm-restore-repository-on-load t)
   :config
   (setq bm-cycle-all-buffers t)
   (setq bm-highlight-style 'bm-highlight-only-fringe)
-  (setq bm-repository-file (expand-file-name "bm-repository" user-emacs-directory))
-  (setq bm-buffer-persistence t)
   (add-hook 'after-init-hook 'bm-repository-load)
   (add-hook 'kill-buffer-hook 'bm-buffer-save)
   (add-hook 'kill-emacs-hook 'bm-buffer-save)
@@ -3094,7 +3196,6 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   (add-hook 'after-save-hook 'bm-buffer-save)
   (add-hook 'find-file-hook 'bm-buffer-restore)
   (add-hook 'after-revert-hook 'bm-buffer-restore)
-  :config
   (with-eval-after-load 'general
     (mr-x/leader-def
       "m" '(:ignore t :wk "bookmarks")
@@ -3102,6 +3203,17 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
       "m n" '(bm-next :wk "next bookmark")
       "m p" '(bm-previous :wk "prev bookmark")
       "m l" '(bm-show-all :wk "list all bookmarks"))))
+
+(use-package bookmark+
+  :ensure (:host github :repo "emacsmirror/bookmark-plus")
+  :after general
+  :config
+  (mr-x/leader-def
+    "m s" '(bookmark-set :wk "set named bookmark")
+    "m j" '(bookmark-jump :wk "jump to bookmark")
+    "m d" '(bookmark-delete :wk "delete bookmark")
+    "m L" '(bookmark-bmenu-list :wk "list named bookmarks")
+    "m u" '(bmkp-url-target-set :wk "set URL bookmark")))
 
 
 
@@ -3166,6 +3278,24 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   (setq display-line-numbers-type 'visual)
   (dolist (mode '(text-mode-hook prog-mode-hook conf-mode-hook Info-mode-hook))
     (add-hook mode (lambda () (display-line-numbers-mode 1))))
+
+(use-package tramp
+  :ensure nil
+  :defer t
+  :config
+  ;; Use pipes instead of PTYs — Windows Git Bash (MINGW) emits terminal
+  ;; escape codes on PTY allocation that prevent TRAMP from finding a prompt.
+  (setq tramp-process-connection-type nil)
+  (setq tramp-use-ssh-controlmaster-options nil)
+  ;; Don't let vc-mode check version control over TRAMP
+  (setq vc-ignore-dir-regexp
+        (format "%s\\|%s" vc-ignore-dir-regexp tramp-file-name-regexp))
+  ;; Disable auto-revert for remote files
+  (setq auto-revert-remote-files nil)
+  ;; Disable projectile for remote files
+  (with-eval-after-load 'projectile
+    (defadvice projectile-project-root (around ignore-remote first activate)
+      (unless (file-remote-p default-directory) ad-do-it))))
 
 
 ;; Vertico + Consult + Orderless + Marginalia + Embark
@@ -3507,6 +3637,49 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
         (kbd ",") 'hydra-org-agenda/body
         (kbd "j") 'evil-next-line
         (kbd "k") 'evil-previous-line))
+
+    ;; ── Dired Hydra ──────────────────────────────────────────────
+    (defhydra hydra-dired (:hint nil :foreign-keys run)
+      "
+  ╭─── Dired ──────────────────────────────────────────────────╮
+   Navigate           Mark                File Operations
+   _h_: up directory    _m_: mark             _C_: copy
+   _l_: open file       _u_: unmark           _R_: rename/move
+   _o_: sort toggle     _U_: unmark all       _D_: delete
+   _g r_: refresh       _t_: toggle marks     _+_: new directory
+   _g j_: next dir                          _S_: symlink
+   _g k_: prev dir     View                 _Z_: compress
+   _(_: hide details    _M_: chmod
+   _I_: insert subdir  Misc                 _!_: shell command
+   _i_: edit (wdired)  _Y_: copy filename    _&_: async shell cmd
+                      _W_: browse URL       _=_: diff
+  ╰──────────────────────────── _q_: quit ─────────────────────╯"
+      ("h" dired-up-directory)
+      ("l" dired-find-file :exit t)
+      ("o" dired-sort-toggle-or-edit)
+      ("g r" revert-buffer)
+      ("g j" dired-next-dirline)
+      ("g k" dired-prev-dirline)
+      ("(" dired-hide-details-mode)
+      ("I" dired-maybe-insert-subdir)
+      ("i" dired-toggle-read-only :exit t)
+      ("m" dired-mark)
+      ("u" dired-unmark)
+      ("U" dired-unmark-all-marks)
+      ("t" dired-toggle-marks)
+      ("C" dired-do-copy :exit t)
+      ("R" dired-do-rename :exit t)
+      ("D" dired-do-delete :exit t)
+      ("+" dired-create-directory :exit t)
+      ("S" dired-do-symlink :exit t)
+      ("Z" dired-do-compress)
+      ("M" dired-do-chmod :exit t)
+      ("!" dired-do-shell-command :exit t)
+      ("&" dired-do-async-shell-command :exit t)
+      ("Y" dired-copy-filename-as-kill)
+      ("W" browse-url-of-dired-file :exit t)
+      ("=" dired-diff :exit t)
+      ("q" nil :exit t))
 
     ;; ── Info-Mode Hydra (evil-collection cheatsheet) ─────────────
     (defhydra hydra-info (:hint nil :color pink :foreign-keys run)
@@ -4054,7 +4227,11 @@ _q_: quit
 (use-package poly-markdown
   :ensure t
   :after (polymode markdown-mode)
-  :mode ("\\.md\\'" . poly-markdown-mode))
+  :mode ("\\.md\\'" . poly-markdown-mode)
+  :config
+  ;; Suppress org-element parser errors in polymode indirect buffers
+  ;; (org-mode chokes on markdown ** syntax in ```org code blocks)
+  (add-to-list 'warning-suppress-types '(org-element)))
 
 (use-package markdown-xwidget
   :ensure (:host github
@@ -5227,8 +5404,8 @@ _q_: quit
              :identifier 'claude-code
              :mode-line-name "Claude"
              :buffer-name "Claude"
-             :shell-prompt "λ "
-             :shell-prompt-regexp "λ "
+             :shell-prompt "𐆖 "
+             :shell-prompt-regexp "𐆖 "
              :icon-name "anthropic.png"
              :welcome-function #'agent-shell-anthropic--claude-code-welcome-message
              :client-maker (lambda (buffer)
@@ -6503,8 +6680,15 @@ Appends to the current year's transaction file."
       (my/ledger-report-run "Net Worth" "balance Assets Liabilities")))
 
 
+(require 'trakt-sync)
+
 (use-package page-break-lines
   :ensure t)
 
 (use-package posframe
   :ensure t)
+
+(use-package ytr
+  :vc (:url "https://github.com/xenodium/ytr" :rev :newest)
+  :commands (ytr)
+  :hook (ytr-mode . evil-emacs-state))

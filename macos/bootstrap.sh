@@ -91,6 +91,9 @@ for pl in com.marcosandrade.emacsdaemon.plist com.marcosandrade.emacsclient.plis
     sed "s|__HOME__|$HOME|g" "$DOTDIR/emacs/$pl" > "$HOME/Library/LaunchAgents/$pl"
 done
 
+# Jellyfin LaunchAgent (copy, not symlink — launchctl rejects symlinks)
+cp -f "$DOTDIR/scripts/com.marcosandrade.jellyfin-organize.plist" "$HOME/Library/LaunchAgents/"
+
 # ── 6. Emacs ─────────────────────────────────────────────
 step "Setting up Emacs..."
 if [ ! -d "$HOME/.emacs.d" ]; then
@@ -166,3 +169,4 @@ echo "    They abort on launch until this is granted."
 echo "  - For yabai's scripting addition (extra features): partially disable SIP,"
 echo "    then run: sudo yabai --install-sa && sudo yabai --load-sa"
 echo "  - Review commented-out items in Brewfile for extras you might want"
+echo "  - Install cron jobs: crontab $DOTDIR/crontab"

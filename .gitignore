@@ -21,6 +21,11 @@ macos/emacs/.emacs.d/agent/history
 macos/sketchybar/sketchybar-app-font/
 macos/sketchybar/plugins/weather.env.sh
 macos/scripts/simplefin-sync.py
+macos/scripts/ipleak-check.sh
+macos/crontab
+macos/emacs/.emacs.d/ytr/
+macos/sketchybar/plugins/network.sh
+*.bak
 
 # Per-machine shell overrides
 .zshrc.local
@@ -28,6 +33,7 @@ macos/scripts/simplefin-sync.py
 # Shared
 .claude/
 .agent-shell/
+docs/
 ebak/
 random.org
 
