@@ -88,11 +88,12 @@ ln -sf "$DOTDIR/hammerspoon/init.lua" "$HOME/.hammerspoon/init.lua"
 # expand ~ or env vars in ProgramArguments, so bake this machine's $HOME into
 # the __HOME__ placeholder at install time.
 for pl in com.marcosandrade.emacsdaemon.plist com.marcosandrade.emacsclient.plist; do
+    # rm the target first: if it's a stale symlink into the repo, `>` would
+    # follow it and truncate the template itself (input == output). Deleting
+    # the link ensures we always write a fresh regular file.
+    rm -f "$HOME/Library/LaunchAgents/$pl"
     sed "s|__HOME__|$HOME|g" "$DOTDIR/emacs/$pl" > "$HOME/Library/LaunchAgents/$pl"
 done
-
-# Jellyfin LaunchAgent (copy, not symlink — launchctl rejects symlinks)
-cp -f "$DOTDIR/scripts/com.marcosandrade.jellyfin-organize.plist" "$HOME/Library/LaunchAgents/"
 
 # ── 6. Emacs ─────────────────────────────────────────────
 step "Setting up Emacs..."
@@ -118,6 +119,17 @@ else
     else
         echo "Failed to fetch sketchybar-app-font (app icons will be blank); install it manually later"
     fi
+fi
+
+# ── 6c. Terminal.app Dracula profile ────────────────────
+step "Importing Terminal.app Dracula profile..."
+if [ -f "$DOTDIR/Dracula.terminal" ]; then
+    open "$DOTDIR/Dracula.terminal"
+    sleep 1
+    defaults write com.apple.Terminal "Default Window Settings" -string "Dracula"
+    defaults write com.apple.Terminal "Startup Window Settings" -string "Dracula"
+else
+    echo "Dracula.terminal not present, skipping"
 fi
 
 # ── 7. Services ──────────────────────────────────────────
