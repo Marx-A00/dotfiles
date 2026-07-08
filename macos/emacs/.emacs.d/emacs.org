@@ -1841,6 +1841,18 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
           ;; and prevents popper from re-classifying it
           (setq-local popper-popup-status 'raised)))
 
+      (defun mr-x/vterm-restart ()
+        "Restart the current vterm in the same window and directory."
+        (interactive)
+        (unless (derived-mode-p 'vterm-mode)
+          (user-error "Not in a vterm buffer"))
+        (let ((dir default-directory)
+              (old-buf (current-buffer)))
+          (let ((default-directory dir))
+            (vterm (generate-new-buffer-name "vterm")))
+          (when (buffer-live-p old-buf)
+            (kill-buffer old-buf))))
+
 
     ;; (use-package multi-vterm
     ;; 	 :config
@@ -2627,7 +2639,8 @@ constantly, so only invoke it when Hammerspoon is actually running."
         "v n" '(multi-vterm-next :wk "multi-vterm-next")
         "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
         "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
-        "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame"))
+        "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame")
+        "v r" '(mr-x/vterm-restart :wk "restart vterm"))
 
       (mr-x/leader-def
         "s" '(:ignore t :wk "streaming")

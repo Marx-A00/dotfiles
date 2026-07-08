@@ -1,4 +1,6 @@
 # -*- mode: sh -*-
+# Previous style (SF Symbols, org-clock, persp, iMessage, etc.) is saved
+# at git tag "sketchybar/classic" — run: git show sketchybar/classic:sketchybar/sketchybarrc
 
 
 source "$HOME/.config/sketchybar/icon_map.sh"

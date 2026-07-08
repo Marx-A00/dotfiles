@@ -14,3 +14,12 @@ font-family = Iosevka Term Slab
 # SIGN (U+10196) in the shell prompt. Big Caslon is one of the few macOS fonts
 # that actually has it.
 font-family = Big Caslon
+
+# Size & layout (mirrored from Dracula.terminal)
+font-size = 28
+window-width = 120
+window-height = 40
+
+# Behavior
+cursor-style-blink = false
+macos-option-as-alt = true
