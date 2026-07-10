@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.marcosandrade.acp-mobile</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/marcosandrade/.local/bin/acp-mobile</string>
+        <string>8090</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/marcosandrade</string>
+        <!-- config.json extraPath extends this further inside acp-mobile -->
+        <key>PATH</key>
+        <string>/Users/marcosandrade/.local/bin:/usr/local/bin:/opt/homebrew/bin:/opt/homebrew/opt/emacs-plus@30/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/marcosandrade/Library/Logs/acp-mobile/acp-mobile.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/marcosandrade/Library/Logs/acp-mobile/acp-mobile.err.log</string>
+</dict>
+</plist>

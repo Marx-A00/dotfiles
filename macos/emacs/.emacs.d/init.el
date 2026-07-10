@@ -1586,7 +1586,13 @@ All Mdox tooling (scaffolder, linter) derives from this spec.")
 
 (defun mr-x/set-font-faces ()
   (message "Setting faces!")
-  (set-face-attribute 'default nil :font "Iosevka Nerd Font" :height 240)
+  ;; Font family differs per machine (mrx has "Iosevka", others may only
+  ;; have the Nerd Font build) — pick the first one actually installed.
+  (set-face-attribute 'default nil
+                      :font (cond ((find-font (font-spec :name "Iosevka")) "Iosevka")
+                                  ((find-font (font-spec :name "Iosevka Nerd Font")) "Iosevka Nerd Font")
+                                  (t "Menlo"))
+                      :height 240)
   ;; Enable SF Symbols rendering (macOS)
   (when (eq system-type 'darwin)
     (set-fontset-font t nil "SF Pro Display" nil 'append)))
@@ -1746,6 +1752,18 @@ All Mdox tooling (scaffolder, linter) derives from this spec.")
         ;; Tell popper this buffer is "raised" — removes POP status
         ;; and prevents popper from re-classifying it
         (setq-local popper-popup-status 'raised)))
+
+    (defun mr-x/vterm-restart ()
+      "Restart the current vterm in the same window and directory."
+      (interactive)
+      (unless (derived-mode-p 'vterm-mode)
+        (user-error "Not in a vterm buffer"))
+      (let ((dir default-directory)
+            (old-buf (current-buffer)))
+        (let ((default-directory dir))
+          (vterm (generate-new-buffer-name "vterm")))
+        (when (buffer-live-p old-buf)
+          (kill-buffer old-buf))))
 
 
   ;; (use-package multi-vterm
@@ -2189,192 +2207,192 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
 
 
 
-(defun mr-x/org-mode-visual-fill ()
-  (setq visual-fill-column-width 100
+  (defun mr-x/org-mode-visual-fill ()
+    (setq visual-fill-column-width 100
 	  visual-fill-column-center-text t)
-  (visual-fill-column-mode 1))
+    (visual-fill-column-mode 1))
 
-(use-package visual-fill-column
-  :ensure t
-  :config
-  (add-hook 'org-mode-hook #'mr-x/org-mode-visual-fill))
+  (use-package visual-fill-column
+    :ensure t
+    :config
+    (add-hook 'org-mode-hook #'mr-x/org-mode-visual-fill))
 
-;; Progressive ESC — peels back UI state layer by layer instead of hard quit
-;; Inspired by Gleek's escape-quit (https://github.com/Gleek/.emacs)
-(defvar mr-x/escape-hook nil
-  "Hook run by `mr-x/escape-quit'. If any function returns non-nil, stop there.")
+  ;; Progressive ESC — peels back UI state layer by layer instead of hard quit
+  ;; Inspired by Gleek's escape-quit (https://github.com/Gleek/.emacs)
+  (defvar mr-x/escape-hook nil
+    "Hook run by `mr-x/escape-quit'. If any function returns non-nil, stop there.")
 
-(defun mr-x/escape-quit (&optional interactive)
-  "Layered escape: minibuffer > region > escape-hook > keyboard-quit."
-  (interactive (list 'interactive))
-  (cond
-   ;; 1. Quit minibuffer if active
-   ((minibuffer-window-active-p (minibuffer-window))
-    (when interactive (setq this-command 'abort-recursive-edit))
-    (abort-recursive-edit))
-   ;; 2. Deactivate active region/selection
-   ((region-active-p)
-    (let (select-active-regions) (deactivate-mark)) t)
-   ;; 3. Let hooked packages (which-key, popups, etc.) handle it
-   ((run-hook-with-args-until-success 'mr-x/escape-hook))
-   ;; 4. Don't interrupt macros
-   ((or defining-kbd-macro executing-kbd-macro) nil)
-   ;; 5. Fall back to regular keyboard-quit
-   ((unwind-protect (keyboard-quit)
-      (when interactive (setq this-command 'keyboard-quit))))))
+  (defun mr-x/escape-quit (&optional interactive)
+    "Layered escape: minibuffer > region > escape-hook > keyboard-quit."
+    (interactive (list 'interactive))
+    (cond
+     ;; 1. Quit minibuffer if active
+     ((minibuffer-window-active-p (minibuffer-window))
+      (when interactive (setq this-command 'abort-recursive-edit))
+      (abort-recursive-edit))
+     ;; 2. Deactivate active region/selection
+     ((region-active-p)
+      (let (select-active-regions) (deactivate-mark)) t)
+     ;; 3. Let hooked packages (which-key, popups, etc.) handle it
+     ((run-hook-with-args-until-success 'mr-x/escape-hook))
+     ;; 4. Don't interrupt macros
+     ((or defining-kbd-macro executing-kbd-macro) nil)
+     ;; 5. Fall back to regular keyboard-quit
+     ((unwind-protect (keyboard-quit)
+        (when interactive (setq this-command 'keyboard-quit))))))
 
-(global-set-key [remap keyboard-quit] #'mr-x/escape-quit)
-(global-set-key (kbd "<escape>") #'mr-x/escape-quit)
+  (global-set-key [remap keyboard-quit] #'mr-x/escape-quit)
+  (global-set-key (kbd "<escape>") #'mr-x/escape-quit)
 
-;; Point Stack — cursor breadcrumbs for navigation jumps
-;; Auto-saves position before xref, imenu, isearch, consult-ripgrep, etc.
-;; Vendored from https://github.com/Gleek/.emacs/blob/master/packages/point-stack.el
-(use-package point-stack
-  :ensure nil
-  :bind (("s-[" . point-stack-pop)
-         ("s-]" . point-stack-forward-stack-pop))
-  :config
-  (point-stack-setup-advices))
+  ;; Point Stack — cursor breadcrumbs for navigation jumps
+  ;; Auto-saves position before xref, imenu, isearch, consult-ripgrep, etc.
+  ;; Vendored from https://github.com/Gleek/.emacs/blob/master/packages/point-stack.el
+  (use-package point-stack
+    :ensure nil
+    :bind (("s-[" . point-stack-pop)
+           ("s-]" . point-stack-forward-stack-pop))
+    :config
+    (point-stack-setup-advices))
 
 
-;; Ultra-scroll — smooth pixel scrolling for trackpad/wheel
-(use-package ultra-scroll
-  :ensure (:host github :repo "jdtsmith/ultra-scroll")
-  :bind (("C-<wheel-down>" . nil)
-         ("C-<wheel-up>" . nil)
-         ("C-M-<wheel-down>" . nil)
-         ("C-M-<wheel-up>" . nil))
-  :init
-  (setq scroll-conservatively 99
-        scroll-margin 0)
-  :config
-  (ultra-scroll-mode 1))
+  ;; Ultra-scroll — smooth pixel scrolling for trackpad/wheel
+  (use-package ultra-scroll
+    :ensure (:host github :repo "jdtsmith/ultra-scroll")
+    :bind (("C-<wheel-down>" . nil)
+           ("C-<wheel-up>" . nil)
+           ("C-M-<wheel-down>" . nil)
+           ("C-M-<wheel-up>" . nil))
+    :init
+    (setq scroll-conservatively 99
+          scroll-margin 0)
+    :config
+    (ultra-scroll-mode 1))
 
-;; Rotate windows — cycle buffer contents across panes
-;; From Gleek's core-window.el
-(defun mr-x/rotate-windows (arg)
-  "Rotate buffer contents across windows. Prefix arg reverses direction."
-  (interactive "P")
-  (if (not (> (count-windows) 1))
-      (message "You can't rotate a single window!")
-    (let* ((rotate-times (prefix-numeric-value arg))
-           (direction (if (or (< rotate-times 0) (equal arg '(4)))
-                          'reverse 'identity)))
-      (dotimes (_ (abs rotate-times))
-        (dotimes (i (- (count-windows) 1))
-          (let* ((w1 (elt (funcall direction (window-list)) i))
-                 (w2 (elt (funcall direction (window-list)) (+ i 1)))
-                 (b1 (window-buffer w1))
-                 (b2 (window-buffer w2))
-                 (s1 (window-start w1))
-                 (s2 (window-start w2))
-                 (p1 (window-point w1))
-                 (p2 (window-point w2)))
-            (set-window-buffer-start-and-point w1 b2 s2 p2)
-            (set-window-buffer-start-and-point w2 b1 s1 p1)))))))
+  ;; Rotate windows — cycle buffer contents across panes
+  ;; From Gleek's core-window.el
+  (defun mr-x/rotate-windows (arg)
+    "Rotate buffer contents across windows. Prefix arg reverses direction."
+    (interactive "P")
+    (if (not (> (count-windows) 1))
+        (message "You can't rotate a single window!")
+      (let* ((rotate-times (prefix-numeric-value arg))
+             (direction (if (or (< rotate-times 0) (equal arg '(4)))
+                            'reverse 'identity)))
+        (dotimes (_ (abs rotate-times))
+          (dotimes (i (- (count-windows) 1))
+            (let* ((w1 (elt (funcall direction (window-list)) i))
+                   (w2 (elt (funcall direction (window-list)) (+ i 1)))
+                   (b1 (window-buffer w1))
+                   (b2 (window-buffer w2))
+                   (s1 (window-start w1))
+                   (s2 (window-start w2))
+                   (p1 (window-point w1))
+                   (p2 (window-point w2)))
+              (set-window-buffer-start-and-point w1 b2 s2 p2)
+              (set-window-buffer-start-and-point w2 b1 s1 p1)))))))
 
-;; Keyfreq — track command usage frequency
-(use-package keyfreq
-  :ensure t
-  :defer 2
-  :config
-  (keyfreq-mode 1)
-  (keyfreq-autosave-mode 1)
-  (setq keyfreq-excluded-commands
-        '(self-insert-command
-          org-self-insert-command
-          next-line
-          previous-line
-          mwheel-scroll)))
+  ;; Keyfreq — track command usage frequency
+  (use-package keyfreq
+    :ensure t
+    :defer 2
+    :config
+    (keyfreq-mode 1)
+    (keyfreq-autosave-mode 1)
+    (setq keyfreq-excluded-commands
+          '(self-insert-command
+            org-self-insert-command
+            next-line
+            previous-line
+            mwheel-scroll)))
 
-;; ESUP — Emacs Start Up Profiler
-(use-package esup
-  :ensure t
-  :defer t)
+  ;; ESUP — Emacs Start Up Profiler
+  (use-package esup
+    :ensure t
+    :defer t)
 
-;; Visual bell — flash an eye icon via Hammerspoon (native macOS transparency)
-(defun mr-x/visual-bell ()
-  "Flash an eye icon via Hammerspoon's hs.canvas overlay.
+  ;; Visual bell — flash an eye icon via Hammerspoon (native macOS transparency)
+  (defun mr-x/visual-bell ()
+    "Flash an eye icon via Hammerspoon's hs.canvas overlay.
 Guarded by a `pgrep' check: the hs CLI pops a blocking \"Hammerspoon is
 not running — Launch?\" dialog whenever it can't reach Hammerspoon (e.g.
 the login race before Hammerspoon has started), and the bell fires
 constantly, so only invoke it when Hammerspoon is actually running."
-  (start-process "bell-icon" nil "sh" "-c"
-                 "pgrep -xq Hammerspoon && exec hs -c 'showBellIcon()'"))
+    (start-process "bell-icon" nil "sh" "-c"
+                   "pgrep -xq Hammerspoon && exec hs -c 'showBellIcon()'"))
 
-(setq ring-bell-function #'mr-x/visual-bell)
-(fset 'yes-or-no-p 'y-or-n-p)
+  (setq ring-bell-function #'mr-x/visual-bell)
+  (fset 'yes-or-no-p 'y-or-n-p)
 
-;; Auto-revert mode to automatically refresh buffers when files change on disk
-(global-auto-revert-mode 1)
-(setq global-auto-revert-non-file-buffers t)
+  ;; Auto-revert mode to automatically refresh buffers when files change on disk
+  (global-auto-revert-mode 1)
+  (setq global-auto-revert-non-file-buffers t)
 
-(use-package highlight
-  :ensure t)
+  (use-package highlight
+    :ensure t)
 
-;; Display agent-shell buffers on the left at 30% width (regular window, not side-window)
-(add-to-list 'display-buffer-alist
-             '("Claude Agent @"
-               (display-buffer-in-direction)
-               (direction . left)
-               (window-width . 0.30)))
+  ;; Display agent-shell buffers on the left at 30% width (regular window, not side-window)
+  (add-to-list 'display-buffer-alist
+               '("Claude Agent @"
+                 (display-buffer-in-direction)
+                 (direction . left)
+                 (window-width . 0.30)))
 
-;; Popper for popup buffer management
-(use-package popper
-  :ensure t
-  :demand t  ;; Load at startup so popup rules are active immediately
-  :bind (("C-`"     . popper-toggle)
-         ("C-<tab>" . popper-cycle)
-         ("C-M-`"   . popper-toggle-type))
-  :init
-  ;; Group popups by perspective
-  (setq popper-group-function #'popper-group-by-perspective)
-  (setq popper-reference-buffers
-        '("\\*Messages\\*"
-          "\\*Warnings\\*"
-          "\\*Compile-Log\\*"
-          "\\*Backtrace\\*"
-          "\\*evil-registers\\*"
-          "\\*Apropos\\*"
-          "\\*scratch\\*"
-          "\\*Help\\*"
-          "\\*helpful.*\\*"
-          "\\*vterm.*\\*"
-          "\\*compilation\\*"
-          help-mode
-          helpful-mode
-          compilation-mode
-          vterm-mode
-          "\\*xref\\*"
-          xref--xref-buffer-mode
-          ;; Mdox viewer buffers
-          ".*--[Mm]dox.*"
-          ".*shortcuts.*\\.org$"
-          ;; Agent shell manager
-          "\\*Agent-Shell Buffers\\*"
-          agent-shell-manager-mode
-          "\\*Async Shell Command\\*"
-          ;; DevDocs
-          devdocs-mode))
-  :config
-  (setq popper-display-control t)
-  (setq popper-display-function #'popper-select-popup-at-bottom)
-  ;; Use Cmd+Ctrl+N for dispatch keys (macOS intercepts M-N)
-  (setq popper-echo-dispatch-keys '("s-C-1" "s-C-2" "s-C-3" "s-C-4" "s-C-5"
-                                     "s-C-6" "s-C-7" "s-C-8" "s-C-9" "s-C-0"))
-  ;; Give the agent-shell manager a taller popup (~40% of frame)
-  (setq popper-window-height
-        (lambda (win)
-          (let ((buf-name (buffer-name (window-buffer win)))
-                (buf-mode (buffer-local-value 'major-mode (window-buffer win))))
-            (cond
-             ((string-match-p "\\*Agent-Shell Buffers\\*" buf-name)
-              (floor (frame-height) 2.5))
-             ((eq buf-mode 'devdocs-mode)
-              (floor (frame-height) 2.5))
-             (t (popper--fit-window-height win))))))
-  (popper-mode +1)
-  (popper-echo-mode +1))
+  ;; Popper for popup buffer management
+  (use-package popper
+    :ensure t
+    :demand t  ;; Load at startup so popup rules are active immediately
+    :bind (("C-`"     . popper-toggle)
+           ("C-<tab>" . popper-cycle)
+           ("C-M-`"   . popper-toggle-type))
+    :init
+    ;; Group popups by perspective
+    (setq popper-group-function #'popper-group-by-perspective)
+    (setq popper-reference-buffers
+          '("\\*Messages\\*"
+            "\\*Warnings\\*"
+            "\\*Compile-Log\\*"
+            "\\*Backtrace\\*"
+            "\\*evil-registers\\*"
+            "\\*Apropos\\*"
+            "\\*scratch\\*"
+            "\\*Help\\*"
+            "\\*helpful.*\\*"
+            "\\*vterm.*\\*"
+            "\\*compilation\\*"
+            help-mode
+            helpful-mode
+            compilation-mode
+            vterm-mode
+            "\\*xref\\*"
+            xref--xref-buffer-mode
+            ;; Mdox viewer buffers
+            ".*--[Mm]dox.*"
+            ".*shortcuts.*\\.org$"
+            ;; Agent shell manager
+            "\\*Agent-Shell Buffers\\*"
+            agent-shell-manager-mode
+            "\\*Async Shell Command\\*"
+            ;; DevDocs
+            devdocs-mode))
+    :config
+    (setq popper-display-control t)
+    (setq popper-display-function #'popper-select-popup-at-bottom)
+    ;; Use Cmd+Ctrl+N for dispatch keys (macOS intercepts M-N)
+    (setq popper-echo-dispatch-keys '("s-C-1" "s-C-2" "s-C-3" "s-C-4" "s-C-5"
+                                       "s-C-6" "s-C-7" "s-C-8" "s-C-9" "s-C-0"))
+    ;; Give the agent-shell manager a taller popup (~40% of frame)
+    (setq popper-window-height
+          (lambda (win)
+            (let ((buf-name (buffer-name (window-buffer win)))
+                  (buf-mode (buffer-local-value 'major-mode (window-buffer win))))
+              (cond
+               ((string-match-p "\\*Agent-Shell Buffers\\*" buf-name)
+                (floor (frame-height) 2.5))
+               ((eq buf-mode 'devdocs-mode)
+                (floor (frame-height) 2.5))
+               (t (popper--fit-window-height win))))))
+    (popper-mode +1)
+    (popper-echo-mode +1))
 
 
 (setq initial-major-mode 'org-mode)
@@ -2514,7 +2532,8 @@ constantly, so only invoke it when Hammerspoon is actually running."
         "v n" '(multi-vterm-next :wk "multi-vterm-next")
         "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
         "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
-        "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame"))
+        "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame")
+        "v r" '(mr-x/vterm-restart :wk "restart vterm"))
 
       (mr-x/leader-def
         "s" '(:ignore t :wk "streaming")
@@ -3172,6 +3191,14 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   :config
   (evil-snipe-mode +1)
   (evil-snipe-override-mode +1))  ;; Replace default f/F/t/T with snipe
+
+(use-package evil-nerd-commenter
+  :ensure t
+  :after evil
+  :config
+  (define-key evil-normal-state-map "gc" 'evilnc-comment-operator)
+  (define-key evil-visual-state-map "gc" 'evilnc-comment-operator)
+  (global-set-key (kbd "s-/") 'evilnc-comment-or-uncomment-lines))
 
 (use-package evil-visual-mark-mode
   :ensure t
@@ -4471,6 +4498,15 @@ _q_: quit
   (setq flycheck-indication-mode 'right-fringe)
   (setq flycheck-emacs-lisp-load-path 'inherit))
 
+(use-package suggest
+  :ensure t
+  :defer t)
+
+(use-package elisp-demos
+  :ensure t
+  :config
+  (advice-add 'describe-function-1 :after #'elisp-demos-advice-describe-function-1))
+
 
 ;; Modern TypeScript setup with tree-sitter and LSP
 
@@ -5366,6 +5402,18 @@ _q_: quit
       ;; Inherit environment (gets PATH, ANTHROPIC_API_KEY, etc.)
       (setq agent-shell-anthropic-claude-environment
             (agent-shell-make-environment-variables :inherit-env t))
+      ;; Launch the agent through acp-multiplex so this agent-shell session
+      ;; becomes the multiplex PRIMARY: the proxy exposes a Unix socket that
+      ;; acp-mobile discovers, letting the phone/Air attach to the same live
+      ;; session over Tailscale (see ~/.dotfiles/docs/prd-remote-agent-access.md).
+      ;; NOTE: claude-agent-acp (0.23.x), NOT the deprecated claude-code-acp
+      ;; (0.12.x) — the old adapter lacks session/list, which agent-shell
+      ;; calls after every turn, spamming "Notices" error blocks.
+      ;; Guarded so machines without the multiplex built (e.g. the Air)
+      ;; fall back to agent-shell's default direct claude-agent-acp.
+      (when (executable-find "acp-multiplex")
+        (setq agent-shell-anthropic-claude-acp-command
+              '("acp-multiplex" "claude-agent-acp")))
 
 
 

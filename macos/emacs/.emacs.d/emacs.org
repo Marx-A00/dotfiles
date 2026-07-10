@@ -5612,6 +5612,18 @@ Expand =div>ul>li*3= style abbreviations into HTML/CSS. =C-j= to expand.
         ;; Inherit environment (gets PATH, ANTHROPIC_API_KEY, etc.)
         (setq agent-shell-anthropic-claude-environment
               (agent-shell-make-environment-variables :inherit-env t))
+        ;; Launch the agent through acp-multiplex so this agent-shell session
+        ;; becomes the multiplex PRIMARY: the proxy exposes a Unix socket that
+        ;; acp-mobile discovers, letting the phone/Air attach to the same live
+        ;; session over Tailscale (see ~/.dotfiles/docs/prd-remote-agent-access.md).
+        ;; NOTE: claude-agent-acp (0.23.x), NOT the deprecated claude-code-acp
+        ;; (0.12.x) — the old adapter lacks session/list, which agent-shell
+        ;; calls after every turn, spamming "Notices" error blocks.
+        ;; Guarded so machines without the multiplex built (e.g. the Air)
+        ;; fall back to agent-shell's default direct claude-agent-acp.
+        (when (executable-find "acp-multiplex")
+          (setq agent-shell-anthropic-claude-acp-command
+                '("acp-multiplex" "claude-agent-acp")))
 
 
 
