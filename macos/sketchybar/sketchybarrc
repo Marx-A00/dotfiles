@@ -76,13 +76,11 @@ sketchybar --add item new_space left                        \
                                 icon=+                      \
                                 click_script='plugins/new_space.sh'
 
-# consolidate space numbers (transparent — no pill)
+# consolidate space numbers
 sketchybar --add bracket spaces '/space\..*/' new_space                \
-           --set         spaces background.color=0x00000000            \
-                                background.corner_radius=0             \
-                                background.border_width=0              \
-                                blur_radius=0                          \
-                                background.height=0
+           --set         spaces background.color=0xbf000000            \
+                                background.corner_radius=10            \
+                                background.height=25
 
 # Old floating dot approach - commented out in favor of icon.highlight
 # sketchybar --add item highlight_space left                      \
@@ -128,10 +126,9 @@ sketchybar --add item emacs_agenda left \
              icon.padding_left=10 \
              icon.padding_right=10 \
              label.drawing=off \
-             background.color=0x00000000 \
-             background.corner_radius=0 \
-             background.height=0 \
-             background.border_width=0 \
+             background.color=0xbf000000 \
+             background.corner_radius=10 \
+             background.height=25 \
              click_script='~/.dotfiles/macos/scripts/org-agenda-frame.sh'
 
 # update defaults (flat/transparent style)

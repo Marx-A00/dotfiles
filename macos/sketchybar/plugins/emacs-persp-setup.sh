@@ -58,13 +58,9 @@ sketchybar --add bracket emacs_persp_group \
              '/emacs_persp_slot\..*/' \
              emacs_persp_pad_r \
            --set emacs_persp_group \
-             background.color=0x801e1e2e \
-             background.corner_radius=15 \
-             background.height=30 \
-             background.border_width=1 \
-             background.border_color=0x40FFFFFF \
-             background.padding_left=18 \
-             blur_radius=2
+             background.color=0xbf000000 \
+             background.corner_radius=10 \
+             background.height=25
 
 # Event subscription on first slot
 sketchybar --set emacs_persp_slot.1 \

@@ -21,13 +21,9 @@ sketchybar --add item emacs_clock left \
              label.padding_left=4 \
              label.padding_right=10 \
              label.max_chars=40 \
-             background.color=0x801e1e2e \
-             background.corner_radius=15 \
-             background.height=30 \
-             background.border_width=1 \
-             background.border_color=0x40FFFFFF \
-             background.padding_left=18 \
-             blur_radius=2 \
+             background.color=0xbf000000 \
+             background.corner_radius=10 \
+             background.height=25 \
              script='bash ./plugins/emacs-clock.sh' \
              updates=on
 

@@ -23,5 +23,11 @@ for display_index in $DISPLAYS; do
   sketchybar --subscribe yabai_layout.$display_index layout_change space_change
 done
 
+# Bracket for shared pill background
+sketchybar --add bracket yabai_layout_group '/yabai_layout\..*/'       \
+           --set yabai_layout_group background.color=0xbf000000        \
+                                    background.corner_radius=10        \
+                                    background.height=25
+
 # Initial update to set the icons
 sketchybar --update

@@ -7,7 +7,7 @@
 EMACSCLIENT="/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"
 WHITE=0xFFFFFFFF
 DIM=0x60FFFFFF
-HIGHLIGHT=0x80fb4934
+HIGHLIGHT=0x00000000
 
 hide_all() {
   sketchybar --set emacs_persp_pad_l drawing=off 2>/dev/null
@@ -58,11 +58,11 @@ for i in $(seq 1 10); do
   if [ $idx -lt $COUNT ]; then
     name="${NAMES[$idx]}"
     if [ "$name" = "$ACTIVE" ]; then
-      color=$WHITE
-      bg=$HIGHLIGHT
+      color=0xFF000000
+      bg=0xFFFFFFFF
       bg_drawing=on
     else
-      color=$DIM
+      color=$WHITE
       bg=0x00000000
       bg_drawing=off
     fi
@@ -75,7 +75,9 @@ for i in $(seq 1 10); do
       label.padding_left=6
       label.padding_right=6
       background.drawing=$bg_drawing
-      background.color=$bg)
+      background.color=$bg
+      background.corner_radius=5
+      background.height=20)
   else
     BATCH_ARGS+=(--set emacs_persp_slot.$i drawing=off)
   fi
