@@ -2720,10 +2720,10 @@ projectile projects appended below."
         "c N" '(mr-x/agent-shell-in-project :wk "New shell (pick project)")
         "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
         "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
-        "c b" '(agent-shell-sidebar-toggle :wk "Toggle sidebar")
+        "c b" '(mr-x-agent-panel-swap-buffer :wk "Swap panel buffer")
         "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
         "c z" '(agent-shell-manager-toggle-frame :wk "Manager frame")
-        "c S" '(agent-shell-manager-spawn-test-env :wk "Spawn test env")
+        "c S" '(mr-x/agent-panel-spawn-test-env :wk "Spawn test env")
         "c j" '(agent-shell-attention-jump :wk "Jump to pending")
         "c ," '(:ignore t :wk "Prompts")
         "c , p" '(agent-shell-prompt-compose :wk "Compose prompt")
@@ -2733,12 +2733,12 @@ projectile projects appended below."
         "c , t s" '(mr-x/taskmaster-summary :wk "Summary")
         "c , t a" '(mr-x/taskmaster-add-task :wk "Add task")
         "c p" '(agent-shell-yank-dwim :wk "Paste (smart)")
-        "c r" '(mr-x/agent-shell-send-region-no-switch :wk "Send region (stay)")
-        "c R" '(agent-shell-send-region :wk "Send region (go)")
-        "c f" '(agent-shell-send-file :wk "Send file")
-        "c F" '(agent-shell-send-other-file :wk "Send other file")
+        "c r" '(mr-x-agent-panel-send-region-no-switch :wk "Send region (stay)")
+        "c R" '(mr-x-agent-panel-send-region :wk "Send region (go)")
+        "c f" '(mr-x-agent-panel-send-file :wk "Send file")
+        "c F" '(mr-x-agent-panel-send-other-file :wk "Send other file")
         "c d" '(agent-shell-send-dwim :wk "Send DWIM (region/error)")
-        "c s" '(agent-shell-send-screenshot :wk "Send screenshot")
+        "c s" '(mr-x-agent-panel-send-screenshot :wk "Send screenshot")
         "c i" '(agent-shell-interrupt :wk "Interrupt")
         "c o" '(agent-shell-other-buffer :wk "Other buffer (viewport/shell)")
         "c m" '(:ignore t :wk "Mode")
@@ -4967,12 +4967,12 @@ Expand =div>ul>li*3= style abbreviations into HTML/CSS. =C-j= to expand.
               (message "Shell is busy — can't insert yet")))))
 
         (defun mr-x/agent-shell-smart-paste ()
-          "Paste, jumping to prompt if not already there."
+          "Paste text or image from clipboard, jumping to prompt if not already there."
           (interactive)
           (unless (shell-maker-point-at-last-prompt-p)
             (goto-char (point-max)))
           (if (shell-maker-point-at-last-prompt-p)
-              (call-interactively #'evil-paste-after)
+              (call-interactively #'agent-shell-yank-dwim)
             (message "Shell is busy — can't paste yet")))
 
         (evil-define-key 'normal agent-shell-mode-map
@@ -5158,6 +5158,25 @@ Expand =div>ul>li*3= style abbreviations into HTML/CSS. =C-j= to expand.
                                  (agent-shell-cwd)))
              :shell-buffer shell-buffer
              :no-focus t)))
+
+        (defun mr-x/agent-panel-spawn-test-env ()
+          "Spawn test agent-shell buffers for picker testing.
+Resolves agent config once, overrides session strategy to skip
+the session picker, then spawns shells staggered 3s apart."
+          (interactive)
+          (let ((config (or (agent-shell--resolve-preferred-config)
+                            (agent-shell-select-config :prompt "Agent for test shells: ")
+                            (error "No agent config")))
+                (dirs '("~/.dotfiles/" "~/roaming/" "~/roaming/projects/agent-panel/")))
+            (cl-loop for dir in dirs
+                     for delay from 0 by 3
+                     do (run-at-time delay nil
+                          (lambda (d c)
+                            (let ((default-directory (expand-file-name d))
+                                  (agent-shell-session-strategy 'new))
+                              (agent-shell--start :config c :no-focus t :new-session t)))
+                          dir config))
+            (message "Spawning %d test shells (3s apart)..." (length dirs))))
 
         ;; DEPRECATED: Replaced by upstream agent-shell-yank-dwim in v0.42.1
         ;; Kept as reference — remove once upstream is confirmed working
@@ -5975,6 +5994,27 @@ Expand =div>ul>li*3= style abbreviations into HTML/CSS. =C-j= to expand.
         (agent-recall-browse-preview t)
         :hook (agent-shell-mode . agent-recall-track-sessions))
 
+      (use-package agent-shell-toggle
+        :ensure nil
+        :if (file-directory-p "~/roaming/projects/agent-panel")
+        :load-path "~/roaming/projects/agent-panel"
+        ;; No :after — that would defer :init (the global-set-key) behind
+        ;; (eval-after-load 'agent-shell), leaving s-i unbound until agent-shell
+        ;; loads. :commands autoloads the command, which pulls in agent-shell on
+        ;; first use, so s-i can bind unconditionally at startup.
+        :init
+        (global-set-key (kbd "s-i") #'mr-x-agent-panel-toggle)
+        :commands (mr-x-agent-panel-toggle
+                   mr-x-agent-panel-exclude-buffer
+                   mr-x-agent-panel-swap-buffer
+                   mr-x-agent-panel-set-label
+                   mr-x-agent-panel-pick-buffer
+                   mr-x-agent-panel-send-region
+                   mr-x-agent-panel-send-region-no-switch
+                   mr-x-agent-panel-send-file
+                   mr-x-agent-panel-send-other-file
+                   mr-x-agent-panel-send-screenshot))
+
       (use-package agent-shell-macext
         :ensure (:host github :repo "cxa/agent-shell-macext")
         :hook (agent-shell-mode . agent-shell-macext-setup)
@@ -6244,6 +6284,8 @@ Expand =div>ul>li*3= style abbreviations into HTML/CSS. =C-j= to expand.
             (with-current-buffer mr-x/quick-ask--shell-buffer
               ;; DON'T rename — shell-maker-buffer looks up by name internally,
               ;; renaming breaks shell-maker--process lookup
+              ;; Hide this background session from the agent panel buffer list.
+              (mr-x-agent-panel-exclude-buffer)
               (add-hook 'kill-buffer-hook
                         (lambda () (setq mr-x/quick-ask--shell-buffer nil))
                         nil t)))
