@@ -46,6 +46,7 @@
 #+begin_src emacs-lisp
 
 
+
   (defvar elpaca-installer-version 0.12)
   (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
   (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
@@ -2043,10 +2044,16 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
       (doom-modeline-def-modeline 'agent-shell-minimal
         '(bar modals buffer-info agent-shell-refs)
         '(buffer-position))
-      
+
+      (with-eval-after-load 'nerd-icons
+        (add-to-list 'nerd-icons-mode-icon-alist
+                     '(agent-shell-mode nerd-icons-mdicon "nf-md-robot_happy"
+                                        :face nerd-icons-silver :height 1.2)))
+
       (add-hook 'agent-shell-mode-hook
                 (lambda ()
-                  (doom-modeline-set-modeline 'agent-shell-minimal))))
+                  (doom-modeline-set-modeline 'agent-shell-minimal)
+                  (face-remap-add-relative 'default :background "#1d2021"))))
 
 
     ;; (set-face-attribute 'default nil :font "JuliaMono" :height 280)
@@ -2720,7 +2727,7 @@ projectile projects appended below."
         "c N" '(mr-x/agent-shell-in-project :wk "New shell (pick project)")
         "c t" '(mr-x/agent-shell-toggle :wk "Toggle Agent Shell")
         "c w" '(mr-x/focus-ai-window :wk "Focus AI window")
-        "c b" '(mr-x-agent-panel-swap-buffer :wk "Swap panel buffer")
+        "c b" '(major-pane-swap-buffer :wk "Swap panel buffer")
         "c B" '(agent-shell-manager-toggle :wk "Buffer manager")
         "c z" '(agent-shell-manager-toggle-frame :wk "Manager frame")
         "c S" '(mr-x/agent-panel-spawn-test-env :wk "Spawn test env")
@@ -2733,12 +2740,12 @@ projectile projects appended below."
         "c , t s" '(mr-x/taskmaster-summary :wk "Summary")
         "c , t a" '(mr-x/taskmaster-add-task :wk "Add task")
         "c p" '(agent-shell-yank-dwim :wk "Paste (smart)")
-        "c r" '(mr-x-agent-panel-send-region-no-switch :wk "Send region (stay)")
-        "c R" '(mr-x-agent-panel-send-region :wk "Send region (go)")
-        "c f" '(mr-x-agent-panel-send-file :wk "Send file")
-        "c F" '(mr-x-agent-panel-send-other-file :wk "Send other file")
+        "c r" '(major-pane-send-region-no-switch :wk "Send region (stay)")
+        "c R" '(major-pane-send-region :wk "Send region (go)")
+        "c f" '(major-pane-send-file :wk "Send file")
+        "c F" '(major-pane-send-other-file :wk "Send other file")
         "c d" '(agent-shell-send-dwim :wk "Send DWIM (region/error)")
-        "c s" '(mr-x-agent-panel-send-screenshot :wk "Send screenshot")
+        "c s" '(major-pane-send-screenshot :wk "Send screenshot")
         "c i" '(agent-shell-interrupt :wk "Interrupt")
         "c o" '(agent-shell-other-buffer :wk "Other buffer (viewport/shell)")
         "c m" '(:ignore t :wk "Mode")
@@ -4918,6 +4925,13 @@ Expand =div>ul>li*3= style abbreviations into HTML/CSS. =C-j= to expand.
       (use-package shell-maker
         :ensure t)
 
+      ;; Agent-shell ecosystem tangles to its own file
+      (load (expand-file-name "agent-shell-config" user-emacs-directory))
+
+#+end_src
+
+#+begin_src emacs-lisp :tangle agent-shell-config.el
+
       (use-package agent-shell
         :ensure (:host github :repo "xenodium/agent-shell")
         :demand t
@@ -5992,9 +6006,28 @@ the session picker, then spawns shells staggered 3s apart."
         (agent-recall-search-function 'deadgrep)
         (agent-recall-browse-sort 'modified-desc)
         (agent-recall-browse-preview t)
-        :hook (agent-shell-mode . agent-recall-track-sessions))
+        :hook (agent-shell-mode . agent-recall-track-sessions)
+        :config
+        ;; Make agent-recall resume/browse display in the agent-panel
+        ;; instead of a random pop-to-buffer window.
+        (advice-add 'agent-recall--display-buffer :override
+                    (lambda (buffer)
+                      (let ((win (and (boundp 'major-pane--pinned-buffer)
+                                      (buffer-live-p major-pane--pinned-buffer)
+                                      (get-buffer-window major-pane--pinned-buffer))))
+                        (when (boundp 'major-pane--pinned-buffer)
+                          (setq major-pane--pinned-buffer buffer))
+                        (if win
+                            (set-window-buffer win buffer)
+                          ;; Tag the freshly-created window as the pane slot
+                          ;; so the banner machinery lights it up.
+                          (display-buffer buffer
+                                          `((display-buffer-in-direction)
+                                            (direction . left)
+                                            (window-width . 0.30)
+                                            (window-parameters . ((major-pane . t))))))))))
 
-      (use-package agent-shell-toggle
+      (use-package major-pane
         :ensure nil
         :if (file-directory-p "~/roaming/projects/agent-panel")
         :load-path "~/roaming/projects/agent-panel"
@@ -6003,17 +6036,17 @@ the session picker, then spawns shells staggered 3s apart."
         ;; loads. :commands autoloads the command, which pulls in agent-shell on
         ;; first use, so s-i can bind unconditionally at startup.
         :init
-        (global-set-key (kbd "s-i") #'mr-x-agent-panel-toggle)
-        :commands (mr-x-agent-panel-toggle
-                   mr-x-agent-panel-exclude-buffer
-                   mr-x-agent-panel-swap-buffer
-                   mr-x-agent-panel-set-label
-                   mr-x-agent-panel-pick-buffer
-                   mr-x-agent-panel-send-region
-                   mr-x-agent-panel-send-region-no-switch
-                   mr-x-agent-panel-send-file
-                   mr-x-agent-panel-send-other-file
-                   mr-x-agent-panel-send-screenshot))
+        (global-set-key (kbd "s-i") #'major-pane-toggle)
+        :commands (major-pane-toggle
+                   major-pane-exclude-buffer
+                   major-pane-swap-buffer
+                   major-pane-set-label
+                   major-pane-pick-buffer
+                   major-pane-send-region
+                   major-pane-send-region-no-switch
+                   major-pane-send-file
+                   major-pane-send-other-file
+                   major-pane-send-screenshot))
 
       (use-package agent-shell-macext
         :ensure (:host github :repo "cxa/agent-shell-macext")
@@ -6285,7 +6318,7 @@ the session picker, then spawns shells staggered 3s apart."
               ;; DON'T rename — shell-maker-buffer looks up by name internally,
               ;; renaming breaks shell-maker--process lookup
               ;; Hide this background session from the agent panel buffer list.
-              (mr-x-agent-panel-exclude-buffer)
+              (major-pane-exclude-buffer)
               (add-hook 'kill-buffer-hook
                         (lambda () (setq mr-x/quick-ask--shell-buffer nil))
                         nil t)))
