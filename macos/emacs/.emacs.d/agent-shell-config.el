@@ -248,7 +248,7 @@ the session picker, then spawns shells staggered 3s apart."
           (let ((config (or (agent-shell--resolve-preferred-config)
                             (agent-shell-select-config :prompt "Agent for test shells: ")
                             (error "No agent config")))
-                (dirs '("~/.dotfiles/" "~/roaming/" "~/roaming/projects/agent-panel/")))
+                (dirs '("~/.dotfiles/" "~/roaming/" "~/roaming/projects/major-pane/")))
             (cl-loop for dir in dirs
                      for delay from 0 by 3
                      do (run-at-time delay nil
@@ -1096,8 +1096,8 @@ the session picker, then spawns shells staggered 3s apart."
 
       (use-package major-pane
         :ensure nil
-        :if (file-directory-p "~/roaming/projects/agent-panel")
-        :load-path "~/roaming/projects/agent-panel"
+        :if (file-directory-p "~/roaming/projects/major-pane")
+        :load-path "~/roaming/projects/major-pane"
         ;; No :after — that would defer :init (the global-set-key) behind
         ;; (eval-after-load 'agent-shell), leaving s-i unbound until agent-shell
         ;; loads. :commands autoloads the command, which pulls in agent-shell on
