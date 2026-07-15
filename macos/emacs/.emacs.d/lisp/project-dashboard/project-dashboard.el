@@ -1292,18 +1292,85 @@ Opens the project dashboard for the selected project."
   :type '(alist :key-type string :value-type string)
   :group 'project-dashboard)
 
+;;; Embark Integration
+
+(defun project-dashboard--resolve-path (name)
+  "Resolve project NAME to its expanded filesystem path."
+  (when-let ((entry (assoc name project-dashboard-projects)))
+    (expand-file-name (cdr entry))))
+
+(defun project-dashboard--action-open (name)
+  "Open project dashboard for NAME."
+  (interactive "sProject: ")
+  (when-let ((path (project-dashboard--resolve-path name)))
+    (project-dashboard-open path)))
+
+(defun project-dashboard--action-magit (name)
+  "Open magit status for project NAME."
+  (interactive "sProject: ")
+  (when-let ((path (project-dashboard--resolve-path name)))
+    (magit-status path)))
+
+(defun project-dashboard--action-dired (name)
+  "Open dired for project NAME."
+  (interactive "sProject: ")
+  (when-let ((path (project-dashboard--resolve-path name)))
+    (dired path)))
+
+(defun project-dashboard--action-vterm (name)
+  "Open vterm in project NAME."
+  (interactive "sProject: ")
+  (when-let ((path (project-dashboard--resolve-path name)))
+    (let ((default-directory path))
+      (vterm t))))
+
+(defun project-dashboard--action-agent-shell (name)
+  "Open agent-shell in project NAME."
+  (interactive "sProject: ")
+  (when-let ((path (project-dashboard--resolve-path name)))
+    (let ((default-directory path))
+      (agent-shell))))
+
+(defun project-dashboard--action-find-file (name)
+  "Find file in project NAME."
+  (interactive "sProject: ")
+  (when-let ((path (project-dashboard--resolve-path name)))
+    (let ((default-directory path))
+      (if (fboundp 'projectile-find-file)
+          (projectile-find-file)
+        (call-interactively #'find-file)))))
+
+(with-eval-after-load 'embark
+  (defvar-keymap embark-project-dashboard-actions
+    :doc "Actions for project-dashboard candidates."
+    :parent embark-general-map
+    "RET" #'project-dashboard--action-open
+    "m"   #'project-dashboard--action-magit
+    "d"   #'project-dashboard--action-dired
+    "v"   #'project-dashboard--action-vterm
+    "a"   #'project-dashboard--action-agent-shell
+    "f"   #'project-dashboard--action-find-file)
+  (add-to-list 'embark-keymap-alist
+               '(project-dashboard . embark-project-dashboard-actions)))
+
+;;; Entry Point - Launch
+
 ;;;###autoload
 (defun project-dashboard-launch ()
-  "Launch a project dashboard from a list of known projects."
+  "Launch a project dashboard from a list of known projects.
+With Embark installed, press \\`C-.' on a candidate for actions
+like Magit, Dired, Vterm, Agent Shell, or Find File."
   (interactive)
-  (if (fboundp 'ivy-read)
-      (ivy-read "Project: " project-dashboard-projects
-                :action (lambda (choice)
-                          (project-dashboard-open (expand-file-name (cdr choice)))))
-    ;; Fallback to completing-read
-    (let* ((choice (completing-read "Project: " project-dashboard-projects))
-           (path (cdr (assoc choice project-dashboard-projects))))
-      (project-dashboard-open (expand-file-name path)))))
+  (let* ((choice (completing-read
+                  "Project: "
+                  (lambda (string pred action)
+                    (if (eq action 'metadata)
+                        '(metadata (category . project-dashboard))
+                      (complete-with-action
+                       action project-dashboard-projects string pred)))))
+         (path (project-dashboard--resolve-path choice)))
+    (when path
+      (project-dashboard-open path))))
 
 ;;;###autoload
 (defun project-dashboard-add-project (path name)
