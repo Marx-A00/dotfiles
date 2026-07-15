@@ -3469,9 +3469,17 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     :ensure nil
     :defer t
     :config
-    ;; Use pipes instead of PTYs — Windows Git Bash (MINGW) emits terminal
-    ;; escape codes on PTY allocation that prevent TRAMP from finding a prompt.
-    (setq tramp-process-connection-type nil)
+    ;; PTY by default — gives remote hosts an interactive shell so TRAMP
+    ;; can find a prompt.  Windows/ConPTY needs pipe mode to avoid escape
+    ;; code pollution, so we scope that per-host via advice.
+    (defun mr-x/tramp-windows-pipe-a (orig-fun vec)
+      "Use pipe instead of PTY for Windows hosts (ConPTY compat)."
+      (let ((tramp-process-connection-type
+             (if (string-match-p "vengeance" (tramp-file-name-host vec))
+                 nil    ; pipe — avoids ConPTY escape codes
+               t)))    ; PTY  — interactive shell for Linux hosts
+        (funcall orig-fun vec)))
+    (advice-add 'tramp-maybe-open-connection :around #'mr-x/tramp-windows-pipe-a)
     (setq tramp-use-ssh-controlmaster-options nil)
     ;; Don't let vc-mode check version control over TRAMP
     (setq vc-ignore-dir-regexp
