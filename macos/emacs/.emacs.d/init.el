@@ -2298,7 +2298,19 @@ Called by sketchybar plugin via emacsclient --eval as fallback."
               (set-window-buffer-start-and-point w1 b2 s2 p2)
               (set-window-buffer-start-and-point w2 b1 s1 p1)))))))
 
-  ;; Keyfreq — track command usage frequency
+  ;; Toggle window fullscreen — maximize current window or restore layout
+(defvar mr-x/window-fullscreen-config nil
+  "Saved window config for fullscreen toggle.")
+
+(defun mr-x/toggle-window-fullscreen ()
+  "Toggle between single-window fullscreen and previous layout."
+  (interactive)
+  (if (and mr-x/window-fullscreen-config (= (count-windows) 1))
+      (set-window-configuration mr-x/window-fullscreen-config)
+    (setq mr-x/window-fullscreen-config (current-window-configuration))
+    (delete-other-windows)))
+
+;; Keyfreq — track command usage frequency
   (use-package keyfreq
     :ensure t
     :defer 2
@@ -2458,6 +2470,9 @@ constantly, so only invoke it when Hammerspoon is actually running."
         "t" '(mr-x/test-environment :wk "Test environment")
         "u" '(universal-argument :wk "universal arg")
         "," '(mr-x/mode-hydra :wk "mode hydra"))
+
+      (with-eval-after-load 'evil
+        (define-key evil-window-map "m" #'mr-x/toggle-window-fullscreen))
 
       (defun mr-x/mode-hydra ()
         "Launch the hydra for the current major mode."
@@ -4478,6 +4493,11 @@ _q_: quit
         emmet-expand-jsx-className? t))
 
 ;; Corfu for in-buffer completion
+;; TAB-and-Go completion style:
+;;   RET   → just inserts a newline, ignores the popup
+;;   TAB   → cycles through candidates
+;;   C-g   → dismisses the popup
+;;   Keep typing → popup filters/dismisses naturally
 (use-package corfu
   :ensure t
   :custom
@@ -4489,8 +4509,15 @@ _q_: quit
   (corfu-quit-no-match t)        ;; Quit when there is no match
   (corfu-preview-current nil)    ;; Disable current candidate preview
   (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+  (corfu-preselect 'prompt)      ;; Don't preselect first candidate
+  :bind (:map corfu-map
+         ("TAB" . corfu-next)
+         ([tab] . corfu-next)
+         ("S-TAB" . corfu-previous)
+         ([backtab] . corfu-previous))
   :init
-  (global-corfu-mode))
+  (global-corfu-mode)
+  (keymap-unset corfu-map "RET"))
 
 ;; Extensions for Corfu
 (use-package corfu-terminal
@@ -4942,7 +4969,8 @@ Appends to the current year's transaction file."
       (my/ledger-report-run "Net Worth" "balance Assets Liabilities")))
 
 
-(require 'trakt-sync)
+(with-eval-after-load 'transient
+  (require 'trakt-sync))
 
 (use-package page-break-lines
   :ensure t)

@@ -17,6 +17,23 @@
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
+-- ── Bootstrap lazy.nvim ──────────────────────────────────
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not (vim.uv or vim.loop).fs_stat(lazypath) then
+  local lazyrepo = "https://github.com/folke/lazy.nvim.git"
+  local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
+  if vim.v.shell_error ~= 0 then
+    vim.api.nvim_echo({
+      { "Failed to clone lazy.nvim:\n", "ErrorMsg" },
+      { out, "WarningMsg" },
+      { "\nPress any key to exit..." },
+    }, true, {})
+    vim.fn.getchar()
+    os.exit(1)
+  end
+end
+vim.opt.rtp:prepend(lazypath)
+
 -- ── Options ────────────────────────────────────────────────
 vim.opt.number = true
 vim.opt.relativenumber = true
@@ -70,3 +87,11 @@ vim.keymap.set("n", "<leader>e", vim.cmd.Ex)
 vim.keymap.set("n", "<leader>bn", "<cmd>bnext<CR>")
 vim.keymap.set("n", "<leader>bp", "<cmd>bprevious<CR>")
 vim.keymap.set("n", "<leader>bd", "<cmd>bdelete<CR>")
+
+
+
+-- ── Plugins ──────────────────────────────────────────────
+require("lazy").setup({
+  -- your plugins go here as tables, e.g.:
+   { "coder/claudecode.nvim", dependencies = { "folke/snacks.nvim" }, config = true },
+})
