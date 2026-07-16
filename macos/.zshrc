@@ -216,6 +216,7 @@ alias etest='emacs --batch -l ~/.emacs.d/init.el -l ~/.emacs.d/tests/config-test
 alias ports='lsof -iTCP -sTCP:LISTEN -P -n'
 alias ipleak='~/.dotfiles/macos/scripts/ipleak-check.sh'
 alias reload='source ~/.zshrc'
+alias shl='ssh homelab'
 
 
 # Fix for Emacs native compilation with libgccjit

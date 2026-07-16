@@ -2334,6 +2334,14 @@ constantly, so only invoke it when Hammerspoon is actually running."
   (global-auto-revert-mode 1)
   (setq global-auto-revert-non-file-buffers t)
 
+  ;; Suppress echo-area messages while the minibuffer is active so they don't
+  ;; clobber what you're typing.  Messages still go to *Messages*.
+  (defun mr-x/suppress-message-in-minibuffer (message)
+    "Swallow MESSAGE display when the minibuffer is in use."
+    (when (minibufferp (window-buffer (minibuffer-window)))
+      t))
+  (add-to-list 'set-message-functions #'mr-x/suppress-message-in-minibuffer)
+
   (use-package highlight
     :ensure t)
 
@@ -3317,9 +3325,17 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   :ensure nil
   :defer t
   :config
-  ;; Use pipes instead of PTYs — Windows Git Bash (MINGW) emits terminal
-  ;; escape codes on PTY allocation that prevent TRAMP from finding a prompt.
-  (setq tramp-process-connection-type nil)
+  ;; PTY by default — gives remote hosts an interactive shell so TRAMP
+  ;; can find a prompt.  Windows/ConPTY needs pipe mode to avoid escape
+  ;; code pollution, so we scope that per-host via advice.
+  (defun mr-x/tramp-windows-pipe-a (orig-fun vec)
+    "Use pipe instead of PTY for Windows hosts (ConPTY compat)."
+    (let ((tramp-process-connection-type
+           (if (string-match-p "vengeance" (tramp-file-name-host vec))
+               nil    ; pipe — avoids ConPTY escape codes
+             t)))    ; PTY  — interactive shell for Linux hosts
+      (funcall orig-fun vec)))
+  (advice-add 'tramp-maybe-open-connection :around #'mr-x/tramp-windows-pipe-a)
   (setq tramp-use-ssh-controlmaster-options nil)
   ;; Don't let vc-mode check version control over TRAMP
   (setq vc-ignore-dir-regexp
@@ -3327,9 +3343,12 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   ;; Disable auto-revert for remote files
   (setq auto-revert-remote-files nil)
   ;; Disable projectile for remote files
+  (defun mr-x/projectile-ignore-remote-a (orig-fn &rest args)
+    "Skip `projectile-project-root' on remote files."
+    (unless (file-remote-p default-directory)
+      (apply orig-fn args)))
   (with-eval-after-load 'projectile
-    (defadvice projectile-project-root (around ignore-remote first activate)
-      (unless (file-remote-p default-directory) ad-do-it))))
+    (advice-add 'projectile-project-root :around #'mr-x/projectile-ignore-remote-a)))
 
 
 ;; Vertico + Consult + Orderless + Marginalia + Embark
@@ -3382,7 +3401,45 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
   :bind (("C-." . embark-act)
          ("C-;" . embark-dwim))
   :config
-  (setq prefix-help-command #'embark-prefix-help-command))
+  (setq prefix-help-command #'embark-prefix-help-command)
+
+  ;; Use which-key popup instead of a buffer split for embark actions
+  (defun embark-which-key-indicator ()
+    "Embark indicator that shows actions via which-key popup."
+    (lambda (&optional keymap targets prefix)
+      (if (null keymap)
+          (which-key--hide-popup-ignore-command)
+        (which-key--show-keymap
+         (if (eq (plist-get (car targets) :type) 'embark-become)
+             "Become"
+           (format "Act on %s '%s'"
+                   (plist-get (car targets) :type)
+                   (plist-get (car targets) :target)))
+         (if prefix
+             (lookup-key keymap prefix)
+           keymap)
+         nil nil t (lambda (binding)
+                     (not (string-suffix-p "-argument" (cdr binding))))))))
+
+  (setq embark-indicators '(embark-which-key-indicator
+                            embark-highlight-indicator
+                            embark-isearch-highlight-indicator))
+
+  ;; Short display names for project-dashboard embark actions
+  (dolist (entry '(("m" . "project-dashboard--action-magit")
+                   ("d" . "project-dashboard--action-dired")
+                   ("v" . "project-dashboard--action-vterm")
+                   ("a" . "project-dashboard--action-agent-shell")
+                   ("f" . "project-dashboard--action-find-file")
+                   ("RET" . "project-dashboard--action-open")))
+    (push `((nil . ,(cdr entry))
+            nil . ,(replace-regexp-in-string
+                    "project-dashboard--action-" "" (cdr entry)))
+          which-key-replacement-alist))
+
+  ;; Hide which-key popup when embark action completes/aborts
+  (advice-add #'embark--quit :after
+              (lambda (&rest _) (which-key--hide-popup-ignore-command))))
 
 (use-package embark-consult
   :ensure t
@@ -4278,34 +4335,49 @@ _q_: quit
   (markdown-xwidget-code-block-theme "gruvbox-dark-medium")
   (markdown-xwidget-github-theme "dark")
   :config
-  ;; Custom gruvbox CSS for markdown preview
+  ;; Custom CSS files for markdown preview
   (defvar mr-x/markdown-gruvbox-css-file
     (expand-file-name "etc/markdown-gruvbox-claude.css" user-emacs-directory))
-  
-  ;; Override the enable function to include gruvbox CSS
+  (defvar mr-x/agent-recall-css-file
+    (expand-file-name "etc/agent-recall-transcript.css" user-emacs-directory))
+  (defvar mr-x/agent-recall-js-file
+    (expand-file-name "etc/agent-recall-transcript.js" user-emacs-directory))
+
+  (defun mr-x/agent-recall-transcript-p ()
+    "Return non-nil if current buffer is an agent-shell transcript."
+    (and (buffer-file-name)
+         (fboundp 'agent-recall--transcript-file-p)
+         (agent-recall--transcript-file-p (buffer-file-name))))
+
+  ;; Override the enable function to include custom CSS
+  ;; and inject transcript JS when viewing agent-shell transcripts.
   ;; The original function overwrites markdown-css-paths with only 2 files,
-  ;; so we must override it to include our custom CSS from the start
+  ;; so we must override it to include our custom CSS from the start.
   (defun markdown-xwidget-preview-mode--enable ()
-    "Enable `markdown-xwidget-preview-mode' with gruvbox CSS included."
-    (let ((github-theme (markdown-xwidget-github-css-path
-                         markdown-xwidget-github-theme))
-          (code-block-theme (markdown-xwidget-highlightjs-css-path
-                             markdown-xwidget-code-block-theme))
-          (header-html (markdown-xwidget-header-html
-                        markdown-xwidget-mermaid-theme))
-          (command (or markdown-xwidget-command markdown-command)))
-      
+    "Enable `markdown-xwidget-preview-mode' with custom CSS."
+    (let* ((github-theme (markdown-xwidget-github-css-path
+                          markdown-xwidget-github-theme))
+           (code-block-theme (markdown-xwidget-highlightjs-css-path
+                              markdown-xwidget-code-block-theme))
+           (header-html (markdown-xwidget-header-html
+                         markdown-xwidget-mermaid-theme))
+           (command (or markdown-xwidget-command markdown-command))
+           (is-transcript (mr-x/agent-recall-transcript-p))
+           (custom-css (if is-transcript
+                           mr-x/agent-recall-css-file
+                         mr-x/markdown-gruvbox-css-file)))
+
       (if (not (featurep 'xwidget-internal))
           (user-error "This Emacs does not support xwidgets!"))
-      
-      ;; Save original and set CSS paths INCLUDING gruvbox
+
+      ;; Save original and set CSS paths with appropriate custom CSS
       (setq markdown-xwidget--markdown-css-paths-original markdown-css-paths)
-      (setq markdown-css-paths (list github-theme code-block-theme mr-x/markdown-gruvbox-css-file))
-      
+      (setq markdown-css-paths (list github-theme code-block-theme custom-css))
+
       ;; Temporarily set markdown-command
       (setq markdown-xwidget--markdown-command-original markdown-command)
       (setq markdown-command command)
-      
+
       ;; Temporarily set markdown-live-preview-window-function
       ;; Use xwidget-preview but display in same window
       (setq markdown-xwidget--markdown-live-preview-window-function-original
@@ -4315,12 +4387,22 @@ _q_: quit
               (let ((buf (markdown-xwidget-preview file)))
                 (display-buffer buf '(display-buffer-same-window))
                 buf)))
-      
+
       ;; Temporarily set markdown-xhtml-header-content
+      ;; For transcripts, append the DOM-restructuring script
       (setq markdown-xwidget--markdown-xhtml-header-content-original
             markdown-xhtml-header-content)
-      (setq markdown-xhtml-header-content header-html))
-    
+      (setq markdown-xhtml-header-content
+            (if is-transcript
+                (concat header-html
+                        "\n<script>\n"
+                        "window.addEventListener('load', function() {\n"
+                        (with-temp-buffer
+                          (insert-file-contents mr-x/agent-recall-js-file)
+                          (buffer-string))
+                        "\n});\n</script>")
+              header-html)))
+
     (markdown-live-preview-mode 1))
   
   ;; Redirect preview HTML files to a dedicated directory

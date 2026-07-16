@@ -1115,7 +1115,6 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
   (evil-set-initial-state 'project-dashboard-all-tasks-mode 'normal)
   (evil-define-key 'normal project-dashboard-all-tasks-mode-map
     (kbd "q") #'project-dashboard-all-tasks-quit
-    (kbd "g") #'project-dashboard-all-tasks-refresh
     (kbd "gr") #'project-dashboard-all-tasks-refresh))
 
 (defun project-dashboard-all-tasks-quit ()
@@ -1209,7 +1208,6 @@ Also stores tag names in `project-dashboard--tags-list' for number-based switchi
   (evil-set-initial-state 'project-dashboard-tag-tasks-mode 'normal)
   (evil-define-key 'normal project-dashboard-tag-tasks-mode-map
     (kbd "q") #'project-dashboard-tag-tasks-quit
-    (kbd "g") #'project-dashboard-tag-tasks-refresh
     (kbd "gr") #'project-dashboard-tag-tasks-refresh))
 
 (defun project-dashboard-tag-tasks-quit ()

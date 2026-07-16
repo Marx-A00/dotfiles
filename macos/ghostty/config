@@ -23,3 +23,7 @@ window-height = 40
 # Behavior
 cursor-style-blink = false
 macos-option-as-alt = true
+
+
+confirm-close-surface = false
+clipboard-paste-protection = false

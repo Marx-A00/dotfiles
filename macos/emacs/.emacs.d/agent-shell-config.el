@@ -1,3 +1,4 @@
+      ;;; -*- lexical-binding: t -*-
 
       (use-package agent-shell
         :ensure (:host github :repo "xenodium/agent-shell")

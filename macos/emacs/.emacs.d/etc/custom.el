@@ -129,7 +129,8 @@
      ("Marx-A00" . "~/roaming/projects/Marx-A00.github.io/")
      ("frethead" . "~/roaming/projects/frethead/")
      ("trakt-sync" . "~/roaming/code/trakt-sync/")
-     ("home lab" . "~/roaming/projects/home-lab/"))))
+     ("home lab" . "~/roaming/projects/home-lab/")
+     ("major pane" . "~/roaming/projects/major-pane/"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

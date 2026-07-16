@@ -1,0 +1,75 @@
+" ╔══════════════════════════════════════════════════════════╗
+" ║  Minimal vimrc — matches the nvim init.lua               ║
+" ╚══════════════════════════════════════════════════════════╝
+
+" ── Leader ─────────────────────────────────────────────────
+let mapleader = " "
+
+" ── Options ────────────────────────────────────────────────
+set number
+set relativenumber
+set signcolumn=yes
+set cursorline
+
+set expandtab
+set shiftwidth=2
+set tabstop=2
+set smartindent
+
+set ignorecase
+set smartcase
+set hlsearch
+set incsearch
+
+set splitright
+set splitbelow
+
+set clipboard=unnamedplus
+set undofile
+set noswapfile
+
+set scrolloff=8
+set updatetime=250
+set timeoutlen=400
+
+" ── Keymaps ────────────────────────────────────────────────
+" clear search highlight
+nnoremap <Esc> :nohlsearch<CR>
+
+" window navigation
+nnoremap <C-h> <C-w>h
+nnoremap <C-j> <C-w>j
+nnoremap <C-k> <C-w>k
+nnoremap <C-l> <C-w>l
+
+" move lines in visual mode
+vnoremap J :m '>+1<CR>gv=gv
+vnoremap K :m '<-2<CR>gv=gv
+
+" centered scrolling
+nnoremap <C-d> <C-d>zz
+nnoremap <C-u> <C-u>zz
+
+" file explorer
+nnoremap <leader>e :Explore<CR>
+
+" buffers
+nnoremap <leader>bn :bnext<CR>
+nnoremap <leader>bp :bprevious<CR>
+nnoremap <leader>bd :bdelete<CR>
+
+" ── Appearance ─────────────────────────────────────────────
+set termguicolors
+set background=dark
+colorscheme gruvbox
+
+" ── OSC 52 clipboard (yank to local machine over SSH) ──────
+" Sends yanked text to your local terminal clipboard via OSC 52.
+" Ghostty handles the escape sequence and puts it on your Mac clipboard.
+function! OSC52Yank() abort
+  let text = getreg(v:register)
+  let encoded = system("echo -n " . shellescape(text) . " | base64 | tr -d \"\n\"")
+  let osc = "\x1b]52;c;" . encoded . "\x07"
+  call writefile([osc], "/dev/stderr", "b")
+endfunction
+autocmd TextYankPost * if v:event.operator is# "y" | call OSC52Yank() | endif

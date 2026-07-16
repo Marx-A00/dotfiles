@@ -490,6 +490,11 @@
                             (shell-quote-argument org-title)
                             (shell-quote-argument (json-encode candidate)))))
 
+(defun trakt-sync-open-trakt ()
+  "Open Trakt.tv in the browser."
+  (interactive)
+  (browse-url "https://trakt.tv"))
+
 (defun trakt-sync-commit ()
   "Commit all mapped entries to Trakt."
   (interactive)
@@ -605,11 +610,13 @@ Returns t if a line was removed."
           (set-window-configuration trakt-sync--window-config)
           (setq trakt-sync--window-config nil))
         ;; Report
-        (message "Logged: %s%s — %s%s"
-                 title
-                 (if year (format " (%s)" year) "")
-                 date
-                 (if removed " (removed from watchlist)" ""))))))
+        (if (null result)
+            (message "WARNING: Logged to org but Trakt sync FAILED for %s — check *Messages*" title)
+          (message "Logged: %s%s — %s%s"
+                   title
+                   (if year (format " (%s)" year) "")
+                   date
+                   (if removed " (removed from watchlist)" "")))))))
 
 ;;;###autoload
 (defun trakt-sync--watchlist-titles ()
@@ -771,17 +778,18 @@ Searches Trakt, shows the picker, prompts for date, then:
   ["Log"
    ("l"   "Log watched"     log-watched)]
   ["Sync"
-   ("s w" "Sync watchlist"  trakt-sync-watchlist)
-   ("s h" "Sync history"    trakt-sync)]
+   ("sw"  "Sync watchlist"  trakt-sync-watchlist)
+   ("sh"  "Sync history"    trakt-sync)]
   ["View"
-   ("v w" "View watchlist"  trakt-sync-view-watchlist)
-   ("v h" "View history"    trakt-sync-view-history)]
+   ("vw"  "View watchlist"  trakt-sync-view-watchlist)
+   ("vh"  "View history"    trakt-sync-view-history)]
   ["Unmapped"
-   ("u w" "Unmapped watchlist" trakt-sync-unmapped-watchlist)
-   ("u h" "Unmapped history"   trakt-sync-unmapped-history)]
+   ("uw"  "Unmapped watchlist" trakt-sync-unmapped-watchlist)
+   ("uh"  "Unmapped history"   trakt-sync-unmapped-history)]
   ["Other"
    ("C"   "Commit mapped"   trakt-sync-commit)
-   ("t"   "Test UI"         trakt-sync-test-ui)])
+   ("t"   "Test UI"         trakt-sync-test-ui)
+   ("o"   "Open Trakt.tv"   trakt-sync-open-trakt)])
 
 (provide 'trakt-sync)
 ;;; trakt-sync.el ends here
