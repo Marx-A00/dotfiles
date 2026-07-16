@@ -1860,6 +1860,17 @@ Uses mr-x/popup-prompt to let the user pick from remaining TODO siblings."
           (when (buffer-live-p old-buf)
             (kill-buffer old-buf))))
 
+      (defun mr-x/vterm-homelab ()
+        "Open a vterm and SSH into homelab."
+        (interactive)
+        (let ((buf (save-window-excursion
+                     (multi-vterm)
+                     (current-buffer))))
+          (display-buffer buf)
+          (with-current-buffer buf
+            (vterm-send-string "ssh homelab")
+            (vterm-send-return))))
+
 
     ;; (use-package multi-vterm
     ;; 	 :config
@@ -2676,7 +2687,8 @@ constantly, so only invoke it when Hammerspoon is actually running."
         "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
         "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
         "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame")
-        "v r" '(mr-x/vterm-restart :wk "restart vterm"))
+        "v r" '(mr-x/vterm-restart :wk "restart vterm")
+        "v h" '(mr-x/vterm-homelab :wk "homelab"))
 
       (mr-x/leader-def
         "s" '(:ignore t :wk "streaming")
