@@ -1,4 +1,4 @@
-      ;;; -*- lexical-binding: t -*-
+;;; -*- lexical-binding: t -*-
 
       (use-package agent-shell
         :ensure (:host github :repo "xenodium/agent-shell")
@@ -1661,18 +1661,28 @@ the session picker, then spawns shells staggered 3s apart."
             (replace-match (concat (match-string 1) "• ")))))
 
       ;; Thinking animation
+      (defvar-local mr-x/quick-ask--anim-tick 0
+        "Frame counter for thinking animation.")
+
+      (defconst mr-x/quick-ask--anim-frames
+        ["⋅" "˖" "+" "⟡" "✧" "⟡" "+" "˖"]
+        "Pulsing star frames for thinking animation.")
+
       (defun mr-x/quick-ask--start-thinking-animation ()
-        "Start a dot-cycling animation in the header line. Returns the timer."
-        (let ((dots 0))
-          (run-at-time 0 0.4
-                       (lambda ()
-                         (when (buffer-live-p (get-buffer "*quick-ask*"))
-                           (with-current-buffer "*quick-ask*"
-                             (setq dots (mod (1+ dots) 4))
-                             (setq-local header-line-format
-                                         (propertize (format " Thinking%s (Claude)"
-                                                             (make-string dots ?.))
-                                                     'face '(:weight bold)))))))))
+        "Start a pulsing star animation in the header line. Returns the timer."
+        (when (buffer-live-p (get-buffer "*quick-ask*"))
+          (with-current-buffer "*quick-ask*"
+            (setq mr-x/quick-ask--anim-tick 0)))
+        (run-at-time 0 0.12
+                     (lambda ()
+                       (when (buffer-live-p (get-buffer "*quick-ask*"))
+                         (with-current-buffer "*quick-ask*"
+                           (setq mr-x/quick-ask--anim-tick (mod (1+ mr-x/quick-ask--anim-tick) 8))
+                           (setq-local header-line-format
+                                       (concat (propertize (format " %s " (aref mr-x/quick-ask--anim-frames mr-x/quick-ask--anim-tick))
+                                                           'face '(:weight bold))
+                                               (propertize "Thinking (Claude)"
+                                                           'face '(:weight bold)))))))))
 
       ;; Commands
       (defun mr-x/quick-ask--cancel ()
