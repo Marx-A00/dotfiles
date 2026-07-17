@@ -16,13 +16,16 @@
 ;;
 ;; Super (d/k) is GlazeWM's modifier -> hold d or k + h/j/k/l to drive the WM.
 ;; Not symlinked; bootstrap.ps1 launches `kanata --cfg <this file>` on login.
+;;
+;; Caps Lock -> Left Ctrl, handled here (was PowerToys Keyboard Manager, removed).
+;; kanata never emits a real Caps Lock, so the toggle can never get stuck on.
 
 (defcfg
   process-unmapped-keys yes
 )
 
 (defsrc
-  a   s   d   f   j   k   l   ;
+  caps   a   s   d   f   j   k   l   ;
 )
 
 (defvar
@@ -44,11 +47,11 @@
 )
 
 (deflayer base
-  @a  @s  @d  @f  @j  @k  @l  @;
+  lctl   @a  @s  @d  @f  @j  @k  @l  @;
 )
 
 (deflayer nomods
-  a   s   d   f   j   k   l   ;
+  lctl   a   s   d   f   j   k   l   ;
 )
 
 (deffakekeys

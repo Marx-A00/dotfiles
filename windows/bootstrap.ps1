@@ -5,13 +5,16 @@
 .NOTES
   Requires either Developer Mode ON (Settings > Privacy & security > For developers)
   or running this script as Administrator, so that symlinks can be created.
-  Run from the windows/ subdirectory of the monorepo (cd windows first).
   Re-running is safe and idempotent.
+
+  Run from the windows/ subdirectory of the monorepo (cd windows first); every
+  path is derived from $PSScriptRoot, so shortcuts point at windows\... paths.
 
   Dependencies (install via scoop before running; missing ones are skipped
   with a warning rather than installed):
     scoop install emacs autohotkey starship glazewm kanata vcredist2022
     scoop install FiraCode-NF FiraCode-NF-Mono Iosevka-NF-Mono CascadiaCode-NF   # fonts
+    scoop install jellyfin-media-player   # desktop client for a Jellyfin server
   AutoHotkey is required for the Emacs global hotkeys (autohotkey\emacs.ahk).
   Starship + CascadiaCode-NF power the riced PowerShell prompt (powershell\).
   GlazeWM is the tiling window manager (config in glazewm\config.yaml).
@@ -106,6 +109,28 @@ if ((Test-Path $ahkExe) -and (Test-Path $ahkScript)) {
     Write-Host "Created hotkeys shortcut  -> $hotkeysLnk" -ForegroundColor Green
 } else {
     Write-Host "AutoHotkey or emacs.ahk not found - skipping hotkeys shortcut." -ForegroundColor Yellow
+}
+
+# ---------------------------------------------------------------------------
+# GlazeWM fullscreen auto-pause (AutoHotkey) — autostart on login.
+# Pauses GlazeWM whenever a fullscreen app (game / video) is focused, so it
+# stops fighting borderless-fullscreen games. No per-game ignore list needed;
+# see autohotkey\glaze-game-pause.ahk for the why.
+# ---------------------------------------------------------------------------
+$gamePauseScript = "$repo\autohotkey\glaze-game-pause.ahk"
+
+if ((Test-Path $ahkExe) -and (Test-Path $gamePauseScript)) {
+    $ws = New-Object -ComObject WScript.Shell
+    $gamePauseLnk = Join-Path ([Environment]::GetFolderPath('Startup')) "GlazeWM Game Pause.lnk"
+    $sc = $ws.CreateShortcut($gamePauseLnk)
+    $sc.TargetPath       = $ahkExe
+    $sc.Arguments        = "`"$gamePauseScript`""
+    $sc.WorkingDirectory = Split-Path $gamePauseScript -Parent
+    $sc.Description       = "Auto-pause GlazeWM while a fullscreen app is focused"
+    $sc.Save()
+    Write-Host "Created game-pause shortcut -> $gamePauseLnk" -ForegroundColor Green
+} else {
+    Write-Host "AutoHotkey or glaze-game-pause.ahk not found - skipping game-pause shortcut." -ForegroundColor Yellow
 }
 
 # ---------------------------------------------------------------------------

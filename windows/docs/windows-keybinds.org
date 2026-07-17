@@ -47,9 +47,9 @@ Edit =defvar= in =kanata/kanata.kbd=:
 ** Commands
 #+begin_src powershell
 # validate config without taking over the keyboard
-kanata --cfg "C:\Users\mnand\dotfiles\kanata\kanata.kbd" --check
+kanata --cfg "C:\Users\mnand\dotfiles\windows\kanata\kanata.kbd" --check
 # start (hidden) — normally done by the login shortcut
-Start-Process kanata -ArgumentList '--cfg','"C:\Users\mnand\dotfiles\kanata\kanata.kbd"' -WindowStyle Hidden
+Start-Process kanata -ArgumentList '--cfg','"C:\Users\mnand\dotfiles\windows\kanata\kanata.kbd"' -WindowStyle Hidden
 # stop / kill switch
 Get-Process kanata | Stop-Process -Force
 #+end_src
@@ -106,14 +106,20 @@ glazewm command toggle-fullscreen   # invoke any command by name
 glazewm command wm-reload-config
 #+end_src
 
-* Emacs global hotkeys (AutoHotkey)
+* Global hotkeys (AutoHotkey)
 
-From =autohotkey/emacs.ahk= (Windows port of the macOS skhd cmd+shift binds):
+From =autohotkey/emacs.ahk= (Windows port of the macOS skhd cmd+shift binds) and
+=autohotkey/glaze-game-pause.ahk= (GlazeWM helpers):
 
 | Keys          | Action                                            |
 |---------------+---------------------------------------------------|
 | =Win+Shift+E= | Open an Emacs frame (auto-starts the daemon)       |
 | =Win+Shift+R= | Restart the daemon, then open a fresh frame        |
+| =Win+Shift+G= | Restart GlazeWM (kill + relaunch from repo config) |
+
+=Win+Shift+G= runs =scripts/glazewm-restart.ps1=. Use it when =Super+o= (reload
+config) isn't enough — e.g. GlazeWM wedged. It lives in AHK (a separate process),
+so it works even when GlazeWM itself is unresponsive.
 
 With home row mods, press these as opposite-hand combos (e.g. =d= Super + =j= Shift
 + =e=) or just use the physical Win/Shift keys (kanata leaves them untouched).
@@ -142,6 +148,8 @@ With home row mods, press these as opposite-hand combos (e.g. =d= Super + =j= Sh
 - =kanata.lnk=   → =kanata --cfg <repo>\kanata\kanata.kbd=
 - =GlazeWM.lnk=  → =glazewm start --config <repo>\glazewm\config.yaml=
 - =Emacs Hotkeys.lnk= → AutoHotkey running =autohotkey\emacs.ahk=
+- =GlazeWM Game Pause.lnk= → AutoHotkey running =autohotkey\glaze-game-pause.ahk=
+  (pauses GlazeWM while a fullscreen app/game is focused)
 
 Re-running =bootstrap.ps1= is safe/idempotent and also cleans up the old komorebi
 wiring if present.
@@ -150,8 +158,8 @@ wiring if present.
 
 #+begin_src powershell
 Get-Process kanata,glazewm -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-Process kanata  -ArgumentList '--cfg','"C:\Users\mnand\dotfiles\kanata\kanata.kbd"' -WindowStyle Hidden
-Start-Process glazewm -ArgumentList 'start','--config','"C:\Users\mnand\dotfiles\glazewm\config.yaml"' -WindowStyle Hidden
+Start-Process kanata  -ArgumentList '--cfg','"C:\Users\mnand\dotfiles\windows\kanata\kanata.kbd"' -WindowStyle Hidden
+Start-Process glazewm -ArgumentList 'start','--config','"C:\Users\mnand\dotfiles\windows\glazewm\config.yaml"' -WindowStyle Hidden
 #+end_src
 
 * Background
