@@ -1,14 +1,13 @@
-# Primary font. This machine has the VANILLA Iosevka builds installed, not the
-# Nerd Font patched ones, so use the real installed family name — verify with:
-#   /Applications/Ghostty.app/Contents/MacOS/ghostty +list-fonts
-# Nerd-Font icon glyphs still render: Ghostty auto-falls-back to the installed
-# "Symbols Nerd Font Mono" for those.
-font-family = Iosevka Term Slab
+# Primary font. This machine has the Nerd Font patched Iosevka builds installed,
+# NOT the vanilla ones — so the exact family name must include "Nerd Font Mono".
+# Verify installed names with:
+#   /Applications/Ghostty.app/Contents/MacOS/ghostty +list-fonts | grep -i iosevka
+# Nerd-Font icon glyphs are built into these patched families, so no separate
+# symbols fallback is needed.
+font-family = IosevkaTermSlab Nerd Font Mono
 # Other installed monospace families you can swap in (exact names, verified):
-#   font-family = Iosevka Fixed Slab            # fixed-width slab
-#   font-family = Iosevka Term                  # terminal cut, no slab
-#   font-family = JetBrainsMono Nerd Font Mono  # bundled nerd glyphs
-#   font-family = FiraCode Nerd Font Mono       # Fira Code + nerd glyphs
+#   font-family = IosevkaTerm Nerd Font Mono    # terminal cut, no slab
+#   font-family = Iosevka Nerd Font Mono        # base cut
 
 # Fallback, used ONLY for glyphs the primary lacks — e.g. the ROMAN DENARIUS
 # SIGN (U+10196) in the shell prompt. Big Caslon is one of the few macOS fonts

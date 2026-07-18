@@ -92,10 +92,12 @@ cask "tailscale-app"
 cask "zed"
 cask "gimp"
 cask "inkscape"
+cask "vlc"
 cask "legcord"
 cask "warp"
 cask "mactex"
 cask "miniforge"
+cask "superwhisper"          # dictation with LLM reformatting
 
 # --- Uncomment if needed ---
 # cask "amethyst"              # tiling WM (you have yabai configs too)

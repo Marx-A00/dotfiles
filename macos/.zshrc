@@ -242,3 +242,8 @@ export ENABLE_EXPERIMENTAL_MCP_CLI='true'
 # Home lab media upload aliases
 alias upmovie="upload-media"
 alias upshow="upload-media \$1 shows"
+
+# Bind Ollama to the Tailscale interface only (tailnet-reachable, not exposed on LAN/public wifi)
+# Reachable from other tailnet devices as http://mrx2:11434 or http://100.84.72.38:11434.
+# Revert to 0.0.0.0 if you need it on the plain LAN or on localhost without tailscale.
+export OLLAMA_HOST=100.84.72.38

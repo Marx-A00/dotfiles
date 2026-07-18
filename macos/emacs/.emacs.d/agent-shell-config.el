@@ -800,10 +800,14 @@ the session picker, then spawns shells staggered 3s apart."
                  (args . ["-y" "chrome-devtools-mcp@latest"])
                  (env . []))
 
-                ((name . "axiom")
-                 (command . "npx")
-                 (args . ["-y" "mcp-remote" "https://mcp.axiom.co/mcp"])
-                 (env . []))))
+                ;; axiom disabled: mcp-remote triggers an OAuth browser
+                ;; pop-up on every new agent-shell session. Re-enable by
+                ;; uncommenting this block.
+                ;; ((name . "axiom")
+                ;;  (command . "npx")
+                ;;  (args . ["-y" "mcp-remote" "https://mcp.axiom.co/mcp"])
+                ;;  (env . []))
+                ))
 
 
 

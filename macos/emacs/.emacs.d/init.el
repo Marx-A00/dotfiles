@@ -2590,7 +2590,9 @@ constantly, so only invoke it when Hammerspoon is actually running."
       (defun mr-x/agent-shell-new-smart ()
         "Create new agent shell, replacing current window if already in agent-shell."
         (interactive)
-        (let* ((config (or (agent-shell--resolve-preferred-config)
+        (require 'agent-shell)
+        (let* ((config (or (and (fboundp 'agent-shell--resolve-preferred-config)
+                                (agent-shell--resolve-preferred-config))
                            (agent-shell-select-config :prompt "Start new agent: ")
                            (error "No agent config found")))
                (shell-buffer (agent-shell--start :config config
@@ -4878,9 +4880,14 @@ _q_: quit
 ;; ask-user-mcp lives under ~/roaming (Syncthing); load only when present so
 ;; a machine without ~/roaming yet doesn't abort all of init.
 (let ((ask-user-dir "~/roaming/projects/MCP servers/ask-user-mcp/emacs"))
-  (when (file-directory-p ask-user-dir)
-    (load-file (expand-file-name "ask-user.el" ask-user-dir))
-    (load-file (expand-file-name "ask-user-popup.el" ask-user-dir))))
+  ;; Guard on the actual files, not just the dir: Syncthing can create an
+  ;; empty `emacs/' folder before the .el files sync, and a bare
+  ;; `file-directory-p' check would then let `load-file' throw and abort
+  ;; the rest of init (taking agent-shell, agent-recall, etc. down with it).
+  (dolist (f '("ask-user.el" "ask-user-popup.el"))
+    (let ((path (expand-file-name f ask-user-dir)))
+      (when (file-exists-p path)
+        (load-file path)))))
 
   (use-package acp
     :ensure (:host github :repo "xenodium/acp.el"))
