@@ -20,6 +20,13 @@ Hardware details: ~/roaming/notes/mr-x-inventory-mdox.org
 - Everything committed + pushed (restructure/monorepo)
 
 ** Remaining
+- [ ] TEST THE SUMMON: map pad key -> LSFT(KC_F18) in VIA, sleep the
+  PC, smack it. Then the boss tier: wake from full SHUTDOWN — if that
+  fails, flip the BIOS toggle (Advanced -> Wake Up Event Setup ->
+  Resume by PCI-E / Wake on LAN) and retest.
+- [ ] Decide VENGEANCE system-sleep policy: currently sleeps at 15
+  min, and a sleeping PC is unreachable until summoned. Options:
+  stretch timer to 2-4h, or leave 15min and lean on the summon key.
 - [ ] BUY: USB 3.0 switch ~$20 (2-computer, wired remote button) —
   flips ErgoDox + MV7+ (+ headphones via mic jack) between dock and
   VENGEANCE. The last piece of the peripherals doctrine.
@@ -191,6 +198,29 @@ VENGEANCE-side plumbing (all under =C:\Tools\MultiMonitorTool\=):
   sessions. Helper tasks: mmt-dump (CSV state dump), mmt-exec (runs
   whatever is in cmd.txt — line must be CRLF-FREE, a trailing \r
   silently corrupts the last argument).
+- mon-wake task (wake.ps1): SetThreadExecutionState + SendInput mouse
+  jiggle in the desktop session — sync_windows() triggers it whenever
+  a display points at pc, so a slept Windows display lights up on
+  handoff. No more manual mouse jiggle.
+
+** The Summon — Wake-on-LAN power-on from the pad
+
+=macos/scripts/vengeance-wake.sh [game]= sends a WoL magic packet
+(python3, UDP broadcast ports 7+9), polls SSH up to 90s, notifies
+when the PC is up; with =game= it then runs =monitor-mode.sh game=.
+Bound to =shift - f18= in skhd -> pad key = LSFT(KC_F18) in VIA.
+
+Facts (verified 2026-07-17 while awake):
+- NIC: Realtek 5GbE onboard, wired, MAC =34:5A:60:C0:95:87=
+- Windows: WakeOnMagicPacket ENABLED, Fast Startup DISABLED (both
+  were already set — remote-agent project groundwork)
+- Wake from sleep (S3): should work as-is — UNTESTED
+- Wake from full shutdown (S5): may additionally need the BIOS
+  toggle (Advanced -> Wake Up Event Setup -> Resume by PCI-E) —
+  UNTESTED
+- Ping is firewalled; the script's liveness check is SSH, correctly.
+- Related: remote-agent-access project Phase 3 wants this same WoL
+  for mobile access — this work covers its LAN half.
 
 DONE 2026-07-17: both monitors at 155Hz (required enabling the
 FACTORY OVERCLOCK in each monitor's OSD — Menu -> Display ->

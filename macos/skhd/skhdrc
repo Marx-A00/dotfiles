@@ -86,6 +86,8 @@ f18 : ~/.dotfiles/macos/scripts/monitor-mode.sh mac
 f19 : ~/.dotfiles/macos/scripts/monitor-mode.sh toggle center
 shift - f19 : ~/.dotfiles/macos/scripts/monitor-mode.sh toggle right
 shift - f17 : ~/.dotfiles/macos/scripts/monitor-mode.sh work
+# THE SUMMON: power on VENGEANCE via WoL, then take monitors 3+4
+shift - f18 : ~/.dotfiles/macos/scripts/vengeance-wake.sh game
 
 alt + shift - b : yabai -m space --balance
 alt + shift - r : yabai --restart-service
