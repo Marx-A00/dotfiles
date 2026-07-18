@@ -71,6 +71,22 @@ ctrl - 3 : yabai -m display --focus 3
 ctrl - 4 : yabai -m display --focus 4
 
 
+# Monitor input switching (DDC "KVM") — see docs/monitor-setup.org
+ctrl + alt - g : ~/.dotfiles/macos/scripts/monitor-mode.sh game
+ctrl + alt - m : ~/.dotfiles/macos/scripts/monitor-mode.sh mac
+ctrl + alt - w : ~/.dotfiles/macos/scripts/monitor-mode.sh work
+# per-display toggles Mac <-> PC (numbers match yabai display indices)
+ctrl + alt - 3 : ~/.dotfiles/macos/scripts/monitor-mode.sh toggle center
+ctrl + alt - 4 : ~/.dotfiles/macos/scripts/monitor-mode.sh toggle right
+# Creator Micro macro pad (VIA layer 2)
+# NOTE: macOS ignores F20+ from hardware keyboards — F13-F19 only.
+# 4th pad key sends LSFT(KC_F19) = shift+f19 (toggle right).
+f17 : ~/.dotfiles/macos/scripts/monitor-mode.sh game
+f18 : ~/.dotfiles/macos/scripts/monitor-mode.sh mac
+f19 : ~/.dotfiles/macos/scripts/monitor-mode.sh toggle center
+shift - f19 : ~/.dotfiles/macos/scripts/monitor-mode.sh toggle right
+shift - f17 : ~/.dotfiles/macos/scripts/monitor-mode.sh work
+
 alt + shift - b : yabai -m space --balance
 alt + shift - r : yabai --restart-service
 alt + shift - s : brew services restart sketchybar
