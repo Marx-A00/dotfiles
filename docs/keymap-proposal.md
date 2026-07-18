@@ -1,7 +1,8 @@
 # mrx Keymap Proposal — hotdox76v2
 
 Full recommendations from the keymap audit (2026-07-16). Interactive visualization:
-https://claude.ai/code/artifact/b48d351c-1ba9-4f01-bcb1-bd09b9aa2659
+- Local page: `docs/keymap-explorer.html` (self-contained, `open docs/keymap-explorer.html`)
+- Artifact mirror: https://claude.ai/code/artifact/b48d351c-1ba9-4f01-bcb1-bd09b9aa2659
 
 Sources audited:
 - `~/qmk_firmware/keyboards/hotdox76v2/keymaps/mrx/` (commit 8eb6039, matches Desktop backup byte-for-byte)

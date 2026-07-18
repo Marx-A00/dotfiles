@@ -750,8 +750,12 @@ the session picker, then spawns shells staggered 3s apart."
         ;; forever waiting to load; llama3.2:3b (2GB) fits alongside and is far
         ;; faster. NOTE: GOOSE_TOOLSHIM_OLLAMA_MODEL is IGNORED in config.yaml —
         ;; it only takes effect as an env var, here.
+        ;; OLLAMA_HOST points at the local goose-scope proxy (see goose-scope.el
+        ;; below), which forwards to Ollama on the Air and logs every call for
+        ;; the *goose-scope* observability panel. Proxy auto-starts with the panel.
         (setq agent-shell-goose-environment
               (agent-shell-make-environment-variables
+               "OLLAMA_HOST" "http://127.0.0.1:11435"
                "GOOSE_TOOLSHIM" "1"
                "GOOSE_TOOLSHIM_OLLAMA_MODEL" "llama3.2:3b"))
 
@@ -765,6 +769,12 @@ the session picker, then spawns shells staggered 3s apart."
           (interactive)
           (let ((agent-shell-mcp-servers nil))
             (agent-shell-goose-start-agent)))
+
+        ;; goose-scope: live observability panel for the local agent stack.
+        ;; M-x goose-scope (or SPC c g) opens a *goose-scope* buffer that tails
+        ;; the proxy's NDJSON log and renders each turn as a timeline. Opening it
+        ;; auto-starts the proxy. See macos/scripts/goose-scope-proxy.py.
+        (load (expand-file-name "goose-scope" user-emacs-directory) t)
 
 
 
@@ -997,7 +1007,8 @@ the session picker, then spawns shells staggered 3s apart."
          "c x r" '(agent-shell-refs-capture :wk "Capture ref")
          "c x c" '(agent-shell-refs-clear :wk "Clear refs")
          "c x p" '(agent-shell-refs-preview :wk "Preview refs")
-         "c x d" '(agent-shell-refs-remove :wk "Remove ref")))
+         "c x d" '(agent-shell-refs-remove :wk "Remove ref")
+         "c g" '(goose-scope :wk "Goose scope panel")))
 
 
       ;; Agent Shell Tool Group - Collapse consecutive tool calls under foldable headers
@@ -1107,7 +1118,8 @@ the session picker, then spawns shells staggered 3s apart."
         ;; so it needs its own autoload rather than going through :commands.
         (autoload 'agent-recall-consult-search "agent-recall-consult" nil t)
         :commands (agent-recall-search
-                   agent-recall-browse agent-recall-resume
+                   agent-recall-browse agent-recall-browse-project
+                   agent-recall-resume
                    agent-recall-backfill agent-recall-stats)
         :custom
         (agent-recall-search-paths '("~"))
@@ -1137,15 +1149,18 @@ the session picker, then spawns shells staggered 3s apart."
 
       (use-package major-pane
         :ensure nil
-        :if (file-directory-p "~/roaming/projects/major-pane")
-        :load-path "~/roaming/projects/major-pane"
         ;; No :after — that would defer :init (the global-set-key) behind
         ;; (eval-after-load 'agent-shell), leaving s-i unbound until agent-shell
         ;; loads. :commands autoloads the command, which pulls in agent-shell on
         ;; first use, so s-i can bind unconditionally at startup.
         :init
         (global-set-key (kbd "s-i") #'major-pane-toggle)
+        (global-set-key (kbd "s-M-<right>") #'major-pane-next-tab)
+        (global-set-key (kbd "s-M-<left>") #'major-pane-prev-tab)
         :commands (major-pane-toggle
+                   major-pane-next-tab
+                   major-pane-prev-tab
+                   major-pane-new-chat
                    major-pane-exclude-buffer
                    major-pane-swap-buffer
                    major-pane-set-label

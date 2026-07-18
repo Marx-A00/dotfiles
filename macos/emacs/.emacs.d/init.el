@@ -62,6 +62,10 @@
   :config
   (require 'compat-31))
 
+(use-package transient
+  :ensure t
+  :demand t)
+
 ;; Load org early to avoid version conflicts
 (elpaca org)
 (elpaca-wait)
@@ -1532,12 +1536,6 @@ All Mdox tooling (scaffolder, linter) derives from this spec.")
 
 
 
-(use-package transient
-  :ensure t
-  :demand t
-  :init
-  ;; Remove built-in transient from load-path to force using the newer version
-  (setq load-path (delete (expand-file-name "transient" (locate-library "transient")) load-path)))
 
 (with-eval-after-load 'transient
   (transient-define-prefix mr-x/cheatsheet ()
@@ -1765,6 +1763,17 @@ All Mdox tooling (scaffolder, linter) derives from this spec.")
           (vterm (generate-new-buffer-name "vterm")))
         (when (buffer-live-p old-buf)
           (kill-buffer old-buf))))
+
+    (defun mr-x/vterm-homelab ()
+      "Open a vterm and SSH into homelab."
+      (interactive)
+      (let ((buf (save-window-excursion
+                   (multi-vterm)
+                   (current-buffer))))
+        (display-buffer buf)
+        (with-current-buffer buf
+          (vterm-send-string "ssh homelab")
+          (vterm-send-return))))
 
 
   ;; (use-package multi-vterm
@@ -2357,12 +2366,18 @@ constantly, so only invoke it when Hammerspoon is actually running."
   (use-package highlight
     :ensure t)
 
-  ;; Display agent-shell buffers on the left at 30% width (regular window, not side-window)
+  ;; Never display acp stderr buffers in a window
   (add-to-list 'display-buffer-alist
-               '("Claude Agent @"
-                 (display-buffer-in-direction)
-                 (direction . left)
-                 (window-width . 0.30)))
+               '("\\`acp-client-stderr"
+                 (display-buffer-no-window)
+                 (allow-no-window . t)))
+
+  ;; Agent-shell buffers always display in the major-pane side panel.
+  ;; This covers both sync and async (deferred session) display paths.
+  (setq agent-shell-display-action
+        '((display-buffer-in-direction)
+          (direction . left)
+          (window-width . 0.30)))
 
   ;; Popper for popup buffer management
   (use-package popper
@@ -2485,6 +2500,7 @@ constantly, so only invoke it when Hammerspoon is actually running."
          ((derived-mode-p 'agent-shell-mode) (hydra-agent/body))
          ((derived-mode-p 'dired-mode) (hydra-dired/body))
          ((derived-mode-p 'Info-mode) (hydra-info/body))
+         ((derived-mode-p 'ediff-mode) (hydra-ediff/body))
          ((derived-mode-p 'prog-mode) (hydra-fold/body))
          (t (message "No hydra for %s" major-mode))))
 
@@ -2557,13 +2573,14 @@ constantly, so only invoke it when Hammerspoon is actually running."
         "v" '(:ignore t :wk "vterm")
         "v v" '(mr-x/vterm-popup :wk "vterm popup")
         "v b" '(mr-x/vterm-buffer :wk "vterm buffer")
-        "v s" '(mr-x/vterm-frame :wk "vterm frame")
-        "v f" '(mr-x/vterm-in-dir :wk "vterm in dir")
+        "v f" '(mr-x/vterm-frame :wk "vterm frame")
+        "v d" '(mr-x/vterm-in-dir :wk "vterm in dir")
         "v n" '(multi-vterm-next :wk "multi-vterm-next")
         "v p" '(multi-vterm-prev :wk "multi-vterm-prev")
-        "v d" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
+        "v `" '(multi-vterm-dedicated-toggle :wk "multi-vterm-dedicated-toggle")
         "v V" '(mr-x/spawn-project-terminal-frame :wk "project terminal frame")
-        "v r" '(mr-x/vterm-restart :wk "restart vterm"))
+        "v r" '(mr-x/vterm-restart :wk "restart vterm")
+        "v h" '(mr-x/vterm-homelab :wk "homelab"))
 
       (mr-x/leader-def
         "s" '(:ignore t :wk "streaming")
@@ -2683,7 +2700,9 @@ projectile projects appended below."
         "c a s" '(:ignore t :wk "Search")
         "c a s c" '(agent-recall-consult-search :wk "Consult")
         "c a s d" '(agent-recall-search :wk "Deadgrep")
-        "c a b" '(agent-recall-browse :wk "Browse")
+        "c a b" '(:ignore t :wk "Browse")
+        "c a b a" '(agent-recall-browse :wk "All")
+        "c a b d" '(agent-recall-browse-project :wk "Directory")
         "c a r" '(agent-recall-resume :wk "Resume")
         "c a B" '(agent-recall-backfill :wk "Backfill")
         "c a t" '(agent-recall-stats :wk "Stats"))
@@ -2703,6 +2722,7 @@ projectile projects appended below."
         "g g" '(magit-status :wk "magit status (fullframe)")
         "g G" '(mr-x/magit-status-side-window :wk "magit status (side window)")
         "g d" '(magit-diff-unstaged :wk "diff unstaged")
+        "g D" '(difftastic-magit-diff :wk "structural diff (difftastic)")
         "g c" '(magit-branch-or-checkout :wk "branch or checkout")
         "g l" '(magit-log-current :wk "log current")
         "g L" '(magit-log-oneline :wk "log oneline")
@@ -2764,6 +2784,10 @@ projectile projects appended below."
         "$ b s" '(my/ledger-report-subscriptions :wk "subscriptions")
         "$ b r" '(my/ledger-report-register :wk "full register")
         "$ b n" '(my/ledger-report-net-worth :wk "net worth"))
+
+      (mr-x/leader-def
+        "&" '(:ignore t :wk "Pane")
+        "& n" '(major-pane-new-chat :wk "New chat"))
 
       (mr-x/leader-def
         "r" '(:ignore t :wk "reading")
@@ -3413,8 +3437,8 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
 
 (use-package embark
   :ensure t
-  :bind (("C-." . embark-act)
-         ("C-;" . embark-dwim))
+  :bind (("s-r" . embark-act)
+         ("s-;" . embark-dwim))
   :config
   (setq prefix-help-command #'embark-prefix-help-command)
 
@@ -3452,6 +3476,16 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
                     "project-dashboard--action-" "" (cdr entry)))
           which-key-replacement-alist))
 
+  ;; macOS file actions
+  (defun embark-open-in-finder (file)
+    "Reveal FILE in Finder."
+    (call-process "open" nil 0 nil "-R" (expand-file-name file)))
+  (defun embark-open-externally (file)
+    "Open FILE with default macOS app."
+    (call-process "open" nil 0 nil (expand-file-name file)))
+  (define-key embark-file-map (kbd "O") #'embark-open-externally)
+  (define-key embark-file-map (kbd "F") #'embark-open-in-finder)
+
   ;; Hide which-key popup when embark action completes/aborts
   (advice-add #'embark--quit :after
               (lambda (&rest _) (which-key--hide-popup-ignore-command))))
@@ -3484,7 +3518,10 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     (magit-display-buffer-function #'magit-display-buffer-fullcolumn-most-v1)
     :init
     ;; Fix for daemon mode - set EDITOR globally so git uses emacsclient
-    (setenv "EDITOR" "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient"))
+    (setenv "EDITOR" "/opt/homebrew/opt/emacs-plus@30/bin/emacsclient")
+    :bind
+    (:map magit-mode-map
+          ("s-<return>" . magit-diff-visit-worktree-file-other-window)))
 
   ;; Side-window magit for IDE-style peek
   (defun mr-x/magit-status-side-window ()
@@ -3798,7 +3835,7 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
    _RET_/_C-]_: follow link   node               _gT_: table of contents
    _TAB_/_S-TAB_: next/prev _C-o_/_C-t_: hist back    _gG_: goto node
      link                  _C-i_: hist forward    _gm_/_J_: menu item
-   _gf_: follow xref                            _g1_‥_g9_: nth menu item
+   _gf_: follow xref                            g1‥g9: nth menu item
                           History               Search
                           _gL_: full history      _s_: search
    Help                                        _S_: search (case)
@@ -3842,6 +3879,35 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     (with-eval-after-load 'evil
       (evil-define-key 'normal Info-mode-map (kbd ",") #'hydra-info/body))
 
+    ;; ── Ediff Hydra ──────────────────────────────────────────────
+    ;; Fires via SPC , while in the *Ediff Control Panel* (evil is in normal
+    ;; state there, so the leader works — same entry point as every other mode
+    ;; hydra). Every head is a command taken straight from ediff's own keymap
+    ;; (ediff-util.el) and verified to run cleanly from the control buffer.
+    ;; Note: q quits the HYDRA (consistent with the other hydras); Q quits EDIFF.
+    (defhydra hydra-ediff (:hint nil :foreign-keys run)
+      "
+  ╭─── Ediff ──────────────────────────────────────────╮
+   Navigate          Copy              View
+   _n_: next diff      _a_: A→B           _|_: toggle split
+   _p_: prev diff      _b_: B→A           _h_: toggle hilite
+   _j_: jump to N      _*_: fine diffs    _~_: swap A/B
+                     _!_: recompute     _z_: recenter
+  ╰──────── _Q_: quit ediff ──────────── _q_: quit hydra ─╯"
+      ("n" ediff-next-difference)
+      ("p" ediff-previous-difference)
+      ("j" ediff-jump-to-difference)
+      ("a" ediff-copy-A-to-B)
+      ("b" ediff-copy-B-to-A)
+      ("*" ediff-make-or-kill-fine-diffs)
+      ("!" ediff-update-diffs)
+      ("|" ediff-toggle-split)
+      ("h" ediff-toggle-hilit)
+      ("~" ediff-swap-buffers)
+      ("z" ediff-recenter)
+      ("Q" ediff-quit :exit t)
+      ("q" nil :exit t))
+
     ;; Wire them into leader keys after general loads
     (with-eval-after-load 'general
       (mr-x/leader-def
@@ -3874,13 +3940,12 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     (set-face-attribute 'vdiff-subtraction-face nil :background "#3b2626" :foreground 'unspecified :inherit nil)
     (set-face-attribute 'vdiff-change-face nil :background "#3b3520" :foreground 'unspecified :inherit nil))
 
-  (use-package vdiff-magit
+  ;; difftastic — structural (AST-aware) diffs. Needs the `difft' binary
+  ;; (brew install difftastic). Bound to SPC g D.
+  (use-package difftastic
     :ensure t
-    :after (magit vdiff)
-    :config
-    (setq vdiff-magit-stage-is-2way t)
-    (define-key magit-mode-map "e" #'vdiff-magit-dwim)
-    (define-key magit-mode-map "E" #'vdiff-magit-popup))
+    :after magit
+    :commands (difftastic-magit-diff difftastic-magit-show difftastic-dired-diff))
 
   ;; Forge - GitHub/GitLab PR and issue management
   (use-package forge
