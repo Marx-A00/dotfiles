@@ -162,9 +162,11 @@ VENGEANCE-side plumbing (all under =C:\Tools\MultiMonitorTool\=):
   whatever is in cmd.txt — line must be CRLF-FREE, a trailing \r
   silently corrupts the last argument).
 
-TODO on VENGEANCE: bump both monitors 144Hz -> 155Hz (Settings ->
-Display -> Advanced) and enable G-Sync Compatible for both (NVIDIA
-Control Panel) — audit found them at 144.
+DONE 2026-07-17: both monitors at 155Hz (required enabling the
+FACTORY OVERCLOCK in each monitor's OSD — Menu -> Display ->
+Overclock; the S2719DGF is natively 144Hz, 155 is OC-only and
+DP-only) + G-Sync Compatible enabled in NVIDIA Control Panel.
+Verified over SSH: both panels 2560x1440 @ 155Hz.
 
 Display 4 negotiated full 2560x1440@144Hz through the Anker 310
 (dock TB4 port). All four displays at max spec.
