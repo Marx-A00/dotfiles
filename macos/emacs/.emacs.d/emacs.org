@@ -2899,7 +2899,11 @@ projectile projects appended below."
 
       (mr-x/leader-def
         "&" '(:ignore t :wk "Pane")
-        "& n" '(major-pane-new-chat :wk "New chat"))
+        "& n" '(major-pane-new-chat :wk "New chat")
+        "& f" '((lambda () (interactive)
+                  (let ((current-prefix-arg '(4)))
+                    (call-interactively #'major-pane-toggle)))
+                :wk "Toggle fullscreen"))
 
       (mr-x/leader-def
         "r" '(:ignore t :wk "reading")
@@ -3519,11 +3523,14 @@ where make-frame would otherwise error with \"Unknown terminal type\"."
     ;; can find a prompt.  Windows/ConPTY needs pipe mode to avoid escape
     ;; code pollution, so we scope that per-host via advice.
     (defun mr-x/tramp-windows-pipe-a (orig-fun vec)
-      "Use pipe instead of PTY for Windows hosts (ConPTY compat)."
+      "Use pipe instead of PTY for hosts whose shell pollutes the PTY.
+Windows/ConPTY emits escape codes; mrx runs zsh with a fancy PS1 that
+TRAMP can't match under a PTY — both need pipe mode."
       (let ((tramp-process-connection-type
-             (if (string-match-p "vengeance" (tramp-file-name-host vec))
-                 nil    ; pipe — avoids ConPTY escape codes
-               t)))    ; PTY  — interactive shell for Linux hosts
+             (if (string-match-p "vengeance\\|100\\.67\\.67\\.61\\|mrx"
+                                  (tramp-file-name-host vec))
+                 nil    ; pipe — avoids ConPTY / fancy-prompt escape codes
+               t)))    ; PTY  — interactive shell for other Linux hosts
         (funcall orig-fun vec)))
     (advice-add 'tramp-maybe-open-connection :around #'mr-x/tramp-windows-pipe-a)
     (setq tramp-use-ssh-controlmaster-options nil)

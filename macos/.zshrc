@@ -1,3 +1,12 @@
+# TRAMP & other dumb terminals: bail to a plain prompt before any
+# prompt/tool init runs, so remote Emacs can find the shell prompt.
+# (Fancy PS1 escape codes + nvm noise otherwise hang TRAMP under PTY.)
+if [[ $TERM == "dumb" ]]; then
+  unsetopt zle 2>/dev/null
+  PS1='$ '
+  return
+fi
+
 autoload -U colors && colors
 colors
 # PATH=~/.console-ninja/.bin:$PATH
