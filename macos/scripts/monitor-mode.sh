@@ -58,8 +58,18 @@ input_for() {
 }
 
 set_display() {  # set_display <center|right> <mac|pc|work>
-  m1ddc display "$(uuid_for "$1")" set input "$(input_for "$2")" > /dev/null
-  echo "$2" > "$STATE_DIR/$1"
+  # The Anker adapter throws transient DDC I/O errors — retry before
+  # giving up, and never record state for a flip that didn't happen.
+  local try
+  for try in 1 2 3; do
+    if m1ddc display "$(uuid_for "$1")" set input "$(input_for "$2")" > /dev/null 2>&1; then
+      echo "$2" > "$STATE_DIR/$1"
+      return 0
+    fi
+    sleep 0.4
+  done
+  notify "FAILED: $1 -> $2 (DDC error x3)"
+  return 1
 }
 
 current_machine() {  # current_machine <center|right> -> mac|pc|work
@@ -93,15 +103,20 @@ sync_windows() {
   # VENGEANCE (they must run in the desktop session): mon-extend uses
   # SetDisplayConfig via extend.ps1, mon-only3/4 disable via
   # MultiMonitorTool. Fire-and-forget: PC may be off/asleep.
-  local c r task
+  local c r task wake=""
   c=$(current_machine center); r=$(current_machine right)
   if   [ "$c" = pc ] && [ "$r" = pc ]; then task=mon-extend
   elif [ "$r" = pc ];                  then task=mon-only4
   elif [ "$c" = pc ];                  then task=mon-only3
   else                                      task=mon-extend
   fi
+  # anything pointing at the PC -> also wake its display (mon-wake
+  # jiggles the mouse + SetThreadExecutionState in the desktop session)
+  if [ "$c" = pc ] || [ "$r" = pc ]; then
+    wake=" & MSYS_NO_PATHCONV=1 schtasks /run /tn mon-wake"
+  fi
   (ssh -o ConnectTimeout=4 -o BatchMode=yes vengeance \
-     "MSYS_NO_PATHCONV=1 schtasks /run /tn $task" >/dev/null 2>&1 &)
+     "MSYS_NO_PATHCONV=1 schtasks /run /tn $task$wake" >/dev/null 2>&1 &)
 }
 
 case "${1:-}" in
