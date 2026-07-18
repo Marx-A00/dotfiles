@@ -4,6 +4,36 @@ Plan for switching monitors between MrX (MacBook M4 Max) and VENGEANCE
 (gaming PC), plus the upgrade path. Based on inventory as of 2026-07.
 Hardware details: ~/roaming/notes/mr-x-inventory-mdox.org
 
+* Status dashboard (as of 2026-07-17)
+
+** Done and verified
+- All 4 displays wired permanently, every cable in its optimal port
+- Display 4 at 144Hz through Anker 310 adapter (dock TB4 port)
+- Both S2719DGFs OVERCLOCKED to 155Hz on VENGEANCE (OSD factory OC)
+  + G-Sync Compatible enabled
+- DDC switching live: monitor-mode.sh + skhd (ctrl+alt g/m/w/3/4)
+- Creator Micro pad mapped: F17 / F18 / F19 / shift+F19 / shift+F17
+  (cheatsheet: creator-micro-cheatsheet.png)
+- Windows topology auto-sync (no phantom displays) via SSH-triggered
+  scheduled tasks
+- Work laptop tested on display 4's HDMI 1.4 — full trifecta works
+- Everything committed + pushed (restructure/monorepo)
+
+** Remaining
+- [ ] BUY: USB 3.0 switch ~$20 (2-computer, wired remote button) —
+  flips ErgoDox + MV7+ (+ headphones via mic jack) between dock and
+  VENGEANCE. The last piece of the peripherals doctrine.
+- [ ] Wire MV7+ to the USB switch (or straight to VENGEANCE till then)
+- [ ] Game layer Phase 1 in VIA (L3 + TG(3) on a dead BL_ key) — see
+  keymap-proposal.md
+- [ ] Optional: USB-C->HDMI cable to replace the Anker on display 4
+  (4K@60-rated, Anker/Cable Matters; TEST DDC writes before retiring
+  the adapter — new chip = new coin flip)
+- [ ] Optional: export Creator Micro VIA layout JSON as backup
+- [ ] Someday: grand keymap flash (keymap-proposal.md Phase 2), 4K
+  OLED centerpiece (Phase 2 below), WoL for remote wake (remote-agent
+  project Phase 3)
+
 * TL;DR
 
 - No KVM box needed. Each S2719DGF has 3 inputs (DP 1.2, HDMI 2.0,
@@ -219,19 +249,29 @@ ControlMyMonitor.exe /SetValue <monitor> 60 17
 
 One hotkey on each side = round trip.
 
-** Peripherals — dedicated seats, (almost) nothing switches
+** Peripherals — machines come to the keyboard
 
-Same philosophy as the monitors: multi-device gear gets assigned, not
-swapped.
+REVISED DOCTRINE (2026-07-17): desk has exactly ONE prime keyboard
+position (front center, around the open MacBook). Boards don't swap
+into it — the ErgoDox owns it and the USB switch brings machines TO
+it. (Earlier draft had dedicated boards per machine; desk-space
+reality killed that.)
 
-*** Keyboards
-- ErgoDox Hot Dox V2 :: wired to dock = Mac daily driver
-- Keychron V6 :: wired to VENGEANCE permanently (QMK, full-size)
-- Keychron B1 Pro :: work laptop board (tri-mode: BT x3 + 2.4GHz +
-  wired). Pair BT2 = Mac, BT3 = VENGEANCE -> fn+1/2/3 hops machines.
-  The floater.
-- YUNZII KC68 :: bench/backup (Gateron Blues = solo-room board)
-- Magic Keyboard :: bench, or couch/homelab keyboard
+*** The core rig
+- ErgoDox Hot Dox V2 :: THE keyboard, for Mac AND VENGEANCE. Plugs
+  into the USB switch (to buy, ~$20): output A -> dock, output B ->
+  VENGEANCE. One button = keyboard + mic jump machines together.
+  Gaming on it needs the QWERTY game layer (keymap-proposal.md) —
+  firmware Dvorak scatters WASD otherwise.
+- Shure MV7+ :: rides the same USB switch. Its 3.5mm monitoring jack
+  = headphone out that FOLLOWS the switch — headphones plugged into
+  the mic hear whichever machine is active. Zero extra switching.
+- MacBook stays OPEN front-center: it's display 1, the only webcam,
+  and Touch ID. Don't clamshell it.
+
+*** Work laptop
+- Its own built-in deck (it's open on the desk anyway), or Keychron
+  B1 Pro (tri-mode wireless, zero desk footprint) if that annoys.
 
 *** Mice
 - Logitech G502 X Plus :: VENGEANCE forever. Lightspeed dongle ONLY —
@@ -239,6 +279,11 @@ swapped.
 - Keychron M3 Mini 4K :: Mac daily (dongle in dock), BT slots -> work
   laptop etc. The floater.
 - GravaStar Mercury M2 :: work laptop dedicated, or bench
+
+*** The bench (drawer, not desk)
+- Keychron V6 :: PC-side emergency/BIOS board
+- YUNZII KC68 :: backup/travel (Gateron Blues = solo-room board)
+- Magic Keyboard :: couch/homelab keyboard
 
 *** Speakers (zero switching, ever)
 Audioengine A2+ mixes all active inputs simultaneously — no selector:
