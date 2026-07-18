@@ -726,6 +726,46 @@ the session picker, then spawns shells staggered 3s apart."
           (setq agent-shell-anthropic-claude-acp-command
                 '("acp-multiplex" "claude-agent-acp")))
 
+        ;; ── Goose (local Ollama agent) ──────────────────────────
+        ;; Goose talks to a local model (qwen3.5:9b) on the M2 Air
+        ;; (mrx2:11434) over Ollama — a fully private, no-cloud agent.
+        ;; Full write-up: ~/.dotfiles/docs/goose-ollama-setup.md
+        ;; Launch with  M-x mr-x/goose-local-start
+        (require 'agent-shell-goose)
+        ;; Provider is Ollama (set in ~/.config/goose/config.yaml), so disable
+        ;; Goose's default xAI/OpenAI auth entirely — no API key needed.
+        (setq agent-shell-goose-authentication
+              (agent-shell-make-goose-authentication :none t))
+        ;; `goose acp' (unlike `goose run') does NOT auto-load the extensions
+        ;; enabled in config.yaml, so pass the developer builtin explicitly —
+        ;; otherwise the session has zero file/shell tools and the model just
+        ;; hallucinates ones that aren't there.
+        (setq agent-shell-goose-acp-command
+              '("goose" "acp" "--with-builtin" "developer"))
+        ;; qwen3.5 is a reasoning model; Ollama's thinking+tools path returns
+        ;; empty responses (ollama#10976). GOOSE_TOOLSHIM makes the model emit
+        ;; tool calls as TEXT, then a small parser model reformats them to JSON
+        ;; via constrained decoding. The parser MUST be tiny: llama3.1:8b
+        ;; (4.9GB) can't coexist with qwen (5.6GB) on the 16GB Air and hangs
+        ;; forever waiting to load; llama3.2:3b (2GB) fits alongside and is far
+        ;; faster. NOTE: GOOSE_TOOLSHIM_OLLAMA_MODEL is IGNORED in config.yaml —
+        ;; it only takes effect as an env var, here.
+        (setq agent-shell-goose-environment
+              (agent-shell-make-environment-variables
+               "GOOSE_TOOLSHIM" "1"
+               "GOOSE_TOOLSHIM_OLLAMA_MODEL" "llama3.2:3b"))
+
+        ;; Start Goose with a CLEAN, minimal toolset. agent-shell injects the
+        ;; global `agent-shell-mcp-servers' (task-master-ai & friends = 30+
+        ;; tools) into every session; small models drown in a big tool list and
+        ;; pick the wrong tool. Suppress it so qwen sees only the ~5 developer
+        ;; tools (shell/read/write/edit/tree).
+        (defun mr-x/goose-local-start ()
+          "Start a local Goose session (Ollama) with MCP servers suppressed."
+          (interactive)
+          (let ((agent-shell-mcp-servers nil))
+            (agent-shell-goose-start-agent)))
+
 
 
 
