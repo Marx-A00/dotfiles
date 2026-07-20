@@ -717,9 +717,14 @@ the session picker, then spawns shells staggered 3s apart."
         ;; becomes the multiplex PRIMARY: the proxy exposes a Unix socket that
         ;; acp-mobile discovers, letting the phone/Air attach to the same live
         ;; session over Tailscale (see ~/.dotfiles/docs/prd-remote-agent-access.md).
-        ;; NOTE: claude-agent-acp (0.23.x), NOT the deprecated claude-code-acp
-        ;; (0.12.x) — the old adapter lacks session/list, which agent-shell
-        ;; calls after every turn, spamming "Notices" error blocks.
+        ;; NOTE: use @agentclientprotocol/claude-agent-acp (0.54.x) — the official
+        ;; ACP package (continuation of the ACP spin-out from Zed).
+        ;; Do NOT use @zed-industries/claude-agent-acp (0.23.x): it streams
+        ;; agent_message_chunk out-of-turn after a cancel, desyncing C-c C-c
+        ;; interrupts (empty prompt, then the PRIOR turn's reply lands next).
+        ;; And NOT the ancient claude-code-acp (0.12.x) — it lacks session/list,
+        ;; which agent-shell calls after every turn, spamming "Notices" errors.
+        ;; See ~/shared/agent-shell-interrupt-bug.md for the full diagnosis.
         ;; Guarded so machines without the multiplex built (e.g. the Air)
         ;; fall back to agent-shell's default direct claude-agent-acp.
         (when (executable-find "acp-multiplex")
