@@ -1590,6 +1590,7 @@ All Mdox tooling (scaffolder, linter) derives from this spec.")
   (set-face-attribute 'default nil
                       :font (cond ((find-font (font-spec :name "Iosevka")) "Iosevka")
                                   ((find-font (font-spec :name "Iosevka Nerd Font")) "Iosevka Nerd Font")
+                                  ((find-font (font-spec :name "IosevkaTermSlab Nerd Font Mono")) "IosevkaTermSlab Nerd Font Mono")
                                   (t "Menlo"))
                       :height 240)
   ;; Enable SF Symbols rendering (macOS)

@@ -1,20 +1,8 @@
-# Primary font. This machine has the Nerd Font patched Iosevka builds installed,
-# NOT the vanilla ones — so the exact family name must include "Nerd Font Mono".
-# Verify installed names with:
-#   /Applications/Ghostty.app/Contents/MacOS/ghostty +list-fonts | grep -i iosevka
-# Nerd-Font icon glyphs are built into these patched families, so no separate
-# symbols fallback is needed.
-font-family = IosevkaTermSlab Nerd Font Mono
-# Other installed monospace families you can swap in (exact names, verified):
-#   font-family = IosevkaTerm Nerd Font Mono    # terminal cut, no slab
-#   font-family = Iosevka Nerd Font Mono        # base cut
+# Primary font — quotes required for names with spaces in Ghostty 1.3+
+font-family = "IosevkaTermSlab Nerd Font Mono"
+font-family = "Big Caslon"
 
-# Fallback, used ONLY for glyphs the primary lacks — e.g. the ROMAN DENARIUS
-# SIGN (U+10196) in the shell prompt. Big Caslon is one of the few macOS fonts
-# that actually has it.
-font-family = Big Caslon
-
-# Size & layout (mirrored from Dracula.terminal)
+# Size & layout
 font-size = 28
 window-width = 120
 window-height = 40
@@ -22,7 +10,5 @@ window-height = 40
 # Behavior
 cursor-style-blink = false
 macos-option-as-alt = true
-
-
 confirm-close-surface = false
 clipboard-paste-protection = false
