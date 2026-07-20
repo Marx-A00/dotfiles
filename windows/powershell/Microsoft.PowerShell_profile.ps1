@@ -1,5 +1,5 @@
 # PowerShell profile — managed in the dotfiles repo (symlinked here by bootstrap.ps1).
-# Edit the copy in ~/dotfiles/powershell/ (or this file; it's the same inode).
+# Edit the copy in dotfiles/windows/powershell/ (or this file; it's the same inode).
 
 # --- Starship prompt (gruvbox) -------------------------------------------------
 $env:STARSHIP_CONFIG = Join-Path $HOME ".config\starship.toml"

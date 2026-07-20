@@ -33,9 +33,12 @@ macos/sketchybar/plugins/network.sh
 # Shared
 .claude/
 .agent-shell/
-docs/
+/docs/          # root scratch docs only — must NOT swallow windows/docs, macos/docs
 ebak/
 random.org
+
+# flycheck writes transient syntax-check copies next to the file being checked
+flycheck_*.el
 
 # Logs
 logs
