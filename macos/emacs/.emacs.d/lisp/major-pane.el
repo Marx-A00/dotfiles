@@ -438,6 +438,47 @@ buffer in the pane window and focuses it."
   (interactive)
   (major-pane--cycle -1))
 
+;;; Close
+
+(defun major-pane--do-close (buf)
+  "Remove BUF from conversations, kill it, and update the pane.
+After killing, shows the next conversation or hides the pane."
+  (let ((win (major-pane--pane-window)))
+    (when (buffer-live-p buf)
+      (kill-buffer buf))
+    (when (and win (window-live-p win))
+      (if-let ((next (major-pane-state-active major-pane--state)))
+          (set-window-buffer win next)
+        (setf (major-pane-state-mode major-pane--state) 'hidden)
+        (if (= (length (window-list)) 1)
+            (bury-buffer)
+          (delete-window win))))))
+
+;;;###autoload
+(defun major-pane-close-conversation ()
+  "Close a conversation: remove it from the pane and kill its buffer.
+When focus is in the pane, closes the active conversation.
+Otherwise, prompts with the picker."
+  (interactive)
+  (if (major-pane--in-pane-p (current-buffer))
+      (major-pane--do-close (current-buffer))
+    (major-pane-pick-buffer #'major-pane--do-close 'close)))
+
+;;;###autoload
+(defun major-pane-close-all-conversations ()
+  "Close all conversations: remove from the pane and kill their buffers."
+  (interactive)
+  (let ((convos (copy-sequence (major-pane-state-conversations major-pane--state)))
+        (win (major-pane--pane-window)))
+    (dolist (buf convos)
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))
+    (setf (major-pane-state-mode major-pane--state) 'hidden)
+    (when (and win (window-live-p win))
+      (if (= (length (window-list)) 1)
+          (bury-buffer)
+        (delete-window win)))))
+
 ;;; Buffer list
 
 ;;;###autoload
