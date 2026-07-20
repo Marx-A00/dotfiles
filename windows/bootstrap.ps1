@@ -12,13 +12,18 @@
 
   Dependencies (install via scoop before running; missing ones are skipped
   with a warning rather than installed):
-    scoop install emacs autohotkey starship glazewm kanata vcredist2022
+    scoop install emacs autohotkey starship glazewm kanata vcredist2022 syncthing
     scoop install FiraCode-NF FiraCode-NF-Mono Iosevka-NF-Mono CascadiaCode-NF   # fonts
     scoop install jellyfin-media-player   # desktop client for a Jellyfin server
   AutoHotkey is required for the Emacs global hotkeys (autohotkey\emacs.ahk).
   Starship + CascadiaCode-NF power the riced PowerShell prompt (powershell\).
   GlazeWM is the tiling window manager (config in glazewm\config.yaml).
   kanata provides home row mods (config in kanata\kanata.kbd); needs vcredist2022.
+  Syncthing keeps ~/shared in sync across machines. This script only wires the
+  autostart shortcut + creates ~/shared; each machine's Syncthing config (device
+  identity, keys, the `shared` folder def, device pairing) is machine-local and
+  NOT in the repo — set it up per machine via the GUI at http://127.0.0.1:8384
+  (add the `shared` folder pointed at ~/shared with folder id `shared`, then pair).
 #>
 
 $ErrorActionPreference = "Stop"
@@ -213,6 +218,38 @@ if (Test-Path $kanata) {
     Write-Host "Created startup shortcut -> $kanataLnk" -ForegroundColor Green
 } else {
     Write-Host "kanata not found (scoop install kanata vcredist2022) - skipping autostart." -ForegroundColor Yellow
+}
+
+# ---------------------------------------------------------------------------
+# Syncthing — background file sync for ~/shared across machines. The scoop shim
+# injects `--home <scoop persist>\config --no-upgrade`, so config + device
+# identity live in scoop's persist dir (machine-local, contains keys — never
+# committed). We only wire the login autostart and ensure ~/shared exists; the
+# `shared` folder + device pairing are set up per machine via the GUI
+# (http://127.0.0.1:8384). `serve --no-browser` runs it windowless with no
+# browser popup on login (also set startBrowser=false in its config).
+# ---------------------------------------------------------------------------
+$shared = "$env:USERPROFILE\shared"
+if (-not (Test-Path $shared)) {
+    New-Item -ItemType Directory -Force -Path $shared | Out-Null
+    Write-Host "Created $shared" -ForegroundColor Green
+}
+
+$syncthing = "$env:USERPROFILE\scoop\shims\syncthing.exe"
+
+if (Test-Path $syncthing) {
+    $ws = New-Object -ComObject WScript.Shell
+    $syncthingLnk = Join-Path ([Environment]::GetFolderPath('Startup')) "Syncthing.lnk"
+    $sc = $ws.CreateShortcut($syncthingLnk)
+    $sc.TargetPath       = $syncthing
+    $sc.Arguments        = "serve --no-browser"
+    $sc.WorkingDirectory = $env:USERPROFILE
+    $sc.Description       = "Start Syncthing (background sync for ~/shared) on login"
+    $sc.WindowStyle      = 7   # minimized / no window
+    $sc.Save()
+    Write-Host "Created startup shortcut -> $syncthingLnk" -ForegroundColor Green
+} else {
+    Write-Host "Syncthing not found (scoop install syncthing) - skipping autostart." -ForegroundColor Yellow
 }
 
 Write-Host "`nDone. Your live configs now point at the repo." -ForegroundColor Cyan
